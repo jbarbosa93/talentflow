@@ -14,7 +14,7 @@ import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, Clock, Download, FileText,
-  Loader2, Lock, MessageCircle, RotateCw, Save, Send, ChevronLeft,
+  Loader2, Lock, RotateCw, Save, Send, ChevronLeft,
 } from 'lucide-react'
 import WeekSelector from '@/components/report/WeekSelector'
 import PublicFieldsLayer, { areAllRequiredFieldsFilled } from '@/components/sign/PublicFieldsLayer'
@@ -29,8 +29,9 @@ import HistoryAccordion from '@/components/report/HistoryAccordion'
 import RecapPeriode from '@/components/report/RecapPeriode'
 import ContactAgenceButton from '@/components/report/ContactAgenceButton'
 import SubmissionViewerModal from '@/components/report/SubmissionViewerModal'
-import { toWhatsAppSafe } from '@/lib/report/text-format'
-import { waMeUrl } from '@/lib/lagence-contact'
+// v2.4.4 — toWhatsAppSafe + waMeUrl retirés : plus de bouton WhatsApp côté candidat
+// (sécurité — un candidat malhonnête pouvait copier le lien et le forwarder à un complice).
+// Le seul canal d'envoi au client est désormais email automatique vers client_email.
 import {
   getCurrentWeekStart, isoDate, getWeekDates, parseIsoDate,
 } from '@/lib/report/week-helpers'
@@ -83,7 +84,6 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   const [selectedClient, setSelectedClient] = useState<ReportLinkClient | null>(null)
   const [phase, setPhase] = useState<'landing' | 'select_client' | 'form'>('landing')
   const [notesCandidat, setNotesCandidat] = useState<string>('')
-  const [sendingWa, setSendingWa] = useState(false)
   // v2.4.1 — Historique + récap (landing)
   const [showFullHistory, setShowFullHistory] = useState(false)
   const [showRecap, setShowRecap] = useState(false)
@@ -331,54 +331,12 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     }
   }
 
-  // ─── Submit WhatsApp (bouton "Envoyer par WhatsApp à mon responsable") ───
-  // v2.4.3 — Le client reçoit toujours par email côté infra. Le bouton WhatsApp
-  // ouvre wa.me/?text=… SANS numéro pré-rempli : le candidat choisit son contact
-  // dans WhatsApp (picker natif). Submit DB en parallèle pour marquer submitted=true.
-  const handleSubmitWhatsApp = async () => {
-    if (!signatureDataUrl) {
-      toast.error('Signe le rapport avant de l\'envoyer')
-      setSignaturePadOpen(true)
-      return
-    }
-    if (!canFinalize) {
-      toast.error('Remplis tous les champs avant d\'envoyer')
-      return
-    }
-    setSendingWa(true)
-    try {
-      const { clientToken } = await submitToDb()
-      const appUrl = typeof window !== 'undefined' ? window.location.origin : ''
-      const signUrl = clientToken ? `${appUrl}/report/client/${clientToken}` : ''
-      const contactName = selectedClient?.client_contact_name || selectedClient?.client_name || 'votre responsable'
-      const candidateName = data?.candidat
-        ? [data.candidat.prenom, data.candidat.nom].filter(Boolean).join(' ')
-        : (data?.link?.title || 'Le collaborateur')
-      const msg = toWhatsAppSafe(
-        `Bonjour ${contactName},\n\n`
-        + `Je viens de remplir mon rapport d'heures pour la ${weekDates.label}.\n\n`
-        + `Merci de cliquer sur le lien pour valider :\n${signUrl}\n\n`
-        + `- ${candidateName}`,
-      )
-      // v2.4.3 — Pas de phone : ouvre wa.me/?text=… → picker contact WhatsApp natif.
-      const url = waMeUrl('', msg)
-      if (isMobile) {
-        window.location.href = url
-      } else {
-        window.open(url, '_blank', 'noopener,noreferrer')
-      }
-      setSubmitted(true)
-      toast.success('Rapport enregistré — choisissez votre responsable dans WhatsApp')
-      fetch(`/api/reports/${slug}`)
-        .then(r => r.json())
-        .then((nd: VerifyResponse) => { if (nd.valid) setData(nd) })
-        .catch(() => {})
-    } catch (e: any) {
-      toast.error(e.message || 'Erreur')
-    } finally {
-      setSendingWa(false)
-    }
-  }
+  // v2.4.4 — handleSubmitWhatsApp retiré pour sécurité.
+  // Le candidat ne peut plus envoyer le lien client via WhatsApp depuis son navigateur
+  // (risque de transfert à un complice qui signerait à la place du vrai client).
+  // Seul flow disponible : "Confirmer et envoyer" → POST submit → email automatique
+  // au client_email pré-configuré dans report_link_clients.
+
 
   // ─── v2.3.x Bug 4 — Renvoyer la notif client (route /resend dédiée) ───
   const handleResendToClient = async () => {
@@ -1135,11 +1093,11 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             </div>
           )}
 
-          {/* Un seul bouton "Confirmer et envoyer" — ouvre SendChannelDialog */}
+          {/* v2.4.4 — Un seul bouton "Confirmer et envoyer au client par email" */}
           <button
             type="button"
             onClick={handleClickSubmit}
-            disabled={submitting || sendingWa || !canFinalize}
+            disabled={submitting || !canFinalize}
             style={{
               width: '100%',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -1147,9 +1105,9 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
               fontSize: 15, fontWeight: 700,
               border: '1px solid #1C1A14', borderRadius: 10,
               background: '#EAB308', color: '#1C1A14',
-              cursor: (submitting || sendingWa || !canFinalize) ? 'not-allowed' : 'pointer',
+              cursor: (submitting || !canFinalize) ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit',
-              opacity: (submitting || sendingWa || !canFinalize) ? 0.5 : 1,
+              opacity: (submitting || !canFinalize) ? 0.5 : 1,
               minHeight: 52,
             }}
           >
@@ -1161,17 +1119,16 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
 
       {/* v2.3.3 Bug 1 — Message post-envoi géré par early return (CenteredCard) au-dessus */}
 
-      {/* v2.4.2 — Dialog choix canal (WhatsApp ou Email auto) après clic "Confirmer et envoyer"
-          v2.4.3 — WhatsApp TOUJOURS actif (le candidat choisit son contact lui-même) */}
+      {/* v2.4.4 — Dialog confirmation simple. Le WhatsApp candidat a été retiré
+          (sécurité : le lien ne doit pas transiter par le candidat). */}
       {confirmOpen && (
-        <SendChannelDialog
+        <ConfirmDialog
           weekLabel={weekDates.label}
           clientName={selectedClient?.client_name || data.link.client_name || ''}
-          sendingWa={sendingWa}
+          clientEmail={selectedClient?.client_email || null}
           submitting={submitting}
           onCancel={() => setConfirmOpen(false)}
-          onSendEmail={handleSubmit}
-          onSendWhatsApp={() => { setConfirmOpen(false); handleSubmitWhatsApp() }}
+          onConfirm={handleSubmit}
         />
       )}
 
@@ -1207,23 +1164,20 @@ function bannerBtnStyle(color: string): React.CSSProperties {
   }
 }
 
-// ─── v2.4.2 — Dialog choix canal (WhatsApp ou Email auto) ─────────────
-// Affiché APRÈS signature au clic sur "Confirmer et envoyer". Contient :
-//  - Header avec semaine + entreprise
-//  - 2 boutons (WhatsApp + Email auto). WhatsApp grisé si pas de phone.
-//  - Bandeau amber info + bandeau rouge alerte "Pas à L-Agence"
+// ─── v2.4.4 — Dialog confirmation simple (envoi email auto uniquement) ────
+// Le WhatsApp candidat a été retiré pour sécurité : le candidat ne peut pas
+// rediriger le lien client vers un complice. Le client_email pré-configuré
+// dans report_link_clients reçoit le lien automatiquement.
 
-function SendChannelDialog({
-  weekLabel, clientName, sendingWa, submitting,
-  onCancel, onSendEmail, onSendWhatsApp,
+function ConfirmDialog({
+  weekLabel, clientName, clientEmail, submitting, onCancel, onConfirm,
 }: {
   weekLabel: string
   clientName: string
-  sendingWa: boolean
+  clientEmail: string | null
   submitting: boolean
   onCancel: () => void
-  onSendEmail: () => void
-  onSendWhatsApp: () => void
+  onConfirm: () => void
 }) {
   return (
     <div
@@ -1241,7 +1195,7 @@ function SendChannelDialog({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          maxWidth: 480, width: '100%',
+          maxWidth: 460, width: '100%',
           maxHeight: '92vh', overflow: 'auto',
           background: '#fff',
           borderRadius: 16, border: '1px solid #E5E7EB',
@@ -1252,110 +1206,67 @@ function SendChannelDialog({
       >
         <h2 style={{
           margin: 0,
-          fontFamily: 'Georgia, "Times New Roman", serif',
+          fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
           fontSize: 22, fontWeight: 400, color: '#1C1A14',
-          letterSpacing: '-0.3px',
+          letterSpacing: '-0.01em',
         }}>
-          Comment voulez-vous envoyer&nbsp;?
+          Envoyer le rapport&nbsp;?
         </h2>
         <p style={{ fontSize: 13.5, color: '#374151', lineHeight: 1.55, margin: 0 }}>
-          Rapport <strong>{weekLabel}</strong>{clientName ? <> destiné à <strong>{clientName}</strong></> : null}.
+          Le rapport <strong>{weekLabel}</strong>{clientName ? <> sera envoyé à <strong>{clientName}</strong></> : null} pour validation et signature.
         </p>
+
         <div style={{
-          padding: '8px 12px',
+          padding: '10px 12px',
           background: '#F0FDF4',
           border: '1px solid #BBF7D0',
           borderRadius: 10,
           fontSize: 12.5, color: '#065F46',
-          display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600,
+          display: 'flex', flexDirection: 'column', gap: 4,
         }}>
-          <CheckCircle2 size={14} /> Rapport signé — choisissez le canal d&apos;envoi
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+            <CheckCircle2 size={14} /> Rapport signé prêt à envoyer
+          </div>
+          {clientEmail && (
+            <div style={{ fontSize: 11.5, color: '#047857' }}>
+              Email destinataire : <strong>{clientEmail}</strong>
+            </div>
+          )}
         </div>
 
-        {/* Bouton 1 — WhatsApp (v2.4.3 : toujours actif, picker contact natif) */}
-        <button
-          type="button"
-          onClick={onSendWhatsApp}
-          disabled={sendingWa || submitting}
-          title="Ouvrir WhatsApp et choisir votre responsable dans vos contacts"
-          style={{
-            width: '100%',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            padding: '14px 16px',
-            fontSize: 14.5, fontWeight: 700,
-            border: '1px solid #128C7E', borderRadius: 12,
-            background: '#25D366',
-            color: '#fff',
-            cursor: (sendingWa || submitting) ? 'not-allowed' : 'pointer',
-            opacity: (sendingWa || submitting) ? 0.55 : 1,
-            fontFamily: 'inherit',
-            minHeight: 52,
-          }}
-        >
-          {sendingWa ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
-          Envoyer par WhatsApp à mon responsable
-        </button>
-
-        {/* Bouton 2 — Email auto */}
-        <button
-          type="button"
-          onClick={onSendEmail}
-          disabled={submitting || sendingWa}
-          style={{
-            width: '100%',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            padding: '14px 16px',
-            fontSize: 14.5, fontWeight: 700,
-            border: '1px solid #1C1A14', borderRadius: 12,
-            background: '#EAB308', color: '#1C1A14',
-            cursor: (submitting || sendingWa) ? 'not-allowed' : 'pointer',
-            opacity: (submitting || sendingWa) ? 0.55 : 1,
-            fontFamily: 'inherit',
-            minHeight: 52,
-          }}
-        >
-          {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          Envoyer au client automatiquement
-        </button>
-
-        {/* Bandeau info amber (v2.4.3 : message clarifié — pas de pré-remplissage du numéro) */}
-        <div style={{
-          padding: '10px 12px',
-          background: '#FEF3C7',
-          border: '1px solid #FDE68A',
-          borderRadius: 10,
-          fontSize: 12, color: '#92400E', lineHeight: 1.5,
-        }}>
-          <strong>WhatsApp</strong> : votre application s&apos;ouvre, vous choisissez votre responsable dans vos contacts. <strong>Email</strong> : envoi automatique à l&apos;adresse configurée par L-Agence.
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            style={{
+              padding: '10px 16px',
+              fontSize: 13, fontWeight: 600,
+              border: '1px solid #E5E7EB', borderRadius: 10,
+              background: '#fff', color: '#6B7280',
+              cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={submitting}
+            style={{
+              padding: '10px 18px',
+              fontSize: 13.5, fontWeight: 700,
+              border: '1px solid #1C1A14', borderRadius: 10,
+              background: '#EAB308', color: '#1C1A14',
+              cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              opacity: submitting ? 0.5 : 1,
+            }}
+          >
+            {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            Confirmer et envoyer
+          </button>
         </div>
-
-        {/* Bandeau alerte rouge */}
-        <div style={{
-          padding: '10px 12px',
-          background: '#FEE2E2',
-          border: '1px solid #FCA5A5',
-          borderRadius: 10,
-          fontSize: 12, color: '#991B1B', lineHeight: 1.5,
-        }}>
-          ⚠️ <strong>N&apos;envoyez PAS ce lien à L-Agence SA.</strong> Envoyez-le uniquement à votre responsable direct.
-        </div>
-
-        {/* Annuler */}
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={submitting || sendingWa}
-          style={{
-            marginTop: 4,
-            padding: '10px 16px',
-            fontSize: 13, fontWeight: 600,
-            border: '1px solid #E5E7EB', borderRadius: 10,
-            background: '#fff', color: '#6B7280',
-            cursor: (submitting || sendingWa) ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          Annuler
-        </button>
       </div>
     </div>
   )

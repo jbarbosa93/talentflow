@@ -1,61 +1,38 @@
-// TalentFlow Rapports — Logo L-Agence inline (SVG transparent, sans rectangle de fond)
-// v2.4.2
+// TalentFlow Rapports — Logo L-Agence officiel (PNG raster, fond transparent)
+// v2.4.4 — Bascule du SVG inline vers le VRAI PNG officiel uploadé dans public/
 //
-// Reproduit le vrai logo L-Agence (texte sérif + sous-titre "Emplois fixes & temporaires")
-// en SVG inline avec fond transparent. Marche sur n'importe quel fond.
-// Prop `color` permet d'inverser (foncé sur fond clair / clair sur fond foncé).
+// 2 versions disponibles :
+//   - public/logo-agence-officiel.png             (texte NOIR, 550×170) → fond clair
+//   - public/logo-agence-officiel-transparent.png (texte BLANC, 250×60) → fond foncé
 'use client'
 
+import Image from 'next/image'
+
 interface Props {
-  /** Hauteur cible en px (largeur calculée par ratio 3:1). Défaut 36px. */
+  /** Hauteur cible en px. Le ratio est préservé. Défaut 36px. */
   height?: number
-  /** Couleur du texte. 'dark' (par défaut) pour fond clair, 'light' pour fond foncé, ou hex custom. */
-  color?: 'dark' | 'light' | string
-  /** className optionnel */
+  /** 'dark' (par défaut, texte noir pour fond clair) | 'light' (texte blanc pour fond foncé) */
+  color?: 'dark' | 'light'
   className?: string
 }
 
 export default function LogoLAgence({ height = 36, color = 'dark', className }: Props) {
-  const fill = color === 'dark'
-    ? '#1C1A14'
-    : color === 'light'
-      ? '#FFFFFF'
-      : color
-  // ViewBox 600x200 → ratio 3:1
-  const width = Math.round(height * 3)
+  // Ratio des fichiers : 550/170 ≈ 3.235 (dark) / 250/60 ≈ 4.166 (light)
+  // On utilise un width généreux et `objectFit: contain` laisse Image gérer.
+  const src = color === 'light'
+    ? '/logo-agence-officiel-transparent.png'
+    : '/logo-agence-officiel.png'
+  const ratio = color === 'light' ? (250 / 60) : (550 / 170)
+  const width = Math.round(height * ratio)
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 600 200"
+    <Image
+      src={src}
+      alt="L-Agence — Emplois fixes & temporaires"
       width={width}
       height={height}
+      priority
       className={className}
-      aria-label="L-Agence — Emplois fixes & temporaires"
-      role="img"
-    >
-      <text
-        x="300"
-        y="115"
-        textAnchor="middle"
-        fontFamily="Georgia, 'Times New Roman', serif"
-        fontSize="90"
-        fontWeight="400"
-        fill={fill}
-        letterSpacing="2"
-      >
-        <tspan fontSize="110" fontWeight="700">L</tspan>-AGENCE
-      </text>
-      <text
-        x="300"
-        y="155"
-        textAnchor="middle"
-        fontFamily="Georgia, 'Times New Roman', serif"
-        fontSize="22"
-        fill={fill}
-        letterSpacing="8"
-      >
-        Emplois fixes &amp; temporaires
-      </text>
-    </svg>
+      style={{ height, width: 'auto', objectFit: 'contain' }}
+    />
   )
 }

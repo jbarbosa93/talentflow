@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.4.3'
+export const APP_VERSION = '2.4.4'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.4.4 — Sécurité + Logo officiel
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.4.4',
+    date: '2026-05-11',
+    label: 'Sécurité — suppression WhatsApp candidat (le client reçoit toujours par email automatique) + vrai logo L-Agence officiel + warning anti-partage du lien permanent',
+    features: [
+      'SÉCURITÉ — Le bouton "Envoyer par WhatsApp à mon responsable" côté candidat est SUPPRIMÉ. Raison : un candidat malhonnête pouvait copier le lien client et l\'envoyer à un complice qui aurait signé à sa place (fraude possible avec n\'importe quel canal qui transite par le candidat). Le SEUL canal d\'envoi au client est désormais email automatique vers client_email pré-configuré dans report_link_clients. L\'admin pré-saisit le bon email lors de la configuration des entreprises autorisées — le candidat ne voit jamais ce mail et ne peut pas le rediriger.',
+      'UX — SendChannelDialog remplacé par ConfirmDialog simple. Au clic "Confirmer et envoyer", un dialog centré demande confirmation et affiche le destinataire ("Email destinataire : sd@metabader.ch"). Plus de choix de canal — un seul flow : confirmation → POST submit → email auto.',
+      'WHATSAPP DASHBOARD → CANDIDAT — Le seul usage de WhatsApp restant est l\'envoi du lien permanent AU candidat depuis le dashboard (bouton "WhatsApp" sur la page détail du lien). Message enrichi avec un warning "⚠️ IMPORTANT : ne partagez ce lien avec personne. Vous seul devez l\'utiliser. Si une autre personne y accède, elle pourrait modifier vos données."',
+      'LOGO OFFICIEL — Le composant LogoLAgence.tsx bascule du SVG inline approximatif vers le VRAI fichier PNG officiel uploadé dans public/logo-agence-officiel.png (texte noir 550×170, fond transparent). Variante public/logo-agence-officiel-transparent.png (texte blanc) pour fond foncé via prop color="light". Plus de "L" en gras ou de sous-titre en sérif — c\'est le vrai logo cette fois.',
+      'NETTOYAGE CODE — Imports toWhatsAppSafe + waMeUrl retirés de la page /report/[slug] (plus utilisés côté candidat). Variable d\'état sendingWa supprimée. Fonction handleSubmitWhatsApp supprimée. Composant SendChannelDialog remplacé par ConfirmDialog plus simple.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.4.3 — Refonte page détail lien : Entreprises autorisées éditables + WhatsApp candidat sans numéro
   // ─────────────────────────────────────────────────────────────────────

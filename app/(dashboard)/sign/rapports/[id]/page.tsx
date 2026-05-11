@@ -76,7 +76,9 @@ export default function ReportLinkDetailPage({
     // v2.3.11 Bug 2 — 👋 (U+1F44B) retiré : certaines apps WA n'ont pas de
     // glyph pour cet emoji et l'affichent en ◆/carré vide après le prénom.
     const greeting = firstName ? `Bonjour ${firstName},` : 'Bonjour,'
-    const rawMsg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${publicUrl}\n\nGardez ce lien — il reste valable, vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
+    // v2.4.4 — Warning sécurité : le lien permanent permet de SOUMETTRE des rapports
+    // en son nom. Si quelqu'un d'autre l'obtient, il peut modifier les données.
+    const rawMsg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${publicUrl}\n\nGardez ce lien — il reste valable, vous pouvez l'utiliser à chaque fin de semaine.\n\n⚠️ IMPORTANT : ne partagez ce lien avec personne. Vous seul devez l'utiliser. Si une autre personne y accède, elle pourrait modifier vos données.\n\n— L-Agence SA`
     const msg = toWhatsAppSafe(rawMsg)
     // v2.3.x Bug 9 — Deep link wa.me/{numero}?text=... si candidat_phone disponible
     // Sinon wa.me/?text=... (user choisit le contact dans WhatsApp).
