@@ -29,6 +29,7 @@ import HistoryAccordion from '@/components/report/HistoryAccordion'
 import RecapPeriode from '@/components/report/RecapPeriode'
 import ContactAgenceButton from '@/components/report/ContactAgenceButton'
 import SubmissionViewerModal from '@/components/report/SubmissionViewerModal'
+import LogoLAgence from '@/components/report/LogoLAgence'
 // v2.4.4 — toWhatsAppSafe + waMeUrl retirés : plus de bouton WhatsApp côté candidat
 // (sécurité — un candidat malhonnête pouvait copier le lien et le forwarder à un complice).
 // Le seul canal d'envoi au client est désormais email automatique vers client_email.
@@ -621,7 +622,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
         paddingBottom: 100,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 14px 8px' }}>
+        {/* v2.4.6 — Header avec logo officiel + bouton retour */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 14px 4px' }}>
           <button
             type="button"
             onClick={() => setPhase('landing')}
@@ -631,10 +633,14 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
               border: '1px solid #E5E7EB', background: '#fff',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', color: '#1C1A14',
+              flexShrink: 0,
             }}
           >
             <ChevronLeft size={18} />
           </button>
+          <LogoLAgence height={34} color="dark" />
+        </div>
+        <div style={{ padding: '6px 16px 10px' }}>
           <h1 style={{
             fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
             fontSize: 22, fontWeight: 400,
@@ -735,27 +741,13 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         >
           <ChevronLeft size={16} />
         </button>
-        {/* Bloc identité L-Agence */}
+        {/* v2.4.6 — Bloc identité : VRAI logo officiel (au lieu de l'icône jaune ClipboardList
+            et du texte "L-AGENCE" approximatif). Conserve le sous-titre dynamique. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, minWidth: 0 }}>
-          <div style={{
-            width: isMobile ? 36 : 42, height: isMobile ? 36 : 42, borderRadius: 10,
-            background: '#EAB308',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <ClipboardList size={isMobile ? 18 : 20} style={{ color: '#1C1A14' }} />
-          </div>
-          <div style={{ minWidth: 0 }}>
+          <LogoLAgence height={isMobile ? 30 : 36} color="dark" />
+          <div style={{ minWidth: 0, display: isMobile && (selectedClient || candidateFullName) ? 'none' : 'block' }}>
             <div style={{
-              fontFamily: 'Georgia, serif',
-              fontSize: isMobile ? 16 : 19, fontWeight: 400,
-              color: '#1C1A14', letterSpacing: '-0.3px',
-              lineHeight: 1.1,
-            }}>
-              L-AGENCE
-            </div>
-            <div style={{
-              fontSize: isMobile ? 10.5 : 11.5, color: '#6B7280', marginTop: 2,
+              fontSize: isMobile ? 10.5 : 11.5, color: '#6B7280',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               maxWidth: isMobile ? 200 : 360,
             }}>
@@ -1030,9 +1022,10 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       </main>
 
       {/* v2.4.2 — Panneau finalisation SIMPLIFIÉ : note + 1 seul bouton "Confirmer et envoyer".
-          Les 2 boutons WhatsApp / Email + bandeaux info/alerte sont déplacés DANS le dialog
-          SendChannelDialog ouvert au clic — affichés UNIQUEMENT après signature. */}
-      {!isLockedWeek && !submitted && (
+          v2.4.6 — Affiché UNIQUEMENT en mode 'document'. En mode 'wizard', le wizard a déjà
+          son propre bouton "Confirmer et envoyer" sur la dernière étape (onFinalize). Doublon
+          retiré pour éviter la confusion. La textarea note sera ré-intégrée au wizard plus tard. */}
+      {!isLockedWeek && !submitted && viewMode === 'document' && (
         <div style={{
           flexShrink: 0,
           padding: isMobile ? '12px 14px' : '14px 24px',

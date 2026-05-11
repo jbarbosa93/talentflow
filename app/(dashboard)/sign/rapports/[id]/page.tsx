@@ -214,10 +214,8 @@ export default function ReportLinkDetailPage({
               }}>
                 {REPORT_LINK_STATUS_LABELS[link.status]}
               </span>
-              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-                {link.client_name || 'Pas de client'}
-              </span>
-              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>·</span>
+              {/* v2.4.6 — Nom entreprise legacy retiré : les entreprises sont
+                  désormais dans la section "Entreprises autorisées" en bas. */}
               <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
                 {submissions.length} soumission{submissions.length > 1 ? 's' : ''}
               </span>

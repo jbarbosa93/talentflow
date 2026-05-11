@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.4.5'
+export const APP_VERSION = '2.4.6'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.4.6 — Logo partout + dashboard nettoyé + footer mode document only
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.4.6',
+    date: '2026-05-11',
+    label: 'Logo officiel partout candidat + dashboard sans "Metabader SA" legacy + footer "Confirmer et envoyer" mode document only',
+    features: [
+      'DASHBOARD — Retire l\'affichage de link.client_name dans le sous-titre header de /sign/rapports/[id] (avant : "ACTIF · Metabader SA · 1 soumission"). Désormais : "ACTIF · 1 soumission". Les entreprises destinataires sont dans la section "Entreprises autorisées" en bas, pas en header.',
+      'PAGE CANDIDAT — Footer "Confirmer et envoyer" affiché UNIQUEMENT en mode \'document\'. En mode wizard, le wizard SignWizard a déjà son propre bouton "Confirmer et envoyer" sur la dernière étape (signature) via onFinalize. Plus de doublon visuel + plus de bouton parasite sur les étapes intermédiaires.',
+      'LOGO OFFICIEL PARTOUT — Le vrai logo LogoLAgence apparaît désormais sur toutes les phases candidat : landing (déjà ok), select_client (header avec bouton retour + logo + h1), form (remplace l\'icône jaune ClipboardList + texte "L-AGENCE" approximatif par le PNG officiel). Hauteur 30-36px selon mobile/desktop.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.4.5 — Logo PNG fond blanc rendu transparent via mix-blend-mode
   // ─────────────────────────────────────────────────────────────────────
