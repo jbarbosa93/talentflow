@@ -2334,6 +2334,21 @@ function TypeSpecificOptions({
         </details>
       )}
 
+      {/* v2.4.0 — Annotation visible inline (sous le label, au-dessus de l'input) */}
+      <Field label="Annotation / Instruction">
+        <input
+          type="text"
+          className="neo-input"
+          placeholder="Ex : Indiquez votre IBAN suisse au format CH..."
+          value={field.helpText || ''}
+          onChange={e => onPatch({ helpText: e.target.value.slice(0, 200) || undefined })}
+          maxLength={200}
+        />
+      </Field>
+      <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: -4 }}>
+        Affichée en petit texte sous le titre du champ, visible en permanence.
+      </div>
+
       {/* AVANCÉ — tooltip */}
       <details style={{ marginTop: 4 }}>
         <summary style={summaryStyle}>Avancé</summary>

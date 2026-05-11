@@ -455,7 +455,7 @@ function StepContent({
     return (
       <div>
         <h2 style={stepTitleStyle}>{prettifySpaces(step.title)}</h2>
-        {step.description && <StepNote text={step.description} />}
+{/* v2.4.0 — Note d'étape désactivée. Utiliser l'annotation par champ (helpText) à la place. */}
         <div style={{
           marginTop: 20,
           padding: 24,
@@ -538,7 +538,7 @@ function StepContent({
   return (
     <div>
       <h2 style={stepTitleStyle}>{prettifySpaces(step.title)}</h2>
-      {step.description && <StepNote text={step.description} />}
+{/* v2.4.0 — Note d'étape désactivée. Utiliser l'annotation par champ (helpText) à la place. */}
       {attachments.length > 0 && (
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {attachments.map(a => (
@@ -797,6 +797,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
     return (
       <div>
         <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        <HelpText text={field.helpText} />
         <div style={{
           ...inputStyle,
           background: '#F0FDF4',
@@ -815,6 +816,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
     return (
       <div>
         <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        <HelpText text={field.helpText} />
         <div style={{ ...inputStyle, background: '#F0FDF4', borderColor: '#86EFAC' }}>
           {autoFill.today}
           <Check size={14} style={{ color: '#15803D', marginLeft: 'auto' }} />
@@ -854,6 +856,11 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
         <span style={{ fontSize: 14, color: '#1C1A14', lineHeight: 1.4 }}>
           {label}
           {isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}
+          {field.helpText && field.helpText.trim() && (
+            <div style={{ marginTop: 3, fontSize: 12, color: '#6B7280', fontStyle: 'italic', lineHeight: 1.45 }}>
+              {field.helpText}
+            </div>
+          )}
         </span>
       </label>
     )
@@ -866,6 +873,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
     return (
       <div>
         <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        <HelpText text={field.helpText} />
         <select
           value={stringValue}
           onChange={e => onChange(e.target.value)}
@@ -885,6 +893,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
     return (
       <div>
         <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        <HelpText text={field.helpText} />
         <input
           type="date"
           value={stringValue}
@@ -902,6 +911,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
     return (
       <div>
         <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        <HelpText text={field.helpText} />
         <div style={{
           ...inputStyle,
           background: 'rgba(34,197,94,0.06)',
@@ -928,6 +938,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
     return (
       <div>
         <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        <HelpText text={field.helpText} />
         <input
           type="date"
           value={stringValue}
@@ -940,6 +951,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
   return (
     <div>
       <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        <HelpText text={field.helpText} />
       <input
         type={isNumber ? 'number' : 'text'}
         inputMode={isNumber ? 'decimal' : 'text'}
@@ -1163,23 +1175,22 @@ const stepTitleStyle: React.CSSProperties = {
   letterSpacing: '-0.3px',
 }
 
-function StepNote({ text }: { text: string }) {
+// v2.4.0 — HelpText inline (annotation par champ), affiché entre label et input.
+// Plus subtile et précise qu'une note d'étape : sert d'explication courte sur
+// CE champ précis (ex: "IBAN suisse au format CH..." sous "Méthode paiement").
+function HelpText({ text }: { text?: string | null }) {
+  const t = (text || '').trim()
+  if (!t) return null
   return (
     <div style={{
-      display: 'flex',
-      gap: 10,
-      padding: '10px 14px',
-      marginBottom: 14,
-      background: '#FEF3C7',
-      borderLeft: '3px solid #EAB308',
-      borderRadius: '0 8px 8px 0',
-      fontSize: 13,
-      color: '#92400E',
+      marginTop: -2,
+      marginBottom: 6,
+      fontSize: 12,
+      color: '#6B7280',
       fontStyle: 'italic',
-      lineHeight: 1.55,
+      lineHeight: 1.45,
     }}>
-      <span style={{ flexShrink: 0, fontSize: 14 }}>ℹ️</span>
-      <span>{text}</span>
+      {t}
     </div>
   )
 }

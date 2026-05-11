@@ -221,7 +221,11 @@ function FieldInput({
 
   // Tooltip : SEULEMENT si défini explicitement par l'admin (pas fallback sur label).
   // Affiché au focus / clic sur le champ.
-  const tooltipText = (field.tooltip || '').trim()
+  // v2.4.0 — helpText (annotation visible inline en mode Wizard) est aussi affiché
+  // ici dans la bubble — concatène avec tooltip si les 2 existent.
+  const helpTextRaw = (field.helpText || '').trim()
+  const tooltipRaw = (field.tooltip || '').trim()
+  const tooltipText = [helpTextRaw, tooltipRaw].filter(Boolean).join(' — ')
   const tooltipBubble = tooltipText && tooltipOpen
     ? <FocusTooltipBubble text={tooltipText} />
     : null

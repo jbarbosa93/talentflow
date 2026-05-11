@@ -123,6 +123,12 @@ export interface SignField {
   // v2.2.0 Phase 2.5 — Avancé
   tooltip?: string                 // texte help affiché au signataire (hover)
 
+  // v2.4.0 — Annotation/instruction courte affichée INLINE entre le label et
+  // l'input du champ (mode Wizard) ou en petit texte au-dessus de l'input
+  // (mode Document). Différent de `tooltip` (qui s'affiche au hover) : helpText
+  // est toujours visible. Max ~200 chars recommandé.
+  helpText?: string
+
   // v2.2.1 — Sous-groupe d'affichage dans une étape Wizard.
   // Utilisé pour grouper visuellement plusieurs fields autour d'une thématique.
   // Ex: "Lundi" sur tous les fields liés au lundi dans un rapport d'heures

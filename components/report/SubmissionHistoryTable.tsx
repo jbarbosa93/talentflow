@@ -183,7 +183,31 @@ export default function SubmissionHistoryTable({
                 </Td>
                 <Td>
                   <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
-                    <StatusBadge status={s.status} />
+                    <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                      <StatusBadge status={s.status} />
+                      {/* v2.4.0 — Icône 📝 si notes (candidat ou client) avec tooltip */}
+                      {(() => {
+                        const nc = (s as any).notes_candidat as string | null | undefined
+                        const ncl = (s as any).notes_client as string | null | undefined
+                        if (!nc && !ncl) return null
+                        const tip = [
+                          nc ? `Note candidat : ${nc}` : '',
+                          ncl ? `Note client : ${ncl}` : '',
+                        ].filter(Boolean).join('\n')
+                        return (
+                          <span
+                            title={tip}
+                            aria-label="Note présente"
+                            style={{
+                              fontSize: 13, cursor: 'help',
+                              opacity: 0.85,
+                            }}
+                          >
+                            📝
+                          </span>
+                        )
+                      })()}
+                    </div>
                     {(s as any).metadata?.client_modified && (
                       <span style={{
                         fontSize: 10, fontWeight: 700,

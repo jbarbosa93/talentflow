@@ -1,5 +1,5 @@
 // TalentFlow Rapports — Types partagés (Phase 5)
-// v2.2.6
+// v2.4.0 — Phase 1 multi-entreprise + notes
 //
 // Module rapports hebdomadaires intégré à TalentFlow Sign.
 // Réutilise sign_templates (avec kind='report') pour le PDF + fields.
@@ -53,9 +53,24 @@ export interface ReportLink {
   updated_at: string
 }
 
+export interface ReportLinkClient {
+  id: string
+  link_id: string
+  client_id: string | null
+  client_name: string
+  client_email: string | null
+  client_contact_name: string | null
+  client_phone: string | null
+  display_order: number
+  created_at: string
+}
+
 export interface ReportSubmission {
   id: string
   link_id: string
+  /** v2.4.0 — Entreprise destinataire du rapport. Permet plusieurs rapports/semaine
+   *  pour un même candidat (1 par entreprise). NULL = legacy / lien sans entreprise. */
+  report_link_client_id: string | null
   week_start: string  // ISO date YYYY-MM-DD (lundi)
   week_end: string    // ISO date (dimanche)
   field_values: Record<string, unknown>
@@ -71,6 +86,11 @@ export interface ReportSubmission {
   signed_pdf_paths: { name: string; path: string; sha256: string }[]
   /** v2.3.x — Métadonnées enrichies : client_modified, modified_at, modified_fields... */
   metadata?: Record<string, unknown>
+  /** v2.4.0 — Note libre du candidat à destination de son responsable (max 300 chars).
+   *  Affichée dans email créateur + bandeau page client. PAS dans le PDF. */
+  notes_candidat?: string | null
+  /** v2.4.0 — Note libre du client (commentaire/correction). Affichée dans email créateur uniquement. */
+  notes_client?: string | null
   created_at: string
   updated_at: string
 }

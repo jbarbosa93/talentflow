@@ -42,6 +42,10 @@ interface VerifyResponse {
     candidate_signed_at: string | null
     status: string
     client_token_expires_at: string | null
+    /** v2.4.0 — Note libre du candidat (max 300 chars). */
+    notes_candidat?: string | null
+    /** v2.4.0 — Note libre du client (persistée via PATCH update-fields). */
+    notes_client?: string | null
   }
   link?: { id: string; title: string; client_name: string | null; client_contact_name?: string | null }
   candidat?: { prenom: string | null; nom: string | null; email: string | null } | null
@@ -71,6 +75,8 @@ export default function PublicClientReportPage({
   const [editMode, setEditMode] = useState(false)
   const [editValues, setEditValues] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
+  // v2.4.0 — Note libre client (saved via PATCH update-fields juste avant la signature finale)
+  const [notesClient, setNotesClient] = useState<string>('')
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 900)
@@ -95,6 +101,10 @@ export default function PublicClientReportPage({
             ...(d.submission?.field_values || {}),
           }
           if (Object.keys(merged).length > 0) setValues(merged)
+          // v2.4.0 — Pré-remplir si une note client a déjà été saisie (reprise)
+          if (typeof d.submission?.notes_client === 'string') {
+            setNotesClient(d.submission.notes_client)
+          }
         }
         else if (d.reason === 'expired') setState('expired')
         else if (d.reason === 'already_signed') setState('signed')
@@ -175,6 +185,16 @@ export default function PublicClientReportPage({
     if (!confirm('Valider et signer ce rapport ? Cette action est définitive.')) return
     setSubmitting(true)
     try {
+      // v2.4.0 — Persiste notes_client juste avant signature si renseignée
+      if (notesClient.trim()) {
+        try {
+          await fetch(`/api/reports/client/${token}/update-fields`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes_client: notesClient.trim().slice(0, 300) }),
+          })
+        } catch { /* non-bloquant — la signature continue */ }
+      }
       const r = await fetch(`/api/reports/client/${token}/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -483,6 +503,24 @@ export default function PublicClientReportPage({
         </div>
       )}
 
+      {/* v2.4.0 — Bandeau note candidat (si présente) */}
+      {data.submission?.notes_candidat && data.submission.notes_candidat.trim() && (
+        <div style={{
+          flexShrink: 0,
+          margin: '12px 16px 0',
+          padding: '12px 14px',
+          background: '#FEF3C7',
+          borderLeft: '3px solid #EAB308',
+          borderRadius: '0 8px 8px 0',
+          fontSize: 13, color: '#92400E', lineHeight: 1.55,
+        }}>
+          <div style={{ fontWeight: 700, color: '#78350F', marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            📝 Note du collaborateur
+          </div>
+          <div>{data.submission.notes_candidat}</div>
+        </div>
+      )}
+
       {/* Vue principale */}
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
         {viewMode === 'wizard' && wizardAvailable ? (
@@ -574,45 +612,88 @@ export default function PublicClientReportPage({
         ) : null}
       </main>
 
-      {/* v2.3.14 — Footer sticky bottom MOBILE uniquement (le bouton compact
-          en haut du header suffit sur desktop). */}
-      {viewMode === 'document' && isMobile && (
+      {/* v2.4.0 — Panneau finalisation : textarea note client + bouton Valider.
+          Visible mobile ET desktop pour héberger la textarea note client (qui
+          ne tient pas dans le header compact desktop). */}
+      {viewMode === 'document' && (
         <div style={{
           flexShrink: 0,
           padding: '12px 16px',
           paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))',
           background: '#fff',
           borderTop: '1px solid #E5E7EB',
-          display: 'flex', flexDirection: 'column', gap: 6,
+          display: 'flex', flexDirection: 'column', gap: 10,
         }}>
-          <button
-            type="button"
-            onClick={handleFinalize}
-            disabled={submitting || !canFinalize}
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              width: '100%',
-              padding: '14px 18px',
-              fontSize: 15, fontWeight: 700,
-              border: '1px solid #1C1A14', borderRadius: 10,
-              background: '#EAB308', color: '#1C1A14',
-              cursor: submitting || !canFinalize ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit',
-              opacity: submitting || !canFinalize ? 0.5 : 1,
-              minHeight: 52,
-            }}
-          >
-            {submitting
-              ? <Loader2 size={16} className="animate-spin" />
-              : <CheckCircle2 size={16} />}
-            Valider et signer
-          </button>
-          {!canFinalize && (
-            <div style={{
-              fontSize: 11, color: '#A16207', textAlign: 'center', marginTop: 2,
+          <details style={{
+            border: '1px solid #E5E7EB',
+            borderRadius: 10,
+            background: '#FAFAF7',
+          }}>
+            <summary style={{
+              padding: '8px 12px',
+              fontSize: 12.5, fontWeight: 600,
+              color: '#1C1A14', cursor: 'pointer', userSelect: 'none',
             }}>
-              ⚠️ Signe le rapport (clique sur le champ Signature dans le document)
+              📝 Ajouter une note (optionnel) {notesClient ? `(${notesClient.length}/300)` : ''}
+            </summary>
+            <div style={{ padding: '4px 12px 12px' }}>
+              <textarea
+                value={notesClient}
+                onChange={(e) => setNotesClient(e.target.value.slice(0, 300))}
+                placeholder="Commentaire ou correction…"
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  fontSize: 13.5,
+                  fontFamily: 'inherit',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 8,
+                  background: '#fff',
+                  color: '#1C1A14',
+                  resize: 'vertical',
+                  minHeight: 60,
+                  boxSizing: 'border-box',
+                }}
+              />
+              <div style={{ marginTop: 4, fontSize: 11, color: '#9CA3AF', textAlign: 'right' }}>
+                {notesClient.length}/300
+              </div>
             </div>
+          </details>
+
+          {isMobile && (
+            <>
+              <button
+                type="button"
+                onClick={handleFinalize}
+                disabled={submitting || !canFinalize}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  width: '100%',
+                  padding: '14px 18px',
+                  fontSize: 15, fontWeight: 700,
+                  border: '1px solid #1C1A14', borderRadius: 10,
+                  background: '#EAB308', color: '#1C1A14',
+                  cursor: submitting || !canFinalize ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit',
+                  opacity: submitting || !canFinalize ? 0.5 : 1,
+                  minHeight: 52,
+                }}
+              >
+                {submitting
+                  ? <Loader2 size={16} className="animate-spin" />
+                  : <CheckCircle2 size={16} />}
+                Valider et signer
+              </button>
+              {!canFinalize && (
+                <div style={{
+                  fontSize: 11, color: '#A16207', textAlign: 'center', marginTop: 2,
+                }}>
+                  ⚠️ Signe le rapport (clique sur le champ Signature dans le document)
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

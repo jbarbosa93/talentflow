@@ -222,6 +222,7 @@ export async function POST(
   } else {
     try {
       // v2.3.9 Bug 11b — Le créateur reçoit RAPPORT + CERTIFICAT
+      // v2.4.0 — Notes candidat + client affichées en bandeau dans l'email créateur uniquement
       notifs.admin_email = await sendCompletedEmailToAdmin({
         to: creatorEmail,
         candidateName,
@@ -229,6 +230,8 @@ export async function POST(
         weekLabel: weekDates.label,
         attachments: allAttachments,
         downloadUrl: pdfDownloadUrl,
+        notesCandidat: (submission as any).notes_candidat || null,
+        notesClient: (submission as any).notes_client || null,
       })
       if (!notifs.admin_email.ok) {
         console.error('[REPORT SIGN] admin email FAILED — to:', creatorEmail, '— err:', notifs.admin_email.error)

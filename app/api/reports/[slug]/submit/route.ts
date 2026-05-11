@@ -1,10 +1,11 @@
 // TalentFlow Rapports — Soumission rapport candidat (Phase 5)
-// v2.2.6
+// v2.4.0 — Phase 1 : multi-entreprise + notes_candidat
 //
 // POST {
 //   week_start, field_values,
 //   signature_data_url,
-//   mode: 'remote' | 'present',  // 'remote' = envoi distant client, 'present' = QR sur place
+//   report_link_client_id?,  // v2.4.0 — entreprise destinataire
+//   notes_candidat?,         // v2.4.0 — note libre max 300 chars
 // }
 //
 // Workflow :
@@ -45,6 +46,12 @@ export async function POST(
   // (token 7j, notif client par email/WhatsApp). On accepte le param pour compat
   // mais on ignore — toujours 'remote'.
   const mode: 'remote' = 'remote'
+  // v2.4.0 — multi-entreprise + note candidat
+  const reportLinkClientId = typeof body.report_link_client_id === 'string' && body.report_link_client_id.trim()
+    ? body.report_link_client_id.trim()
+    : null
+  const notesCandidatRaw = typeof body.notes_candidat === 'string' ? body.notes_candidat.trim() : ''
+  const notesCandidat = notesCandidatRaw ? notesCandidatRaw.slice(0, 300) : null
 
   if (!weekStart || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return NextResponse.json({ error: 'week_start invalide (YYYY-MM-DD)' }, { status: 400 })
@@ -57,8 +64,38 @@ export async function POST(
   if (!link) return NextResponse.json({ error: 'Lien introuvable' }, { status: 404 })
   if (link.status !== 'active') return NextResponse.json({ error: 'Lien désactivé' }, { status: 403 })
 
+  const supabase = createAdminClient()
+
+  // v2.4.0 — Récup entreprise destinataire (multi-entreprise)
+  let linkClient: {
+    id: string; client_name: string; client_email: string | null;
+    client_contact_name: string | null; client_phone: string | null;
+  } | null = null
+  if (reportLinkClientId) {
+    const { data } = await supabase
+      .from('report_link_clients' as any)
+      .select('id, link_id, client_name, client_email, client_contact_name, client_phone')
+      .eq('id', reportLinkClientId)
+      .maybeSingle()
+    if (!data) {
+      return NextResponse.json({ error: 'Entreprise destinataire introuvable' }, { status: 404 })
+    }
+    if ((data as any).link_id !== link.id) {
+      return NextResponse.json({ error: 'Entreprise non autorisée pour ce lien' }, { status: 403 })
+    }
+    linkClient = data as any
+  }
+
+  // Destinataires effectifs : entreprise sélectionnée > legacy link.client_*
+  const dest = {
+    name:    linkClient?.client_name         || link.client_name,
+    email:   linkClient?.client_email        || link.client_email,
+    contact: linkClient?.client_contact_name || link.client_contact_name,
+    phone:   linkClient?.client_phone        || link.client_phone,
+  }
+
   const weekDates = getWeekDates(parseIsoDate(weekStart))
-  const existing = await getSubmissionByWeek(link.id, weekStart)
+  const existing = await getSubmissionByWeek(link.id, weekStart, reportLinkClientId)
   if (existing && existing.status !== 'draft') {
     return NextResponse.json({
       error: `Semaine déjà ${existing.status === 'completed' ? 'complétée' : 'signée'}`,
@@ -66,8 +103,6 @@ export async function POST(
       status: existing.status,
     }, { status: 409 })
   }
-
-  const supabase = createAdminClient()
   const ip = extractIp(req)
   const nowIso = new Date().toISOString()
   // v2.3.x Bug 1 — Toujours TTL remote (7j). Mode présentiel supprimé.
@@ -85,6 +120,8 @@ export async function POST(
         candidate_signed_at: nowIso,
         candidate_signed_ip: ip,
         client_token_expires_at: tokenExpires,
+        report_link_client_id: reportLinkClientId,
+        notes_candidat: notesCandidat,
       })
       .eq('id', existing.id)
       .select('id, client_token')
@@ -99,6 +136,7 @@ export async function POST(
       .from('report_submissions' as any)
       .insert({
         link_id: link.id,
+        report_link_client_id: reportLinkClientId,
         week_start: weekStart,
         week_end: weekDates.end,
         field_values: fieldValues,
@@ -107,6 +145,7 @@ export async function POST(
         candidate_signed_at: nowIso,
         candidate_signed_ip: ip,
         client_token_expires_at: tokenExpires,
+        notes_candidat: notesCandidat,
       })
       .select('id, client_token')
       .single()
@@ -119,7 +158,7 @@ export async function POST(
       submissionId,
       action: 'created',
       ip,
-      metadata: { week: weekStart, slug, source: 'submit', mode },
+      metadata: { week: weekStart, slug, source: 'submit', mode, report_link_client_id: reportLinkClientId },
     })
   }
 
@@ -150,11 +189,11 @@ export async function POST(
       || (link.title || 'Le collaborateur')
 
     if (link.delivery_channel === 'email' || link.delivery_channel === 'both') {
-      if (link.client_email) {
+      if (dest.email) {
         const r = await sendClientInviteEmail({
-          to: link.client_email,
-          clientName: link.client_name || link.client_email,
-          clientContactName: link.client_contact_name,
+          to: dest.email,
+          clientName: dest.name || dest.email,
+          clientContactName: dest.contact,
           candidateName,
           weekLabel: weekDates.label,
           signUrl,
@@ -166,11 +205,11 @@ export async function POST(
       }
     }
     if (link.delivery_channel === 'whatsapp' || link.delivery_channel === 'both') {
-      if (link.client_phone) {
+      if (dest.phone) {
         const r = await sendClientInviteWhatsApp({
-          phone: link.client_phone,
-          clientName: link.client_name,
-          clientContactName: link.client_contact_name,
+          phone: dest.phone,
+          clientName: dest.name,
+          clientContactName: dest.contact,
           candidateName,
           weekLabel: weekDates.label,
           signUrl,

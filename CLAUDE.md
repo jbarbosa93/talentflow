@@ -115,7 +115,44 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.3.0 prod (TalentFlow Sign Phase 4 complet + module Rapports + WYSIWYG strict)** — 09/05/2026
+**v2.4.0 prod (Rapports v2 Phase 1 — multi-entreprise + notes + accueil mobile + WhatsApp candidat)** — 11/05/2026
+
+Phase 1 du chantier Rapports v2 (FEATURE 1 → 5 du brief João) :
+
+### Multi-entreprise par lien candidat
+1. **Table `report_link_clients`** : un lien candidat peut autoriser plusieurs entreprises destinataires. 1 rapport par semaine par entreprise (UNIQUE `link_id+week_start+report_link_client_id`).
+2. **Routes API** : admin `/api/admin/reports/[id]/clients` (GET/POST/DELETE) + public `/api/reports/[slug]/clients`.
+3. **Section dashboard** `LinkClientsSection.tsx` dans `/sign/rapports/[id]` (ajout/suppression entreprises, téléphone WhatsApp dédié par entreprise).
+4. **Backfill auto** : tous les liens existants reçoivent 1 row `report_link_clients` recopiée depuis les champs `client_*` historiques.
+
+### Page accueil candidat (Mobile First)
+5. **Refonte complète** `/report/[slug]` avec phases `landing → select_client → form`. Skip `select_client` si 0 ou 1 entreprise.
+6. **`CandidatWelcomeHeader.tsx`** : logo L-Agence + salutation dynamique (heure/jour spécial/Pâques Meeus-Jones-Butcher) + météo Open-Meteo gratuite sans clé (silent si géoloc refusée).
+7. **`ClientSelector.tsx`** : cards verticales pleine largeur, contact + téléphone cliquable (`tel:`).
+8. **`MissionList.tsx`** : 5 derniers rapports en cards compactes avec badge statut coloré.
+
+### Notes candidat + client
+9. **`notes_candidat`** (max 300 chars) — textarea collapsible candidat. Bandeau amber sur page client.
+10. **`notes_client`** (max 300 chars) — textarea collapsible client. PATCH `update-fields` juste avant signature.
+11. **Email créateur** : 2 bandeaux distincts (amber candidat + bleu client). JAMAIS dans PDF/email candidat/email client.
+12. **Icône 📝 + tooltip** dans `SubmissionHistoryTable` si note présente.
+
+### Bouton WhatsApp candidat
+13. **Nouveau bouton** "Envoyer par WhatsApp à mon responsable" (#25D366) qui : (a) submit DB → marque `submitted=true` + notif email client, (b) ouvre `wa.me` deep link avec message pré-rempli `toWhatsAppSafe`. Bouton grisé si `client_phone` entreprise vide.
+14. **Bandeaux** sous les 2 boutons : amber "Si pas de WhatsApp, utilise Envoyer au client" + rouge "⚠️ N'envoyez PAS ce lien à L-Agence SA — uniquement à votre responsable direct".
+
+### Contact L-Agence
+15. **`ContactAgenceButton.tsx`** : bouton fixe en bas à droite (pill jaune) + bottom sheet portalisé avec WhatsApp `+41 76 297 97 95` + bureau `+41 24 552 18 70` + horaires Lun-Ven 8h-12h/13h-17h.
+16. **`lib/lagence-contact.ts`** : helpers centralisés `waMeUrl()`, `telUrl()`, `phoneDigits()` réutilisables.
+
+### DB / Stack
+- 1 nouvelle table : `report_link_clients` + 3 colonnes sur `report_submissions` (`report_link_client_id`, `notes_candidat`, `notes_client`)
+- Nouveau UNIQUE constraint `report_submissions_link_week_client_unique`
+- Aucune nouvelle dépendance npm (Open-Meteo via `fetch` natif)
+
+---
+
+## v2.3.0 prod — historique (mai 2026)
 
 Phase consolidée v2.3.0 → v2.3.19 (mai 2026). 14 changements clés :
 

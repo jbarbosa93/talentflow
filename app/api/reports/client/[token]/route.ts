@@ -179,6 +179,9 @@ export async function GET(
       candidate_signed_at: submission.candidate_signed_at,
       status: submission.status,
       client_token_expires_at: submission.client_token_expires_at,
+      // v2.4.0 — Notes libres (affichées comme bandeau côté UI client)
+      notes_candidat: (submission as any).notes_candidat ?? null,
+      notes_client: (submission as any).notes_client ?? null,
     },
     /** v2.3.x — Auto-fill candidat résolu côté serveur + saisies candidat. À passer
      *  comme `values` initiales au PublicFieldsLayer pour que les fields candidat

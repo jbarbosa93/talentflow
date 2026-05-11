@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.1'
+export const APP_VERSION = '2.4.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,23 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.4.0 — Phase 1 Rapports v2 (multi-entreprise + notes + landing mobile)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.4.0',
+    date: '2026-05-11',
+    label: 'Rapports v2 Phase 1 — multi-entreprise + notes candidat/client + accueil mobile + WhatsApp candidat',
+    features: [
+      'MULTI-ENTREPRISE — Nouvelle table report_link_clients : un lien candidat peut désormais autoriser plusieurs entreprises destinataires (1 rapport par semaine par entreprise). Routes API admin GET/POST/DELETE /api/admin/reports/[id]/clients. Route publique GET /api/reports/[slug]/clients. Migration auto-backfill : pour chaque lien existant, une row report_link_clients est créée à partir des champs client_* historiques. Nouveau UNIQUE constraint sur report_submissions (link_id, week_start, report_link_client_id). Section "Entreprises autorisées" dans la page détail du lien (LinkClientsSection.tsx) avec ajout/suppression + champ téléphone WhatsApp dédié par entreprise.',
+      'PAGE CANDIDAT — Refonte mobile-first /report/[slug] avec flow accueil → sélection entreprise (skip si 1 seule) → formulaire. CandidatWelcomeHeader.tsx : logo L-Agence + salutation dynamique (heure/jour spécial + Pâques calculé) + météo Open-Meteo gratuite sans clé (silent si géoloc refusée). ClientSelector.tsx : cards verticales avec contact + téléphone cliquable. MissionList.tsx : 5 derniers rapports en cards compactes mobile. Bouton compact "Retour à l\'accueil" depuis le formulaire.',
+      'NOTES — Champ notes_candidat (300 chars) saisi par le candidat avant signature, affiché en bandeau amber sur la page client. Champ notes_client (300 chars) saisi par le client avant signature, persisté via PATCH /api/reports/client/[token]/update-fields. Les deux notes apparaissent en bandeau dans l\'email créateur uniquement (jamais dans le PDF, jamais dans l\'email candidat ni client). Icône 📝 + tooltip dans SubmissionHistoryTable du dashboard.',
+      'BOUTON WHATSAPP — Nouveau bouton "Envoyer par WhatsApp à mon responsable" côté candidat (vert #25D366) qui : (1) submit DB normalement (marque submitted=true + notif email client), (2) ouvre wa.me deep link avec message pré-rempli (toWhatsAppSafe). Bouton grisé si client_phone non configuré. Notes amber d\'information + alerte rouge "⚠️ N\'envoyez PAS ce lien à L-Agence SA — uniquement à votre responsable direct". Le bouton "Envoyer au client" historique (email) reste disponible en parallèle.',
+      'CONTACT L-AGENCE — Bouton fixe en bas à droite "🏢 Contacter L-Agence" (jaune brand pill) + modal bottom sheet portalisé avec WhatsApp (+41 76 297 97 95) + Bureau (+41 24 552 18 70) + horaires (Lun-Ven · 8h-12h / 13h-17h). Helpers centralisés dans lib/lagence-contact.ts (waMeUrl, telUrl, phoneDigits) pour réutilisation future.',
+      'DB — Migration ALTER TABLE report_submissions : ajout report_link_client_id (FK report_link_clients ON DELETE SET NULL), notes_candidat (text max 300), notes_client (text max 300). Backfill : tous les liens existants reçoivent 1 row report_link_clients. Backfill : toutes les soumissions existantes voient leur report_link_client_id rempli sur la 1ʳᵉ row.',
+      'SIGN + RAPPORTS — Nouveau champ "Annotation / Instruction" par CHAMP (helpText sur SignField, max 200 chars). Affiché en petit texte gris italique entre le label et l\'input du champ (mode Wizard) ou dans la bubble au focus (mode Document). Remplace l\'ancienne "Note d\'étape" amber (retirée du UI WizardEditor + StepNote retiré de SignWizard). Permet d\'expliquer un champ précis (ex : "IBAN suisse au format CH..." sous "Méthode de paiement de salaire") sans polluer toute l\'étape. Édité dans le panneau droit TemplateEditor (juste avant la section Avancé / Tooltip).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.3.0 prod — TalentFlow Sign Phase 4 complet + Module Rapports
   // (consolidation 2.3.0 → 2.3.19, mai 2026)

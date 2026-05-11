@@ -39,18 +39,23 @@ export async function getTemplateForLink(templateId: string | null): Promise<Sig
   return data as SignTemplate | null
 }
 
-/** Récupère une submission par (link_id, week_start). */
+/** Récupère une submission par (link_id, week_start[, report_link_client_id]).
+ *  v2.4.0 — Si reportLinkClientId est fourni, scope sur ce triplet (UNIQUE).
+ *  Si non fourni, prend la 1ʳᵉ trouvée pour (link, week) — utile au mode legacy. */
 export async function getSubmissionByWeek(
   linkId: string,
   weekStart: string,
+  reportLinkClientId?: string | null,
 ): Promise<ReportSubmission | null> {
   const supabase = createAdminClient()
-  const { data } = await supabase
+  let q = supabase
     .from('report_submissions' as any)
     .select('*')
     .eq('link_id', linkId)
     .eq('week_start', weekStart)
-    .maybeSingle()
+  if (reportLinkClientId === null) q = q.is('report_link_client_id', null)
+  else if (reportLinkClientId) q = q.eq('report_link_client_id', reportLinkClientId)
+  const { data } = await q.maybeSingle()
   return data as ReportSubmission | null
 }
 

@@ -1,12 +1,13 @@
 // TalentFlow Rapports — Modification des données par le client
-// v2.3.x
+// v2.4.0 — Phase 1 : ajout notes_client
 //
-// PATCH { fieldValues: Record<string, string> }
+// PATCH { fieldValues?: Record<string, string>, notes_client?: string }
 //   1. Vérif token valide + non expiré + status='candidate_signed'
-//   2. UPDATE report_submissions.field_values (merge partiel)
-//   3. UPDATE metadata : { client_modified: true, modified_at, modified_fields }
-//   4. Log audit 'client_modified'
-//   5. Retourne { ok: true }
+//   2. UPDATE report_submissions.field_values (merge partiel) si fourni
+//   3. UPDATE notes_client si fourni (max 300 chars)
+//   4. UPDATE metadata : { client_modified: true, modified_at, modified_fields }
+//   5. Log audit 'client_modified'
+//   6. Retourne { ok: true }
 //
 // Champs autorisés : number, text, checkbox (recipientOrder=1 uniquement).
 // Pas de signature, fullname, date, company — ces champs sont filtrés côté UI.
@@ -28,9 +29,15 @@ export async function PATCH(
   let body: any
   try { body = await req.json() } catch { body = {} }
 
-  const fieldValues = body.fieldValues
-  if (!fieldValues || typeof fieldValues !== 'object' || Array.isArray(fieldValues)) {
-    return NextResponse.json({ error: 'fieldValues manquant ou invalide' }, { status: 400 })
+  const fieldValues = (body.fieldValues && typeof body.fieldValues === 'object' && !Array.isArray(body.fieldValues))
+    ? body.fieldValues as Record<string, unknown>
+    : null
+  const notesClientRaw = typeof body.notes_client === 'string' ? body.notes_client.trim() : undefined
+  const hasNotesClient = notesClientRaw !== undefined
+  const notesClient = hasNotesClient ? (notesClientRaw ? notesClientRaw.slice(0, 300) : null) : undefined
+
+  if (!fieldValues && !hasNotesClient) {
+    return NextResponse.json({ error: 'fieldValues ou notes_client requis' }, { status: 400 })
   }
 
   const submission = await getSubmissionByToken(token)
@@ -49,29 +56,31 @@ export async function PATCH(
   const supabase = createAdminClient()
   const ip = extractIp(req)
   const nowIso = new Date().toISOString()
-  const modifiedFields = Object.keys(fieldValues)
+  const modifiedFields = fieldValues ? Object.keys(fieldValues) : []
 
-  // Merge les nouvelles valeurs sur les field_values existantes
-  const mergedValues = {
-    ...(submission.field_values || {}),
-    ...fieldValues,
+  const patch: Record<string, unknown> = {}
+  if (fieldValues) {
+    patch.field_values = {
+      ...(submission.field_values || {}),
+      ...fieldValues,
+    }
   }
+  if (hasNotesClient) patch.notes_client = notesClient
 
-  // metadata : marque client_modified + liste des champs modifiés
-  const existingMeta = (submission as any).metadata || {}
-  const newMeta = {
-    ...existingMeta,
-    client_modified: true,
-    modified_at: nowIso,
-    modified_fields: modifiedFields,
+  // metadata : marque client_modified UNIQUEMENT si fields modifiés (pas pour note seule)
+  if (modifiedFields.length > 0) {
+    const existingMeta = (submission as any).metadata || {}
+    patch.metadata = {
+      ...existingMeta,
+      client_modified: true,
+      modified_at: nowIso,
+      modified_fields: modifiedFields,
+    }
   }
 
   const { error } = await supabase
     .from('report_submissions' as any)
-    .update({
-      field_values: mergedValues,
-      metadata: newMeta,
-    })
+    .update(patch)
     .eq('id', submission.id)
 
   if (error) {
@@ -79,12 +88,14 @@ export async function PATCH(
     return NextResponse.json({ error: 'Erreur mise à jour' }, { status: 500 })
   }
 
-  await logReportAudit({
-    submissionId: submission.id,
-    action: 'client_modified',
-    ip,
-    metadata: { modified_fields: modifiedFields, fields_count: modifiedFields.length },
-  })
+  if (modifiedFields.length > 0) {
+    await logReportAudit({
+      submissionId: submission.id,
+      action: 'client_modified',
+      ip,
+      metadata: { modified_fields: modifiedFields, fields_count: modifiedFields.length, note_updated: hasNotesClient },
+    })
+  }
 
   return NextResponse.json({ ok: true })
 }

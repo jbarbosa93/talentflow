@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import SubmissionHistoryTable from '@/components/report/SubmissionHistoryTable'
+import LinkClientsSection from '@/components/report/LinkClientsSection'
 import {
   REPORT_LINK_STATUS_LABELS, type ReportLink, type ReportSubmission,
 } from '@/lib/report/types'
@@ -331,6 +332,11 @@ export default function ReportLinkDetailPage({
         <InfoCard label="Contact client" value={link.client_contact_name || '—'} />
         <InfoCard label="Email client" value={link.client_email || '—'} />
         <InfoCard label="Canal de notif" value={link.delivery_channel} />
+      </div>
+
+      {/* v2.4.0 — Entreprises autorisées (multi-entreprise par lien) */}
+      <div style={{ marginTop: 24 }}>
+        <LinkClientsSection linkId={link.id} />
       </div>
 
       {/* Historique */}

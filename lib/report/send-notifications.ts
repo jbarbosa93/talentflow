@@ -168,12 +168,28 @@ export async function sendCompletedEmailToAdmin(args: {
   attachments: { filename: string; content: string }[]
   /** URL directe vers le PDF signé (route /api/reports/{slug}/submissions/{id}/download) */
   downloadUrl: string
+  /** v2.4.0 — Note libre du candidat (max 300 chars). Affichée en bandeau si présente. */
+  notesCandidat?: string | null
+  /** v2.4.0 — Note libre du client (max 300 chars). Affichée en bandeau si présente. */
+  notesClient?: string | null
 }): Promise<NotifResult> {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
   if (!args.to) return { ok: false, error: 'destinataire admin vide' }
 
   const subject = `✅ Rapport signé — ${args.candidateName} · ${args.weekLabel}`
+
+  const notesCandidatBlock = (args.notesCandidat || '').trim() ? `
+      <div style="background:#FEF3C7;border-left:3px solid #EAB308;border-radius:0 8px 8px 0;padding:12px 14px;margin:14px 0;font-size:13px;color:#92400E;line-height:1.55;">
+        <strong style="color:#78350F;">📝 Note du collaborateur</strong><br>
+        ${escapeHtml((args.notesCandidat || '').trim())}
+      </div>` : ''
+  const notesClientBlock = (args.notesClient || '').trim() ? `
+      <div style="background:#DBEAFE;border-left:3px solid #2563EB;border-radius:0 8px 8px 0;padding:12px 14px;margin:14px 0;font-size:13px;color:#1E40AF;line-height:1.55;">
+        <strong style="color:#1E3A8A;">📝 Note du client</strong><br>
+        ${escapeHtml((args.notesClient || '').trim())}
+      </div>` : ''
+
   const html = `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -193,7 +209,7 @@ export async function sendCompletedEmailToAdmin(args: {
         <strong>Collaborateur :</strong> ${escapeHtml(args.candidateName)}<br>
         <strong>Client :</strong> ${escapeHtml(args.clientName)}<br>
         <strong>Semaine :</strong> ${escapeHtml(args.weekLabel)}
-      </div>
+      </div>${notesCandidatBlock}${notesClientBlock}
       <p style="font-size:13px;color:#374151;line-height:1.6;margin:0 0 18px;">
         Le PDF signé est joint à cet email.
       </p>
@@ -210,11 +226,16 @@ export async function sendCompletedEmailToAdmin(args: {
   </div>
 </body></html>`
 
+  const notesText = [
+    (args.notesCandidat || '').trim() ? `Note collaborateur : ${args.notesCandidat}` : '',
+    (args.notesClient || '').trim() ? `Note client : ${args.notesClient}` : '',
+  ].filter(Boolean).join('\n')
+
   return await sendResend({
     to: args.to,
     subject,
     html,
-    text: `Rapport signé — ${args.candidateName} · ${args.weekLabel}\n\nTélécharger la copie signée :\n${args.downloadUrl}`,
+    text: `Rapport signé — ${args.candidateName} · ${args.weekLabel}\n\n${notesText ? notesText + '\n\n' : ''}Télécharger la copie signée :\n${args.downloadUrl}`,
     attachments: args.attachments,
   })
 }

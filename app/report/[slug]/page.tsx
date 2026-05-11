@@ -1,11 +1,12 @@
 // TalentFlow Rapports — Page publique candidat (lien permanent)
-// v2.2.6 Phase 5 — refonte v2 : réutilise PublicPdfViewer + SignWizard de Sign
+// v2.4.0 Phase 1 — landing mobile + multi-entreprise + note + bouton WhatsApp
 //
 // URL : /report/{slug}
-// Lien permanent : pas de token, pas d'expiration. Le candidat ouvre, choisit
-// la semaine (sélecteur dédié au-dessus du viewer), remplit les champs sur le
-// PDF (mode Document) ou via le formulaire pas-à-pas (mode Wizard), signe via
-// SignaturePad (champs signature placés sur le PDF par l'admin), soumet.
+// Lien permanent : pas de token, pas d'expiration. Flow :
+//   1. Landing (welcome + missions récentes + bouton "Nouveau rapport")
+//   2. Si ≥ 2 entreprises configurées → ClientSelector
+//      Sinon → skip direct au form (1ʳᵉ entreprise auto-sélectionnée)
+//   3. Form (WeekSelector + PDF/Wizard + Notes + 2 boutons d'envoi)
 'use client'
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -13,14 +14,20 @@ import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, Clock, Download, FileText,
-  Loader2, Lock, RotateCw, Save, Send,
+  Loader2, Lock, MessageCircle, RotateCw, Save, Send, ChevronLeft,
 } from 'lucide-react'
 import WeekSelector from '@/components/report/WeekSelector'
 import PublicFieldsLayer, { areAllRequiredFieldsFilled } from '@/components/sign/PublicFieldsLayer'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { SignDocument, SignField } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
-import type { ReportSubmissionStatus } from '@/lib/report/types'
+import type { ReportSubmissionStatus, ReportLinkClient } from '@/lib/report/types'
+import CandidatWelcomeHeader from '@/components/report/CandidatWelcomeHeader'
+import ClientSelector from '@/components/report/ClientSelector'
+import MissionList from '@/components/report/MissionList'
+import ContactAgenceButton from '@/components/report/ContactAgenceButton'
+import { toWhatsAppSafe } from '@/lib/report/text-format'
+import { waMeUrl } from '@/lib/lagence-contact'
 import {
   getCurrentWeekStart, isoDate, getWeekDates, parseIsoDate,
 } from '@/lib/report/week-helpers'
@@ -68,6 +75,13 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   const [data, setData] = useState<VerifyResponse | null>(null)
   const [state, setState] = useState<'loading' | 'invalid' | 'paused' | 'revoked' | 'ok' | 'error'>('loading')
 
+  // v2.4.0 — Multi-entreprise + landing page
+  const [clients, setClients] = useState<ReportLinkClient[]>([])
+  const [selectedClient, setSelectedClient] = useState<ReportLinkClient | null>(null)
+  const [phase, setPhase] = useState<'landing' | 'select_client' | 'form'>('landing')
+  const [notesCandidat, setNotesCandidat] = useState<string>('')
+  const [sendingWa, setSendingWa] = useState(false)
+
   const [weekStart, setWeekStart] = useState<string>(() => isoDate(getCurrentWeekStart()))
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
@@ -112,6 +126,20 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       })
       .catch(() => setState('error'))
   }, [slug])
+
+  // v2.4.0 — Fetch entreprises autorisées
+  useEffect(() => {
+    if (state !== 'ok') return
+    fetch(`/api/reports/${slug}/clients`)
+      .then(r => r.json())
+      .then((d: { clients?: ReportLinkClient[] }) => {
+        const list = d.clients || []
+        setClients(list)
+        // v2.4.0 — Si 1 seule entreprise → skip ClientSelector, auto-select
+        if (list.length === 1) setSelectedClient(list[0])
+      })
+      .catch(() => { /* silent : fallback legacy possible */ })
+  }, [slug, state])
 
   // Mode initial : wizard sur mobile si dispo, sinon document
   useEffect(() => {
@@ -252,29 +280,35 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     setConfirmOpen(true)
   }
 
-  // ─── Submit (déclenché depuis le dialog après confirmation) ───
+  // ─── Submit DB (commun aux 2 boutons : Email et WhatsApp) ───
+  const submitToDb = useCallback(async (): Promise<{ ok: boolean; clientToken?: string | null }> => {
+    if (!signatureDataUrl) return { ok: false }
+    const r = await fetch(`/api/reports/${slug}/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        week_start: weekStart,
+        field_values: values,
+        signature_data_url: signatureDataUrl,
+        report_link_client_id: selectedClient?.id || null,
+        notes_candidat: notesCandidat.trim() || null,
+      }),
+    })
+    const d = await r.json()
+    if (!r.ok) throw new Error(d.error || 'Erreur soumission')
+    try { localStorage.removeItem(`tf_report_draft_${slug}_${weekStart}`) } catch {}
+    return { ok: true, clientToken: d.client_token || null }
+  }, [slug, weekStart, values, signatureDataUrl, selectedClient, notesCandidat])
+
+  // ─── Submit Email (bouton "Envoyer au client") ───
   const handleSubmit = async () => {
     if (!signatureDataUrl) return  // safety
     setSubmitting(true)
     setConfirmOpen(false)
     try {
-      const r = await fetch(`/api/reports/${slug}/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          week_start: weekStart,
-          field_values: values,
-          signature_data_url: signatureDataUrl,
-        }),
-      })
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Erreur soumission')
-      // Cleanup localStorage
-      try { localStorage.removeItem(`tf_report_draft_${slug}_${weekStart}`) } catch {}
-      // v2.3.x Bug 3a — Message correct post-envoi (PDF signé envoyé seulement APRÈS signature client)
+      await submitToDb()
       setSubmitted(true)
-      toast.success('Rapport soumis et envoyé à votre client')
-      // Refresh submissions
+      toast.success(`Rapport envoyé${selectedClient?.client_email ? ` à ${selectedClient.client_email}` : ''}`)
       fetch(`/api/reports/${slug}`)
         .then(r => r.json())
         .then((nd: VerifyResponse) => { if (nd.valid) setData(nd) })
@@ -283,6 +317,56 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       toast.error(e.message || 'Erreur')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // ─── Submit WhatsApp (bouton "Envoyer par WhatsApp à mon responsable") ───
+  // v2.4.0 — Submit DB d'abord (marque submitted=true côté historique) PUIS ouvre wa.me.
+  const handleSubmitWhatsApp = async () => {
+    if (!signatureDataUrl) {
+      toast.error('Signe le rapport avant de l\'envoyer')
+      setSignaturePadOpen(true)
+      return
+    }
+    if (!canFinalize) {
+      toast.error('Remplis tous les champs avant d\'envoyer')
+      return
+    }
+    if (!selectedClient?.client_phone) {
+      toast.error('Numéro WhatsApp du responsable non configuré')
+      return
+    }
+    setSendingWa(true)
+    try {
+      const { clientToken } = await submitToDb()
+      const appUrl = typeof window !== 'undefined' ? window.location.origin : ''
+      const signUrl = clientToken ? `${appUrl}/report/client/${clientToken}` : ''
+      const contactName = selectedClient.client_contact_name || selectedClient.client_name
+      const candidateName = data?.candidat
+        ? [data.candidat.prenom, data.candidat.nom].filter(Boolean).join(' ')
+        : (data?.link?.title || 'Le collaborateur')
+      const msg = toWhatsAppSafe(
+        `Bonjour ${contactName},\n\n`
+        + `Je viens de remplir mon rapport d'heures pour la ${weekDates.label}.\n\n`
+        + `Merci de cliquer sur le lien pour valider :\n${signUrl}\n\n`
+        + `- ${candidateName}`,
+      )
+      const url = waMeUrl(selectedClient.client_phone, msg)
+      if (isMobile) {
+        window.location.href = url
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer')
+      }
+      setSubmitted(true)
+      toast.success('Rapport envoyé — WhatsApp ouvert')
+      fetch(`/api/reports/${slug}`)
+        .then(r => r.json())
+        .then((nd: VerifyResponse) => { if (nd.valid) setData(nd) })
+        .catch(() => {})
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur')
+    } finally {
+      setSendingWa(false)
     }
   }
 
@@ -369,11 +453,142 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   // v2.3.3 Bug 1 — Message post-soumission centré (carte, pas footer sticky)
   if (submitted) {
     return (
-      <CenteredCard>
-        <div style={iconWrap('#D1FAE5', '#059669')}><CheckCircle2 size={28} /></div>
-        <h1 style={titleStyle}>Merci pour votre rapport&nbsp;!</h1>
-        <p style={textStyle}>Il a été envoyé au client pour validation.</p>
-      </CenteredCard>
+      <>
+        <CenteredCard>
+          <div style={iconWrap('#D1FAE5', '#059669')}><CheckCircle2 size={28} /></div>
+          <h1 style={titleStyle}>Merci pour votre rapport&nbsp;!</h1>
+          <p style={textStyle}>Il a été envoyé au client pour validation.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setSubmitted(false)
+              setSelectedClient(clients.length === 1 ? clients[0] : null)
+              setPhase('landing')
+              setNotesCandidat('')
+              setSignatureDataUrl(null)
+            }}
+            style={{
+              marginTop: 18,
+              padding: '10px 18px',
+              fontSize: 13, fontWeight: 700,
+              border: '1px solid #1C1A14', borderRadius: 10,
+              background: '#EAB308', color: '#1C1A14',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Retour à l&apos;accueil
+          </button>
+        </CenteredCard>
+        <ContactAgenceButton />
+      </>
+    )
+  }
+
+  // v2.4.0 — Données pour landing
+  const candidatePrenomLanding = data.candidat?.prenom || ''
+  const recentMissions = (data.submissions || []).slice(0, 5).map(s => ({
+    id: s.id,
+    week_start: s.week_start,
+    week_end: s.week_end,
+    status: s.status,
+    client_name: data.link?.client_name || null,
+  }))
+
+  // v2.4.0 — Page accueil (landing) mobile-first
+  if (phase === 'landing') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#FAFAF7',
+        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+        paddingBottom: 100,
+      }}>
+        <CandidatWelcomeHeader prenom={candidatePrenomLanding} />
+        <div style={{ padding: '6px 16px 18px' }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (clients.length >= 2) setPhase('select_client')
+              else setPhase('form')
+            }}
+            style={{
+              width: '100%',
+              minHeight: 56,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              padding: '14px 18px',
+              background: '#EAB308',
+              color: '#1C1A14',
+              border: '1px solid #1C1A14',
+              borderRadius: 14,
+              fontSize: 15, fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              boxShadow: '0 4px 12px rgba(28,26,20,0.08)',
+            }}
+          >
+            <ClipboardList size={18} /> Nouveau rapport
+          </button>
+        </div>
+        <div style={{ padding: '14px 16px 6px' }}>
+          <div style={{
+            fontSize: 11,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            color: '#6B7280',
+            marginBottom: 10,
+          }}>
+            Mes derniers rapports
+          </div>
+        </div>
+        <MissionList items={recentMissions} emptyText="Aucun rapport pour le moment. Commencez par créer le premier !" />
+        <ContactAgenceButton />
+      </div>
+    )
+  }
+
+  // v2.4.0 — Phase select_client (uniquement si ≥ 2 entreprises)
+  if (phase === 'select_client') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#FAFAF7',
+        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+        paddingBottom: 100,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 14px 8px' }}>
+          <button
+            type="button"
+            onClick={() => setPhase('landing')}
+            aria-label="Retour"
+            style={{
+              width: 40, height: 40, borderRadius: 10,
+              border: '1px solid #E5E7EB', background: '#fff',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: '#1C1A14',
+            }}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <h1 style={{
+            fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+            fontSize: 22, fontWeight: 400,
+            margin: 0, color: '#1C1A14', letterSpacing: '-0.01em',
+          }}>
+            Nouveau rapport
+          </h1>
+        </div>
+        <div style={{ paddingTop: 6 }}>
+          <ClientSelector
+            clients={clients}
+            onSelect={(c) => {
+              setSelectedClient(c)
+              setPhase('form')
+            }}
+          />
+        </div>
+        <ContactAgenceButton />
+      </div>
     )
   }
 
@@ -393,7 +608,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     fullName:  candidateFullName,
     email:     data.candidat?.email || '',
     today,
-    companyName: data.link.client_name || '',
+    companyName: selectedClient?.client_name || data.link.client_name || '',
     title: '',
     telephone: '',
     dateNaissance: '',
@@ -439,6 +654,22 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         flexShrink: 0,
         flexWrap: isMobile ? 'wrap' : 'nowrap',
       }}>
+        {/* v2.4.0 — Bouton retour vers landing */}
+        <button
+          type="button"
+          onClick={() => setPhase('landing')}
+          aria-label="Retour à l'accueil"
+          title="Retour à l'accueil"
+          style={{
+            width: 36, height: 36, borderRadius: 10,
+            border: '1px solid #E5E7EB', background: '#fff',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', color: '#1C1A14',
+            flexShrink: 0,
+          }}
+        >
+          <ChevronLeft size={16} />
+        </button>
         {/* Bloc identité L-Agence */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, minWidth: 0 }}>
           <div style={{
@@ -463,7 +694,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               maxWidth: isMobile ? 200 : 360,
             }}>
-              Rapport hebdomadaire {candidateFullName ? `— ${candidateFullName}` : ''}
+              {selectedClient ? selectedClient.client_name : (candidateFullName ? `Rapport — ${candidateFullName}` : 'Rapport hebdomadaire')}
             </div>
           </div>
         </div>
@@ -498,44 +729,15 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         {/* v2.3.9 Bug 8 — Toggle Wizard/Document supprimé (mode auto :
             mobile=wizard / desktop=document). Le candidat n'a pas besoin du choix. */}
 
-        {/* v2.3.14 — Indicateur + bouton "Envoyer au client" COMPACT en haut DESKTOP.
-            Remplace le footer sticky bottom (masqué sur desktop). */}
-        {!isMobile && !isLockedWeek && !submitted && (
-          <>
-            {!canFinalize && (
-              <span style={{
-                fontSize: 11.5, color: '#A16207', whiteSpace: 'nowrap',
-                fontWeight: 600,
-              }}>
-                ⚠️ Champs requis manquants
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={handleClickSubmit}
-              disabled={submitting || !canFinalize}
-              title={!canFinalize ? 'Remplis tous les champs et signe avant d\'envoyer' : 'Envoyer le rapport au client'}
-              style={{
-                flexShrink: 0,
-                padding: '8px 16px',
-                fontSize: 13, fontWeight: 700,
-                border: '1px solid #1C1A14', borderRadius: 8,
-                background: '#EAB308', color: '#1C1A14',
-                cursor: submitting || !canFinalize ? 'not-allowed' : 'pointer',
-                fontFamily: 'inherit',
-                opacity: submitting || !canFinalize ? 0.5 : 1,
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              Envoyer au client
-            </button>
-          </>
+        {/* v2.4.0 — Indicateur compact desktop (les 2 boutons sont en footer pour les 2 plateformes) */}
+        {!isMobile && !isLockedWeek && !submitted && !canFinalize && (
+          <span style={{
+            fontSize: 11.5, color: '#A16207', whiteSpace: 'nowrap',
+            fontWeight: 600,
+          }}>
+            ⚠️ Champs requis manquants
+          </span>
         )}
-
-        {/* v2.3.x Bug 3b — Boutons d'envoi déplacés dans un footer sticky bottom toujours visible
-            (mobile + desktop, mode wizard + document). Voir bloc footer plus bas. */}
       </header>
 
       {/* Mobile : WeekSelector sous le header */}
@@ -759,42 +961,130 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         )}
       </main>
 
-      {/* v2.3.x Bug 3b — Footer sticky bottom (mobile uniquement depuis v2.3.14) :
-          ergonomie tactile (bouton large pouce-friendly). Sur DESKTOP, le bouton
-          compact en haut du header suffit (footer masqué pour gagner de la place). */}
-      {!isLockedWeek && !submitted && isMobile && (
+      {/* v2.4.0 — Panneau finalisation : notes + 2 boutons (Email + WhatsApp) + warnings.
+          Mobile : sticky bottom (large boutons pouce-friendly).
+          Desktop : sticky bottom aussi (les 2 boutons + textarea note ne tiennent pas en header compact). */}
+      {!isLockedWeek && !submitted && (
         <div style={{
           flexShrink: 0,
-          padding: isMobile ? '10px 14px' : '14px 24px',
-          paddingBottom: isMobile ? 'max(10px, env(safe-area-inset-bottom, 10px))' : 14,
+          padding: isMobile ? '12px 14px' : '14px 24px',
+          paddingBottom: isMobile ? 'max(12px, env(safe-area-inset-bottom, 12px))' : 16,
           background: '#fff',
           borderTop: '1px solid #E5E7EB',
           display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 8 : 12,
-          alignItems: isMobile ? 'stretch' : 'center',
-          justifyContent: isMobile ? undefined : 'flex-end',
+          flexDirection: 'column',
+          gap: 10,
         }}>
+          {/* Note candidat (optionnelle, max 300 chars) */}
+          <details style={{
+            border: '1px solid #E5E7EB',
+            borderRadius: 10,
+            background: '#FAFAF7',
+          }}>
+            <summary style={{
+              padding: '8px 12px',
+              fontSize: 12.5, fontWeight: 600,
+              color: '#1C1A14', cursor: 'pointer',
+              userSelect: 'none',
+            }}>
+              📝 Ajouter une note pour votre responsable {notesCandidat ? `(${notesCandidat.length}/300)` : '(optionnel)'}
+            </summary>
+            <div style={{ padding: '4px 12px 12px' }}>
+              <textarea
+                value={notesCandidat}
+                onChange={(e) => setNotesCandidat(e.target.value.slice(0, 300))}
+                placeholder="Ex : Déplacement mercredi inclus, travail chantier X les jeudi-vendredi."
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  fontSize: 13.5,
+                  fontFamily: 'inherit',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 8,
+                  background: '#fff',
+                  color: '#1C1A14',
+                  resize: 'vertical',
+                  minHeight: 60,
+                  boxSizing: 'border-box',
+                }}
+              />
+              <div style={{ marginTop: 4, fontSize: 11, color: '#9CA3AF', textAlign: 'right' }}>
+                {notesCandidat.length}/300
+              </div>
+            </div>
+          </details>
+
+          {/* Warning si non-finalisable */}
           {!canFinalize && (
             <div style={{
               fontSize: 12, color: '#A16207',
-              flex: isMobile ? undefined : 1,
-              textAlign: isMobile ? 'center' : 'left',
+              textAlign: 'center',
             }}>
               ⚠️ Remplis tous les champs et signe avant d&apos;envoyer
             </div>
           )}
-          {/* v2.3.x Bug 1 — Plus que le bouton "Envoyer au client" (mode QR supprimé) */}
-          <button
-            type="button"
-            onClick={handleClickSubmit}
-            disabled={submitting || !canFinalize}
-            style={isMobile ? primaryBtnStyle(submitting || !canFinalize) : desktopPrimaryBtn(submitting || !canFinalize)}
-          >
-            {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-            📤 Envoyer au client
-            {isMobile && <ArrowRight size={14} style={{ marginLeft: 'auto' }} />}
-          </button>
+
+          {/* 2 boutons côte à côte */}
+          <div style={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: 8,
+          }}>
+            <button
+              type="button"
+              onClick={handleSubmitWhatsApp}
+              disabled={sendingWa || submitting || !canFinalize || !selectedClient?.client_phone}
+              title={!selectedClient?.client_phone ? 'Numéro WhatsApp non configuré' : 'Ouvrir WhatsApp avec votre responsable'}
+              style={{
+                flex: 1,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                padding: '12px 18px',
+                fontSize: 14, fontWeight: 700,
+                border: '1px solid #128C7E', borderRadius: 10,
+                background: selectedClient?.client_phone ? '#25D366' : '#9CA3AF',
+                color: '#fff',
+                cursor: (sendingWa || !canFinalize || !selectedClient?.client_phone) ? 'not-allowed' : 'pointer',
+                opacity: (sendingWa || !canFinalize || !selectedClient?.client_phone) ? 0.55 : 1,
+                fontFamily: 'inherit',
+                minHeight: 48,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {sendingWa ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
+              {selectedClient?.client_phone ? 'Envoyer par WhatsApp à mon responsable' : 'Numéro WhatsApp non disponible'}
+            </button>
+            <button
+              type="button"
+              onClick={handleClickSubmit}
+              disabled={submitting || sendingWa || !canFinalize}
+              style={isMobile ? primaryBtnStyle(submitting || !canFinalize) : desktopPrimaryBtn(submitting || !canFinalize)}
+            >
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              Envoyer au client
+              {isMobile && <ArrowRight size={14} style={{ marginLeft: 'auto' }} />}
+            </button>
+          </div>
+
+          {/* Note info amber + alerte rouge */}
+          <div style={{
+            padding: '8px 10px',
+            background: '#FEF3C7',
+            border: '1px solid #FDE68A',
+            borderRadius: 8,
+            fontSize: 11.5, color: '#92400E', lineHeight: 1.5,
+          }}>
+            Si vous n&apos;avez pas le numéro WhatsApp de votre responsable, cliquez sur <strong>« Envoyer au client »</strong> pour lui envoyer le lien de validation par email.
+          </div>
+          <div style={{
+            padding: '8px 10px',
+            background: '#FEE2E2',
+            border: '1px solid #FCA5A5',
+            borderRadius: 8,
+            fontSize: 11.5, color: '#991B1B', lineHeight: 1.5,
+          }}>
+            ⚠️ <strong>N&apos;envoyez PAS ce lien à L-Agence SA.</strong> Envoyez-le uniquement à votre responsable direct.
+          </div>
         </div>
       )}
 
@@ -804,11 +1094,14 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       {confirmOpen && (
         <ConfirmDialog
           weekLabel={weekDates.label}
-          clientName={data.link.client_name || ''}
+          clientName={selectedClient?.client_name || data.link.client_name || ''}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={handleSubmit}
         />
       )}
+
+      {/* v2.4.0 — Bouton fixe Contacter L-Agence */}
+      <ContactAgenceButton />
     </div>
   )
 }
