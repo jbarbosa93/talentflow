@@ -162,6 +162,10 @@ export const DATE_FORMATS: { value: string; label: string }[] = [
   { value: 'yyyy-MM-dd',  label: 'aaaa-mm-jj (2026-12-31) — ISO' },
   { value: 'd MMMM yyyy', label: '31 décembre 2026 — long' },
   { value: 'MM/dd/yyyy',  label: 'mm/jj/aaaa (12/31/2026) — US' },
+  // v2.6.6 — Jour de la semaine (déduit automatiquement de la date)
+  { value: 'EEEE',         label: 'Jour de la semaine (Lundi)' },
+  { value: 'EEE',          label: 'Jour court (Lun)' },
+  { value: 'EEEE dd.MM',   label: 'Jour + date (Lundi 11.05)' },
 ]
 
 export const CURRENCIES = ['', 'CHF', 'EUR', 'USD', 'GBP'] as const

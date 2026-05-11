@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.5'
+export const APP_VERSION = '2.6.6'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.6 — Format date "Jour de la semaine" (EEEE) dans l'éditeur template
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.6',
+    date: '2026-05-11',
+    label: 'Option "Jour de la semaine" (EEEE) dans options format date',
+    features: [
+      'NOUVELLES OPTIONS FORMAT DATE — Dans l\'éditeur de template (panneau d\'édition d\'un champ type date), 3 nouvelles options ajoutées au dropdown "Format" : "Jour de la semaine (Lundi)" / "Jour court (Lun)" / "Jour + date (Lundi 11.05)". Le jour est déduit automatiquement de la date stockée — pas besoin de saisie manuelle.',
+      'EXTENSION lib/sign/pdf-stamp.ts formatDate — Support des tokens EEEE/EEE (jour de la semaine FR) + MMMM/MMM (nom du mois FR) en plus de dd/MM/yyyy. Calcul du jour de semaine via UTC pour éviter les décalages timezone. Ordre des replace : tokens longs avant courts.',
+      'IMPACT — Sur les rapports d\'heures, un field date avec wizardSection="Lundi" auto-rempli en "2026-05-11" + format "EEEE" → affiche "Lundi" dans le rendu read-only ET dans le PDF stampé final. Cohérence totale sans effort.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.5 — Historique candidat : plus de duplication, juste les plus anciens
   // ─────────────────────────────────────────────────────────────────────

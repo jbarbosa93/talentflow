@@ -341,13 +341,30 @@ function drawTextInBox(
 // v2.3.12 Bug 1 — Exporté pour réutilisation côté front (PublicFieldsLayer)
 // afin d'afficher les dates en read-only au format configuré dans le template
 // (au lieu du format ISO 2026-05-04 brut).
+// v2.6.6 — Support des tokens EEEE/EEE (jour de la semaine) + MMMM/MMM (nom du mois)
+// en français, déduits automatiquement de la date ISO.
+const WEEKDAYS_FR_LONG  = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+const WEEKDAYS_FR_SHORT = ['Dim',      'Lun',   'Mar',   'Mer',      'Jeu',   'Ven',      'Sam']
+const MONTHS_FR_LONG    = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
+const MONTHS_FR_SHORT   = ['janv.','févr.','mars','avril','mai','juin','juill.','août','sept.','oct.','nov.','déc.']
+
 export function formatDate(s: string, format?: string): string {
   if (!s) return ''
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (!m) return s
   const [, y, mo, d] = m
   const fmt = format || 'dd.MM.yyyy'
+  // Calcule le jour de la semaine (0=Dim, 1=Lun, ..., 6=Sam) via UTC pour éviter TZ shift
+  const dateObj = new Date(`${y}-${mo}-${d}T00:00:00Z`)
+  const dow = isNaN(dateObj.getTime()) ? -1 : dateObj.getUTCDay()
+  const moIdx = parseInt(mo, 10) - 1
+  // Ordre important : tokens longs AVANT les courts (EEEE avant EEE, MMMM avant MMM,
+  // yyyy avant yy si on l'ajoutait). Sinon "EEEE" deviendrait "Lun" + "E".
   return fmt
+    .replace('EEEE', dow >= 0 ? (WEEKDAYS_FR_LONG[dow] || '') : '')
+    .replace('EEE',  dow >= 0 ? (WEEKDAYS_FR_SHORT[dow] || '') : '')
+    .replace('MMMM', moIdx >= 0 && moIdx < 12 ? MONTHS_FR_LONG[moIdx] : mo)
+    .replace('MMM',  moIdx >= 0 && moIdx < 12 ? MONTHS_FR_SHORT[moIdx] : mo)
     .replace('dd', d)
     .replace('MM', mo)
     .replace('yyyy', y)
