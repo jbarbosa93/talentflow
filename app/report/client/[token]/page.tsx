@@ -679,10 +679,14 @@ function CenteredCard({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
       minHeight: '100vh',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: 24, background: '#FAFAF7',
       fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+      gap: 18,
     }}>
+      {/* v2.5.2 — Logo officiel sur toutes les pages de confirmation client
+          (Rapport signé / Invalide / Expiré / Annulé) — cohérent avec candidat */}
+      <LogoLAgence height={36} color="dark" />
       <div style={{
         maxWidth: 460, width: '100%', padding: 32,
         background: '#fff', border: '1px solid #E5E7EB',

@@ -88,9 +88,10 @@ export async function POST(req: NextRequest) {
     const f  = await pdfDoc.embedFont(StandardFonts.Helvetica)
 
     // Logo L-AGENCE (PNG officiel)
+    // v2.5.2 — fichier renommé en v2.4.4 : logo-lagence.png → logo-agence-officiel.png
     let logoPng: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null = null
     try {
-      const logoPath = path.join(process.cwd(), 'public', 'logo-lagence.png')
+      const logoPath = path.join(process.cwd(), 'public', 'logo-agence-officiel.png')
       const logoBytes = fs.readFileSync(logoPath)
       logoPng = await pdfDoc.embedPng(logoBytes)
     } catch {

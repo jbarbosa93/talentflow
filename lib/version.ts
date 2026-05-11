@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.5.1'
+export const APP_VERSION = '2.5.2'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.5.2 — Logo officiel partout (vraiment) + fix refs cassées logo-lagence.png
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.5.2',
+    date: '2026-05-11',
+    label: 'Logo officiel : audit complet — ajouté sur page client "Rapport signé" + Sign emails + fix refs logo-lagence.png cassées',
+    features: [
+      'PAGE CLIENT — CenteredCard (page "Rapport signé !" / "Invalide" / "Expiré" / "Annulé" / "Déjà signé") affiche désormais le LogoLAgence en haut, comme côté candidat. Cohérence visuelle complète.',
+      'SIGN EMAILS — Module Sign (différent de Rapports) a ses propres templates emails dans lib/sign/send-email.ts. Le span texte "L-AGENCE" en Georgia a été remplacé par <img> du PNG officiel + wrapper card blanche, même pattern que Rapports.',
+      'FIX REFS LOGO CASSÉES — Le fichier public/logo-lagence.png a été renommé en logo-agence-officiel.png en v2.4.4. Mais 2 routes pdf-lib référençaient encore l\'ancien nom et échouaient silencieusement (catch sans log) : lib/cv-generator.ts (génération CV PDF) + app/(dashboard)/api/rapport-heures/route.ts (rapport heures legacy). Les PDFs étaient générés SANS logo depuis 24h. Corrigé.',
+      'TRANSPARENCE — Le PNG officiel a un fond blanc opaque (pas vraie alpha). Sur les pages web, mix-blend-mode:multiply CSS le masque. Dans les emails (mix-blend-mode non supporté), wrapper avec background:#fff explicite. Dans les PDFs pdf-lib, le fond blanc s\'imprime tel quel (acceptable sur fond blanc de page). Pour une vraie transparence, regénérer le PNG avec un canal alpha — pas critique maintenant.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.5.1 — Fixes UX client + crash "Modifier données" (Rules of Hooks) + logo emails
   // ─────────────────────────────────────────────────────────────────────
