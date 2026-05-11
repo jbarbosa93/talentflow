@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.15'
+export const APP_VERSION = '2.6.16'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.16 — Libellé bouton "Uniformiser" : clarifie "N autres champs"
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.16',
+    date: '2026-05-11',
+    label: 'Libellé bouton plus clair ("N autres champs")',
+    features: [
+      'CLARIFICATION LIBELLÉ — Le bouton affichait "Uniformiser les 5 similaires" alors qu\'il y a 6 champs au total. Le 5 = les autres champs (le champ sélectionné = la référence, donc non compté). Renommé en "Uniformiser N autres champs (taille + ligne)" pour éviter la confusion. Tooltip ajoute "(ce champ-ci sert de référence)".',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.15 — Matching "similaires" ignore les noms de jours (Lun/Mar/...)
   // ─────────────────────────────────────────────────────────────────────

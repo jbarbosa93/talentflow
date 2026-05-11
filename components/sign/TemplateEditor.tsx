@@ -1805,9 +1805,9 @@ function SelectedFieldsPanel({
                 }}
                 className="neo-btn-ghost neo-btn-sm"
                 style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                title={`Applique aux ${similarCount} champ${similarCount > 1 ? 's' : ''} :\n${previewNames}${similarCount > 8 ? `\n... +${similarCount - 8}` : ''}\n\n• même largeur\n• même hauteur\n• même y (alignés sur la même ligne)\nLe x de chaque champ est préservé.`}
+                title={`Applique aux ${similarCount} autre${similarCount > 1 ? 's' : ''} champ${similarCount > 1 ? 's' : ''} (ce champ-ci sert de référence) :\n${previewNames}${similarCount > 8 ? `\n... +${similarCount - 8}` : ''}\n\n• même largeur\n• même hauteur\n• même y (alignés sur la même ligne)\nLe x de chaque champ est préservé.`}
               >
-                📏 Uniformiser les {similarCount} similaires (taille + ligne)
+                📏 Uniformiser {similarCount} autre{similarCount > 1 ? 's' : ''} champ{similarCount > 1 ? 's' : ''} (taille + ligne)
               </button>
             )
           })()}
