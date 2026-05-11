@@ -427,16 +427,21 @@ export default function TemplateEditor({
     return count
   }
 
-  // v2.6.13 — Helper "noms d'un field pour matching" : retourne tooltip + label trim+lower,
-  // dédupliqués. Permet matching tolérant entre fields qui ont tooltip différent mais label identique
-  // (ou l'inverse).
+  // v2.6.13 / v2.6.15 — Helper "noms d'un field pour matching" : tooltip + label trim+lower,
+  // dédupliqués, PLUS leur variante sans les noms de jours (Lundi/Mardi/...) → permet de
+  // matcher "Heures normales Lundi" avec "Heures normales Samedi" sans config supplémentaire.
   function fieldNameKeys(f: SignField): string[] {
+    const DAYS_RE = /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/gi
     const t = (f.tooltip || '').trim().toLowerCase()
     const l = (f.label || '').trim().toLowerCase()
-    const out: string[] = []
-    if (t && t !== '0') out.push(t)  // exclut les "0" placeholder DocuSign
-    if (l && l !== t && l !== '0') out.push(l)
-    return out
+    const set = new Set<string>()
+    for (const raw of [t, l]) {
+      if (!raw || raw === '0') continue
+      set.add(raw)
+      const stripped = raw.replace(DAYS_RE, '').replace(/\s+/g, ' ').trim()
+      if (stripped && stripped !== raw) set.add(stripped)
+    }
+    return Array.from(set)
   }
 
   // Patche tous les champs d'un groupe (pour propager nom/règle/min/max)
@@ -1760,16 +1765,21 @@ function SelectedFieldsPanel({
             onPatch={patch => onPatch(f.id, patch)}
           />
 
-          {/* v2.6.10 / v2.6.13 — Apply size to similar (uniformiser tous les fields portant le même nom)
-              Matching tolérant : tooltip OR label match (exclut placeholder "0"), même type requis. */}
+          {/* v2.6.10 / v2.6.13 / v2.6.15 — Apply size to similar (uniformiser tous les fields portant le même nom)
+              Matching tolérant : tooltip OR label match (exclut placeholder "0" + ignore noms de jours), même type requis. */}
           {(() => {
             const fieldKeys = (ff: SignField): string[] => {
+              const DAYS_RE = /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/gi
               const t = (ff.tooltip || '').trim().toLowerCase()
               const l = (ff.label || '').trim().toLowerCase()
-              const out: string[] = []
-              if (t && t !== '0') out.push(t)
-              if (l && l !== t && l !== '0') out.push(l)
-              return out
+              const set = new Set<string>()
+              for (const raw of [t, l]) {
+                if (!raw || raw === '0') continue
+                set.add(raw)
+                const stripped = raw.replace(DAYS_RE, '').replace(/\s+/g, ' ').trim()
+                if (stripped && stripped !== raw) set.add(stripped)
+              }
+              return Array.from(set)
             }
             const srcKeys = fieldKeys(f)
             if (srcKeys.length === 0) return null

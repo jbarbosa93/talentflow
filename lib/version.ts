@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.14'
+export const APP_VERSION = '2.6.15'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.15 — Matching "similaires" ignore les noms de jours (Lun/Mar/...)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.15',
+    date: '2026-05-11',
+    label: 'Uniformiser similaires : match aussi sans nom de jour',
+    features: [
+      'MATCHING ENCORE PLUS TOLÉRANT — Les noms de jours (Lundi, Mardi, ..., Dimanche) sont désormais retirés du nom du champ lors de la comparaison. Conséquence : "Heures normales Lundi" matche "Heures normales Samedi" (et tous les autres jours) automatiquement, même si l\'admin a renommé un seul champ avec un suffixe différent.',
+      'Sécurité préservée : type identique requis, placeholder "0" exclu. Le tooltip diagnostique du bouton affiche toujours la liste des champs trouvés pour vérification.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.14 — Auto-fill semaine pour champs date avec format WW
   // ─────────────────────────────────────────────────────────────────────
