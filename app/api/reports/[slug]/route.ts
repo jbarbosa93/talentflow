@@ -97,6 +97,9 @@ export async function GET(
       status: s.status,
       candidate_signed_at: s.candidate_signed_at,
       client_signed_at: s.client_signed_at,
+      // v2.4.2 — Permet à la page candidat de retrouver l'entreprise lors de
+      // la reprise d'un brouillon ou pour l'affichage du nom dans MissionList.
+      report_link_client_id: (s as any).report_link_client_id ?? null,
       // On ne renvoie PAS field_values ici (lourd + peut-être confidentiel client_*)
       // — la page candidat fetch /api/reports/[slug]/draft?week=... pour reprendre.
     })),

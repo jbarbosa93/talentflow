@@ -1,17 +1,63 @@
-// TalentFlow Rapports — Bouton fixe "Contacter L-Agence" + modal bottom sheet
-// v2.4.0 — Phase 1 mobile-first
+// TalentFlow Rapports — Bouton "Contacter L-Agence" + modal bottom sheet
+// v2.4.0 — Phase 1 mobile-first / v2.4.2 — variant compact (header form)
 'use client'
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import Image from 'next/image'
+import LogoLAgence from './LogoLAgence'
 import { MessageCircle, Phone, X as XIcon, Building2 } from 'lucide-react'
 import { LAGENCE_CONTACT, waMeUrl, telUrl } from '@/lib/lagence-contact'
 
-export default function ContactAgenceButton() {
+interface Props {
+  /** v2.4.2 — 'floating' (défaut) : pill flottant en bas à droite (landing).
+   *  'compact' : bouton icône-only 36×36 destiné au header form. */
+  variant?: 'floating' | 'compact'
+}
+
+export default function ContactAgenceButton({ variant = 'floating' }: Props) {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
+
+  const compactBtnStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    width: 'auto',
+    minWidth: 36,
+    height: 36,
+    padding: '0 12px',
+    background: '#EAB308',
+    color: '#1C1A14',
+    border: '1px solid #1C1A14',
+    borderRadius: 999,
+    fontSize: 11.5,
+    fontWeight: 700,
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+    flexShrink: 0,
+  }
+
+  const floatingBtnStyle: React.CSSProperties = {
+    position: 'fixed',
+    bottom: 16,
+    right: 16,
+    zIndex: 90,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '12px 18px',
+    background: '#EAB308',
+    color: '#1C1A14',
+    border: 'none',
+    borderRadius: 999,
+    fontSize: 13,
+    fontWeight: 700,
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+    boxShadow: '0 8px 24px rgba(28,26,20,0.18)',
+  }
 
   return (
     <>
@@ -19,28 +65,11 @@ export default function ContactAgenceButton() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Contacter L-Agence"
-        style={{
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          zIndex: 90,
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '12px 18px',
-          background: '#EAB308',
-          color: '#1C1A14',
-          border: 'none',
-          borderRadius: 999,
-          fontSize: 13,
-          fontWeight: 700,
-          fontFamily: 'inherit',
-          cursor: 'pointer',
-          boxShadow: '0 8px 24px rgba(28,26,20,0.18)',
-        }}
+        title="Contacter L-Agence"
+        style={variant === 'compact' ? compactBtnStyle : floatingBtnStyle}
       >
-        <Building2 size={16} />
-        Contacter L-Agence
+        <Building2 size={variant === 'compact' ? 14 : 16} />
+        {variant === 'compact' ? <span>Aide</span> : 'Contacter L-Agence'}
       </button>
 
       {mounted && open && createPortal(
@@ -84,13 +113,7 @@ export default function ContactAgenceButton() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
               <div>
-                <Image
-                  src="/logo-agence.png"
-                  alt="L-Agence"
-                  width={96}
-                  height={32}
-                  style={{ height: 32, width: 'auto', objectFit: 'contain' }}
-                />
+                <LogoLAgence height={34} color="dark" />
                 <h2 style={{
                   fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
                   fontSize: 22,

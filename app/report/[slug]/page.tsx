@@ -24,8 +24,11 @@ import type { WizardStep } from '@/lib/sign/wizard-builder'
 import type { ReportSubmissionStatus, ReportLinkClient } from '@/lib/report/types'
 import CandidatWelcomeHeader from '@/components/report/CandidatWelcomeHeader'
 import ClientSelector from '@/components/report/ClientSelector'
-import MissionList from '@/components/report/MissionList'
+import MissionList, { type MissionItem } from '@/components/report/MissionList'
+import HistoryAccordion from '@/components/report/HistoryAccordion'
+import RecapPeriode from '@/components/report/RecapPeriode'
 import ContactAgenceButton from '@/components/report/ContactAgenceButton'
+import SubmissionViewerModal from '@/components/report/SubmissionViewerModal'
 import { toWhatsAppSafe } from '@/lib/report/text-format'
 import { waMeUrl } from '@/lib/lagence-contact'
 import {
@@ -81,6 +84,14 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   const [phase, setPhase] = useState<'landing' | 'select_client' | 'form'>('landing')
   const [notesCandidat, setNotesCandidat] = useState<string>('')
   const [sendingWa, setSendingWa] = useState(false)
+  // v2.4.1 — Historique + récap (landing)
+  const [showFullHistory, setShowFullHistory] = useState(false)
+  const [showRecap, setShowRecap] = useState(false)
+  // v2.4.2 — Modal viewer rapport complété (tap sur card "Validé")
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const [viewerSubmission, setViewerSubmission] = useState<{
+    id: string; week_start: string; week_end: string;
+  } | null>(null)
 
   const [weekStart, setWeekStart] = useState<string>(() => isoDate(getCurrentWeekStart()))
   const [values, setValues] = useState<Record<string, unknown>>({})
@@ -486,13 +497,37 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
 
   // v2.4.0 — Données pour landing
   const candidatePrenomLanding = data.candidat?.prenom || ''
-  const recentMissions = (data.submissions || []).slice(0, 5).map(s => ({
-    id: s.id,
-    week_start: s.week_start,
-    week_end: s.week_end,
-    status: s.status,
-    client_name: data.link?.client_name || null,
-  }))
+  const allMissions: MissionItem[] = (data.submissions || []).map(s => {
+    const clientId = (s as any).report_link_client_id || null
+    const resolvedClient = clientId ? clients.find(c => c.id === clientId) : null
+    return {
+      id: s.id,
+      week_start: s.week_start,
+      week_end: s.week_end,
+      status: s.status,
+      client_name: resolvedClient?.client_name || data.link?.client_name || null,
+      report_link_client_id: clientId,
+    }
+  })
+  const recentMissions = allMissions.slice(0, 3)
+  const hasMoreHistory = allMissions.length > 3
+
+  // v2.4.2 — Tap sur une mission : draft = reprendre, completed = ouvrir viewer
+  const handleSelectMission = (m: MissionItem) => {
+    if (m.status === 'draft' || m.status === 'cancelled') {
+      // Reprendre brouillon : restaure week + entreprise et passe en form
+      const targetClient = m.report_link_client_id
+        ? clients.find(c => c.id === m.report_link_client_id) || null
+        : (clients.length === 1 ? clients[0] : null)
+      setSelectedClient(targetClient)
+      setWeekStart(m.week_start)
+      setPhase('form')
+      return
+    }
+    // Complété, signé candidat ou client → ouvre le viewer modal
+    setViewerSubmission({ id: m.id, week_start: m.week_start, week_end: m.week_end })
+    setViewerOpen(true)
+  }
 
   // v2.4.0 — Page accueil (landing) mobile-first
   if (phase === 'landing') {
@@ -541,8 +576,81 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             Mes derniers rapports
           </div>
         </div>
-        <MissionList items={recentMissions} emptyText="Aucun rapport pour le moment. Commencez par créer le premier !" />
+        <MissionList items={recentMissions} onSelect={handleSelectMission} emptyText="Aucun rapport pour le moment. Commencez par créer le premier !" />
+
+        {/* v2.4.1 — Bouton "Voir tout l'historique" (accordion expand) */}
+        {hasMoreHistory && (
+          <div style={{ padding: '12px 16px 0' }}>
+            <button
+              type="button"
+              onClick={() => setShowFullHistory(v => !v)}
+              style={{
+                width: '100%',
+                minHeight: 48,
+                padding: '10px 14px',
+                background: 'transparent',
+                color: '#1C1A14',
+                border: '1px solid #E5E7EB',
+                borderRadius: 12,
+                fontSize: 13.5, fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              {showFullHistory ? 'Masquer l\'historique' : `Voir tout l\'historique (${allMissions.length})`}
+              <span style={{ fontSize: 12 }}>{showFullHistory ? '↑' : '→'}</span>
+            </button>
+          </div>
+        )}
+        {showFullHistory && (
+          <div style={{ marginTop: 14 }}>
+            <HistoryAccordion items={allMissions} defaultOpenIndex={0} onSelect={handleSelectMission} />
+          </div>
+        )}
+
+        {/* v2.4.1 — Section Récapitulatif (collapsible) */}
+        {allMissions.length > 0 && (
+          <div style={{ padding: '18px 16px 0' }}>
+            <button
+              type="button"
+              onClick={() => setShowRecap(v => !v)}
+              style={{
+                width: '100%',
+                minHeight: 48,
+                padding: '10px 14px',
+                background: '#1C1A14',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 12,
+                fontSize: 13.5, fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              📊 {showRecap ? 'Masquer le récapitulatif' : 'Récapitulatif par période'}
+            </button>
+            {showRecap && (
+              <div style={{ marginTop: 14 }}>
+                <RecapPeriode slug={slug} scope="candidate" />
+              </div>
+            )}
+          </div>
+        )}
+
         <ContactAgenceButton />
+
+        {/* v2.4.2 — Modal viewer rapport complété (tap sur card "Validé") */}
+        {viewerSubmission && (
+          <SubmissionViewerModal
+            open={viewerOpen}
+            onClose={() => setViewerOpen(false)}
+            pdfUrl={`/api/reports/${slug}/submissions/${viewerSubmission.id}/download`}
+            title={`Rapport ${[data.candidat?.prenom, data.candidat?.nom].filter(Boolean).join(' ') || ''}`.trim() || 'Rapport'}
+            subtitle={`Semaine du ${viewerSubmission.week_start} au ${viewerSubmission.week_end}`}
+          />
+        )}
       </div>
     )
   }
@@ -738,6 +846,9 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             ⚠️ Champs requis manquants
           </span>
         )}
+
+        {/* v2.4.2 — Bouton Contacter L-Agence COMPACT en haut à droite du header */}
+        <ContactAgenceButton variant="compact" />
       </header>
 
       {/* Mobile : WeekSelector sous le header */}
@@ -961,9 +1072,9 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         )}
       </main>
 
-      {/* v2.4.0 — Panneau finalisation : notes + 2 boutons (Email + WhatsApp) + warnings.
-          Mobile : sticky bottom (large boutons pouce-friendly).
-          Desktop : sticky bottom aussi (les 2 boutons + textarea note ne tiennent pas en header compact). */}
+      {/* v2.4.2 — Panneau finalisation SIMPLIFIÉ : note + 1 seul bouton "Confirmer et envoyer".
+          Les 2 boutons WhatsApp / Email + bandeaux info/alerte sont déplacés DANS le dialog
+          SendChannelDialog ouvert au clic — affichés UNIQUEMENT après signature. */}
       {!isLockedWeek && !submitted && (
         <div style={{
           flexShrink: 0,
@@ -1025,83 +1136,48 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             </div>
           )}
 
-          {/* 2 boutons côte à côte */}
-          <div style={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            gap: 8,
-          }}>
-            <button
-              type="button"
-              onClick={handleSubmitWhatsApp}
-              disabled={sendingWa || submitting || !canFinalize || !selectedClient?.client_phone}
-              title={!selectedClient?.client_phone ? 'Numéro WhatsApp non configuré' : 'Ouvrir WhatsApp avec votre responsable'}
-              style={{
-                flex: 1,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                padding: '12px 18px',
-                fontSize: 14, fontWeight: 700,
-                border: '1px solid #128C7E', borderRadius: 10,
-                background: selectedClient?.client_phone ? '#25D366' : '#9CA3AF',
-                color: '#fff',
-                cursor: (sendingWa || !canFinalize || !selectedClient?.client_phone) ? 'not-allowed' : 'pointer',
-                opacity: (sendingWa || !canFinalize || !selectedClient?.client_phone) ? 0.55 : 1,
-                fontFamily: 'inherit',
-                minHeight: 48,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {sendingWa ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
-              {selectedClient?.client_phone ? 'Envoyer par WhatsApp à mon responsable' : 'Numéro WhatsApp non disponible'}
-            </button>
-            <button
-              type="button"
-              onClick={handleClickSubmit}
-              disabled={submitting || sendingWa || !canFinalize}
-              style={isMobile ? primaryBtnStyle(submitting || !canFinalize) : desktopPrimaryBtn(submitting || !canFinalize)}
-            >
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              Envoyer au client
-              {isMobile && <ArrowRight size={14} style={{ marginLeft: 'auto' }} />}
-            </button>
-          </div>
-
-          {/* Note info amber + alerte rouge */}
-          <div style={{
-            padding: '8px 10px',
-            background: '#FEF3C7',
-            border: '1px solid #FDE68A',
-            borderRadius: 8,
-            fontSize: 11.5, color: '#92400E', lineHeight: 1.5,
-          }}>
-            Si vous n&apos;avez pas le numéro WhatsApp de votre responsable, cliquez sur <strong>« Envoyer au client »</strong> pour lui envoyer le lien de validation par email.
-          </div>
-          <div style={{
-            padding: '8px 10px',
-            background: '#FEE2E2',
-            border: '1px solid #FCA5A5',
-            borderRadius: 8,
-            fontSize: 11.5, color: '#991B1B', lineHeight: 1.5,
-          }}>
-            ⚠️ <strong>N&apos;envoyez PAS ce lien à L-Agence SA.</strong> Envoyez-le uniquement à votre responsable direct.
-          </div>
+          {/* Un seul bouton "Confirmer et envoyer" — ouvre SendChannelDialog */}
+          <button
+            type="button"
+            onClick={handleClickSubmit}
+            disabled={submitting || sendingWa || !canFinalize}
+            style={{
+              width: '100%',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '14px 18px',
+              fontSize: 15, fontWeight: 700,
+              border: '1px solid #1C1A14', borderRadius: 10,
+              background: '#EAB308', color: '#1C1A14',
+              cursor: (submitting || sendingWa || !canFinalize) ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit',
+              opacity: (submitting || sendingWa || !canFinalize) ? 0.5 : 1,
+              minHeight: 52,
+            }}
+          >
+            {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+            Confirmer et envoyer
+          </button>
         </div>
       )}
 
       {/* v2.3.3 Bug 1 — Message post-envoi géré par early return (CenteredCard) au-dessus */}
 
-      {/* v2.3.x Bug 2 — Dialog de confirmation après clic bouton */}
+      {/* v2.4.2 — Dialog choix canal (WhatsApp ou Email auto) après clic "Confirmer et envoyer" */}
       {confirmOpen && (
-        <ConfirmDialog
+        <SendChannelDialog
           weekLabel={weekDates.label}
           clientName={selectedClient?.client_name || data.link.client_name || ''}
+          hasWhatsApp={!!selectedClient?.client_phone}
+          sendingWa={sendingWa}
+          submitting={submitting}
           onCancel={() => setConfirmOpen(false)}
-          onConfirm={handleSubmit}
+          onSendEmail={handleSubmit}
+          onSendWhatsApp={() => { setConfirmOpen(false); handleSubmitWhatsApp() }}
         />
       )}
 
-      {/* v2.4.0 — Bouton fixe Contacter L-Agence */}
-      <ContactAgenceButton />
+      {/* v2.4.2 — Le bouton "Contacter L-Agence" est déjà dans le header (variant compact).
+          Pas de floating bottom-right sur la page form pour libérer la zone du clavier mobile. */}
     </div>
   )
 }
@@ -1132,15 +1208,24 @@ function bannerBtnStyle(color: string): React.CSSProperties {
   }
 }
 
-// ─── Dialog de confirmation envoi (Bug 2) ─────────────────────────────
+// ─── v2.4.2 — Dialog choix canal (WhatsApp ou Email auto) ─────────────
+// Affiché APRÈS signature au clic sur "Confirmer et envoyer". Contient :
+//  - Header avec semaine + entreprise
+//  - 2 boutons (WhatsApp + Email auto). WhatsApp grisé si pas de phone.
+//  - Bandeau amber info + bandeau rouge alerte "Pas à L-Agence"
 
-function ConfirmDialog({
-  weekLabel, clientName, onCancel, onConfirm,
+function SendChannelDialog({
+  weekLabel, clientName, hasWhatsApp, sendingWa, submitting,
+  onCancel, onSendEmail, onSendWhatsApp,
 }: {
   weekLabel: string
   clientName: string
+  hasWhatsApp: boolean
+  sendingWa: boolean
+  submitting: boolean
   onCancel: () => void
-  onConfirm: () => void
+  onSendEmail: () => void
+  onSendWhatsApp: () => void
 }) {
   return (
     <div
@@ -1158,65 +1243,121 @@ function ConfirmDialog({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          maxWidth: 460, width: '100%',
+          maxWidth: 480, width: '100%',
+          maxHeight: '92vh', overflow: 'auto',
           background: '#fff',
           borderRadius: 16, border: '1px solid #E5E7EB',
           boxShadow: '0 24px 64px rgba(0,0,0,0.30)',
-          padding: '28px 26px',
+          padding: '24px 22px',
+          display: 'flex', flexDirection: 'column', gap: 12,
         }}
       >
         <h2 style={{
-          margin: 0, marginBottom: 8,
+          margin: 0,
           fontFamily: 'Georgia, "Times New Roman", serif',
           fontSize: 22, fontWeight: 400, color: '#1C1A14',
           letterSpacing: '-0.3px',
         }}>
-          Confirmer l&apos;envoi&nbsp;?
+          Comment voulez-vous envoyer&nbsp;?
         </h2>
-        <p style={{ fontSize: 13.5, color: '#374151', lineHeight: 1.55, margin: '0 0 16px' }}>
-          Le rapport pour la <strong>{weekLabel}</strong> sera envoyé{clientName ? <> à <strong>{clientName}</strong></> : null} pour validation et signature.
+        <p style={{ fontSize: 13.5, color: '#374151', lineHeight: 1.55, margin: 0 }}>
+          Rapport <strong>{weekLabel}</strong>{clientName ? <> destiné à <strong>{clientName}</strong></> : null}.
         </p>
         <div style={{
-          padding: '10px 12px',
-          background: '#FAFAF7',
+          padding: '8px 12px',
+          background: '#F0FDF4',
+          border: '1px solid #BBF7D0',
           borderRadius: 10,
-          fontSize: 12.5, color: '#1C1A14',
-          marginBottom: 18,
+          fontSize: 12.5, color: '#065F46',
+          display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600,
         }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#059669', fontWeight: 600 }}>
-            <CheckCircle2 size={13} /> Rapport signé
-          </div>
+          <CheckCircle2 size={14} /> Rapport signé — choisissez le canal d&apos;envoi
         </div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{
-              padding: '10px 16px',
-              fontSize: 13, fontWeight: 600,
-              border: '1px solid #E5E7EB', borderRadius: 10,
-              background: '#fff', color: '#1C1A14',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            style={{
-              padding: '10px 18px',
-              fontSize: 13, fontWeight: 700,
-              border: '1px solid #1C1A14', borderRadius: 10,
-              background: '#EAB308', color: '#1C1A14',
-              cursor: 'pointer', fontFamily: 'inherit',
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-            }}
-          >
-            <CheckCircle2 size={14} />
-            Confirmer et envoyer
-          </button>
+
+        {/* Bouton 1 — WhatsApp */}
+        <button
+          type="button"
+          onClick={onSendWhatsApp}
+          disabled={!hasWhatsApp || sendingWa || submitting}
+          title={!hasWhatsApp ? 'Numéro WhatsApp du responsable non configuré' : 'Ouvrir WhatsApp avec votre responsable'}
+          style={{
+            width: '100%',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            padding: '14px 16px',
+            fontSize: 14.5, fontWeight: 700,
+            border: '1px solid #128C7E', borderRadius: 12,
+            background: hasWhatsApp ? '#25D366' : '#9CA3AF',
+            color: '#fff',
+            cursor: (!hasWhatsApp || sendingWa || submitting) ? 'not-allowed' : 'pointer',
+            opacity: (!hasWhatsApp || sendingWa || submitting) ? 0.55 : 1,
+            fontFamily: 'inherit',
+            minHeight: 52,
+          }}
+        >
+          {sendingWa ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
+          {hasWhatsApp ? 'Envoyer par WhatsApp à mon responsable' : 'Numéro WhatsApp non disponible'}
+        </button>
+
+        {/* Bouton 2 — Email auto */}
+        <button
+          type="button"
+          onClick={onSendEmail}
+          disabled={submitting || sendingWa}
+          style={{
+            width: '100%',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            padding: '14px 16px',
+            fontSize: 14.5, fontWeight: 700,
+            border: '1px solid #1C1A14', borderRadius: 12,
+            background: '#EAB308', color: '#1C1A14',
+            cursor: (submitting || sendingWa) ? 'not-allowed' : 'pointer',
+            opacity: (submitting || sendingWa) ? 0.55 : 1,
+            fontFamily: 'inherit',
+            minHeight: 52,
+          }}
+        >
+          {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+          Envoyer au client automatiquement
+        </button>
+
+        {/* Bandeau info amber */}
+        <div style={{
+          padding: '10px 12px',
+          background: '#FEF3C7',
+          border: '1px solid #FDE68A',
+          borderRadius: 10,
+          fontSize: 12, color: '#92400E', lineHeight: 1.5,
+        }}>
+          Si vous n&apos;avez pas le numéro WhatsApp de votre responsable, utilisez <strong>« Envoyer au client automatiquement »</strong> pour lui envoyer le lien par email.
         </div>
+
+        {/* Bandeau alerte rouge */}
+        <div style={{
+          padding: '10px 12px',
+          background: '#FEE2E2',
+          border: '1px solid #FCA5A5',
+          borderRadius: 10,
+          fontSize: 12, color: '#991B1B', lineHeight: 1.5,
+        }}>
+          ⚠️ <strong>N&apos;envoyez PAS ce lien à L-Agence SA.</strong> Envoyez-le uniquement à votre responsable direct.
+        </div>
+
+        {/* Annuler */}
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={submitting || sendingWa}
+          style={{
+            marginTop: 4,
+            padding: '10px 16px',
+            fontSize: 13, fontWeight: 600,
+            border: '1px solid #E5E7EB', borderRadius: 10,
+            background: '#fff', color: '#6B7280',
+            cursor: (submitting || sendingWa) ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          Annuler
+        </button>
       </div>
     </div>
   )

@@ -8,7 +8,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
+import LogoLAgence from './LogoLAgence'
 import { getWelcomeGreeting, weatherLabel } from '@/lib/report/welcome'
 
 interface Props {
@@ -55,14 +55,7 @@ export default function CandidatWelcomeHeader({ prenom }: Props) {
       background: 'transparent',
     }}>
       <div style={{ flexShrink: 0 }}>
-        <Image
-          src="/logo-agence.png"
-          alt="L-Agence"
-          width={108}
-          height={36}
-          priority
-          style={{ height: 36, width: 'auto', objectFit: 'contain' }}
-        />
+        <LogoLAgence height={38} color="dark" />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <h1 style={{

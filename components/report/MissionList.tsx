@@ -17,6 +17,9 @@ export interface MissionItem {
   status: ReportSubmission['status']
   client_name?: string | null
   client_contact_name?: string | null
+  /** v2.4.2 — Permet à la page candidat de retrouver l'entreprise destinataire
+   *  lors de la reprise d'un brouillon. NULL = legacy ou pas d'entreprise. */
+  report_link_client_id?: string | null
 }
 
 interface Props {

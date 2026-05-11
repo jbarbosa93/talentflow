@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.4.0'
+export const APP_VERSION = '2.4.2'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,36 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.4.2 — Patch UX Rapports candidat (cards cliquables + viewer + share + flow simplifié + logo)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.4.2',
+    date: '2026-05-11',
+    label: 'Patch UX candidat — cards cliquables (brouillon→reprendre / validé→viewer+share) + bouton Aide compact + logo transparent + flow finalisation simplifié',
+    features: [
+      'CARDS HISTORIQUE CLIQUABLES — Sur la landing candidat, les cards "Mes derniers rapports" (et l\'accordion historique complet) deviennent interactives. (a) Statut "Brouillon"/"Annulé" → tap reprend le rapport : restore week_start + entreprise destinataire (report_link_client_id propagé via /api/reports/[slug] route publique) et bascule en phase form. (b) Statut "Validé"/"Signé client"/"En attente" → tap ouvre SubmissionViewerModal (PDF iframe full-screen + bouton Télécharger + bouton Partager via Web Share API native iOS/Android — picker système WhatsApp/SMS/Mail avec fallback clipboard).',
+      'BOUTON CONTACTER L-AGENCE — Variant "compact" ajouté (pill jaune small height 36px avec icône + label "Aide"). Sur la phase form du candidat, le bouton est désormais dans le header haut-droite (à côté du retour) au lieu du floating bottom-right qui gênait le clavier mobile. La landing garde le bouton flottant gros. La page submitted aussi (CenteredCard simple).',
+      'LOGO L-AGENCE — Remplacement par composant inline LogoLAgence.tsx (SVG pur, fond transparent, texte sérif foncé). Plus de rectangle jaune (PNG/SVG précédents étaient verrouillés à un fond jaune). Marche sur n\'importe quel fond clair/foncé. Utilisé dans CandidatWelcomeHeader (top gauche landing) + ContactAgenceButton modal (centré haut).',
+      'FLOW FINALISATION SIMPLIFIÉ — Le footer du formulaire est nettoyé : 1 seul bouton "Confirmer et envoyer" (au lieu de 2 boutons + 2 bandeaux info/alerte qui encombraient toute la fin de page). Les 2 boutons (WhatsApp + Email auto) et les bandeaux info amber + alerte rouge "N\'envoyez PAS à L-Agence" sont déplacés DANS le nouveau SendChannelDialog (ancien ConfirmDialog enrichi) — affichés UNIQUEMENT après que l\'utilisateur ait cliqué "Confirmer et envoyer". UX plus claire : on remplit → on confirme → on choisit le canal.',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.4.1 — Phase 2 Rapports v2 (Historique complet + Récapitulatif période + PDF)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.4.1',
+    date: '2026-05-11',
+    label: 'Rapports v2 Phase 2 — Historique complet candidat + Récapitulatif par période + Export PDF',
+    features: [
+      'HISTORIQUE COMPLET — Nouveau bouton "Voir tout l\'historique (N)" sur la landing candidat. Au clic, ouvre un accordion expand-in-place (pas de nouvelle route) regroupant TOUS les rapports par mois (Mai 2026, Avril 2026, …) avec nb de rapports par groupe. Réutilise les MissionList cards existantes. Mobile-first.',
+      'RÉCAPITULATIF PAR PÉRIODE — Nouveau composant RecapPeriode.tsx (partagé candidat + dashboard). Sélecteur de période (from/to date pickers), bouton "Générer". Calcul des totaux par mission (entreprise) + total global. Détection automatique des champs par heuristique label : "Heures normales / Heures supplémentaires / Repas (checkbox) / Temps de déplacement" — exclut les fields "Total..." (formula) pour éviter le double-count. Marche immédiat sur le template L-Agence rapport_heures sans config admin.',
+      'EXPORT PDF — Bouton "Télécharger le récapitulatif PDF" qui ouvre /api/reports/[slug]/recap/pdf?from=…&to=… (A4 portrait, bandeau jaune L-Agence, nom candidat, période, cards par mission, total période, footer "Généré par TalentFlow"). pdf-lib + StandardFonts.Helvetica (asciiSafe normalise les accents).',
+      'ROUTES API — GET /api/reports/[slug]/recap (publique, slug suffit) avec params from / to / scope=candidate|dashboard. Scope candidate = statut "completed" uniquement, scope dashboard = completed + client_signed + candidate_signed. Retourne { byMission, total, count }.',
+      'DASHBOARD — Bouton "Récapitulatif période" ajouté à droite de "Historique des soumissions" dans /sign/rapports/[id]. Au clic, modal portalisé (createPortal + flex center + var(--card)) avec RecapPeriode scope=dashboard. Périmètre étendu : inclut les rapports en attente client (utile pour les estimations en cours de mois).',
+      'COMPOSANTS — lib/report/recap.ts (helpers détection catégorie + somme + groupBy mois + format heures décimales). HistoryAccordion.tsx (accordion mois avec chevron + count). RecapPeriode.tsx (sélecteur + résultat + PDF download). Période par défaut : 1er du mois en cours → aujourd\'hui. Auto-fetch au montage.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.4.0 — Phase 1 Rapports v2 (multi-entreprise + notes + landing mobile)
   // ─────────────────────────────────────────────────────────────────────

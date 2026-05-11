@@ -11,6 +11,9 @@ import {
 import { toast } from 'sonner'
 import SubmissionHistoryTable from '@/components/report/SubmissionHistoryTable'
 import LinkClientsSection from '@/components/report/LinkClientsSection'
+import RecapPeriode from '@/components/report/RecapPeriode'
+import { createPortal } from 'react-dom'
+import { BarChart3, X as XIcon } from 'lucide-react'
 import {
   REPORT_LINK_STATUS_LABELS, type ReportLink, type ReportSubmission,
 } from '@/lib/report/types'
@@ -25,6 +28,7 @@ export default function ReportLinkDetailPage({
   const [submissions, setSubmissions] = useState<ReportSubmission[]>([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [recapOpen, setRecapOpen] = useState(false)
 
   const fetchData = async () => {
     setLoading(true)
@@ -341,14 +345,100 @@ export default function ReportLinkDetailPage({
 
       {/* Historique */}
       <div style={{ marginTop: 24 }}>
-        <h2 style={{
-          fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-          color: 'var(--muted)', marginBottom: 10,
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: 10, gap: 8, flexWrap: 'wrap',
         }}>
-          Historique des soumissions
-        </h2>
+          <h2 style={{
+            fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+            color: 'var(--muted)', margin: 0,
+          }}>
+            Historique des soumissions
+          </h2>
+          <button
+            type="button"
+            onClick={() => setRecapOpen(true)}
+            className="neo-btn-ghost neo-btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <BarChart3 size={13} />
+            Récapitulatif période
+          </button>
+        </div>
         <SubmissionHistoryTable submissions={submissions} slug={link.slug} />
       </div>
+
+      {/* v2.4.1 — Modal récap dashboard (scope=dashboard : inclut candidate_signed) */}
+      {recapOpen && typeof window !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setRecapOpen(false)}
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(680px, 95vw)',
+              maxHeight: '88vh',
+              background: 'var(--card)',
+              borderRadius: 16,
+              border: '1px solid var(--border)',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.30)',
+              display: 'flex', flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '18px 22px 16px',
+              borderBottom: '1px solid var(--border)',
+              flexShrink: 0,
+            }}>
+              <div>
+                <div style={{
+                  fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+                  fontSize: 22, fontWeight: 400, color: 'var(--foreground)',
+                  letterSpacing: '-0.01em', lineHeight: 1.15,
+                }}>
+                  Récapitulatif période
+                </div>
+                <div style={{ marginTop: 3, fontSize: 12.5, color: 'var(--muted)' }}>
+                  Inclut rapports complétés ET en attente client
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRecapOpen(false)}
+                aria-label="Fermer"
+                style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--card)',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: 'var(--foreground)',
+                }}
+              >
+                <XIcon size={15} />
+              </button>
+            </div>
+            <div style={{
+              flex: 1, overflow: 'auto',
+              padding: '18px 22px 24px',
+            }}>
+              <RecapPeriode slug={link.slug} scope="dashboard" />
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }
