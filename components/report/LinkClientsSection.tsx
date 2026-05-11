@@ -101,27 +101,40 @@ export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
       toast.error('Nom de l\'entreprise requis')
       return
     }
+    // v2.4.7 — Capture du modal courant pour éviter les races avec setModal
+    const currentModal = modal
+    if (!currentModal) {
+      toast.error('Modal fermée prématurément')
+      return
+    }
     setBusy(true)
     try {
-      const isEdit = modal !== null && modal !== 'create'
-      const payload = {
+      const isEdit = currentModal !== 'create'
+      const editingId = isEdit ? currentModal.id : null
+      const payload: Record<string, unknown> = {
         client_name: form.client_name.trim(),
         client_contact_name: form.client_contact_name.trim() || null,
         client_email: form.client_email.trim().toLowerCase() || null,
       }
+      // display_order seulement en CRÉATION (route PATCH ne l'utilise pas)
+      if (!isEdit) payload.display_order = clients.length
+
       const url = isEdit
-        ? `/api/admin/reports/${linkId}/clients/${(modal as ReportLinkClient).id}`
+        ? `/api/admin/reports/${linkId}/clients/${editingId}`
         : `/api/admin/reports/${linkId}/clients`
       const r = await fetch(url, {
         method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payload, display_order: clients.length }),
+        body: JSON.stringify(payload),
       })
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Erreur enregistrement')
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        console.error('[LinkClientsSection] save error', { status: r.status, body: d })
+        throw new Error(d.error || `Erreur ${r.status}`)
+      }
       // Refresh
-      if (isEdit) {
-        setClients(prev => prev.map(c => c.id === (modal as ReportLinkClient).id ? d.client : c))
+      if (isEdit && editingId) {
+        setClients(prev => prev.map(c => c.id === editingId ? (d.client || c) : c))
       } else {
         setClients(prev => [...prev, d.client])
       }
@@ -129,7 +142,8 @@ export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
       setModal(null)
       setForm(EMPTY_FORM)
     } catch (e: any) {
-      toast.error(e.message || 'Erreur')
+      console.error('[LinkClientsSection] save exception', e)
+      toast.error(e?.message || 'Erreur enregistrement')
     } finally {
       setBusy(false)
     }

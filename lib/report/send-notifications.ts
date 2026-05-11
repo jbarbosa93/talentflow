@@ -73,7 +73,7 @@ function buildClientInviteHtml(p: {
 <body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
     <div style="text-align:center;margin-bottom:20px;">
-      <span style="font-family:Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.4px;color:#1C1A14;">L-AGENCE</span>
+      <img src="https://www.talent-flow.ch/logo-agence-officiel.png" alt="L-Agence" width="160" style="height:38px;width:auto;display:inline-block;border:0;" />
       <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Rapport hebdomadaire</div>
     </div>
     <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;box-shadow:0 4px 16px rgba(0,0,0,0.04);">
@@ -195,7 +195,7 @@ export async function sendCompletedEmailToAdmin(args: {
 <body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
     <div style="text-align:center;margin-bottom:20px;">
-      <span style="font-family:Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.4px;color:#1C1A14;">L-AGENCE</span>
+      <img src="https://www.talent-flow.ch/logo-agence-officiel.png" alt="L-Agence" width="160" style="height:38px;width:auto;display:inline-block;border:0;" />
       <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">TalentFlow Rapports</div>
     </div>
     <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;">
@@ -292,7 +292,7 @@ export async function sendCompletedEmailToCandidat(args: {
 <body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
     <div style="text-align:center;margin-bottom:20px;">
-      <span style="font-family:Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.4px;color:#1C1A14;">L-AGENCE</span>
+      <img src="https://www.talent-flow.ch/logo-agence-officiel.png" alt="L-Agence" width="160" style="height:38px;width:auto;display:inline-block;border:0;" />
       <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Rapport hebdomadaire</div>
     </div>
     <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;">
@@ -355,7 +355,7 @@ export async function sendCompletedEmailToClient(args: {
 <body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
     <div style="text-align:center;margin-bottom:20px;">
-      <span style="font-family:Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.4px;color:#1C1A14;">L-AGENCE</span>
+      <img src="https://www.talent-flow.ch/logo-agence-officiel.png" alt="L-Agence" width="160" style="height:38px;width:auto;display:inline-block;border:0;" />
       <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Rapport hebdomadaire</div>
     </div>
     <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;">

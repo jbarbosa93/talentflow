@@ -26,12 +26,16 @@ interface Ctx {
   params: Promise<{ slug: string; id: string }>
 }
 
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export async function GET(req: NextRequest, ctx: Ctx) {
   try {
     const { slug, id } = await ctx.params
     if (!slug || !id) {
       return NextResponse.json({ error: 'slug + id requis' }, { status: 400 })
     }
+    // v2.4.7 — Mode inline (preview iframe) vs attachment (download direct)
+    // ?inline=1 → Content-Disposition: inline (modal viewer)
+    // sinon → attachment (téléchargement direct)
+    const dispositionMode = new URL(req.url).searchParams.get('inline') === '1' ? 'inline' : 'attachment'
 
     const link = await getReportLinkBySlug(slug)
     if (!link) return NextResponse.json({ error: 'Lien introuvable' }, { status: 404 })
@@ -68,7 +72,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Content-Disposition': `${dispositionMode}; filename="${filename}"`,
           'Content-Length': String(buffer.length),
           'Cache-Control': 'private, no-cache, no-store',
         },

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.4.6'
+export const APP_VERSION = '2.4.7'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.4.7 — Sécurité données candidat + Logo emails + Fix Modifier + Récap conditionnel + Dédup brouillons
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.4.7',
+    date: '2026-05-11',
+    label: '9 corrections : email client masqué, "Client"→"Entreprise", logo emails+pages confirmation+page client, fix Modifier entreprise, récap conditionnel, viewer inline, dédup brouillons',
+    features: [
+      'PROTECTION DONNÉES — ConfirmDialog candidat ne révèle plus l\'email du client destinataire. Le candidat voit juste "Le rapport sera envoyé à Metabader SA pour validation et signature" + card verte "Rapport signé prêt à envoyer". L\'email reste géré côté serveur (envoi auto).',
+      'RENOMMAGE — Toutes les occurrences user-facing "Client" deviennent "Entreprise" côté candidat (page form, page submitted, bandeaux validé/en attente, toasts renvoyer). Le candidat voit "Validé par Metabader SA" / "En attente de signature de Metabader SA" / "Notification renvoyée à l\'entreprise".',
+      'LOGO PARTOUT — (a) CenteredCard (pages confirmation candidat : Merci/Lien invalide/expiré/etc) reçoit le LogoLAgence en haut. (b) Page client /report/client/[token] : LogoLAgence remplace l\'icône jaune ClipboardList + texte "L-AGENCE" approximatif. (c) 5 templates emails Resend (admin/client/candidat invite + completed) : `<img>` du PNG officiel hébergé sur https://www.talent-flow.ch/logo-agence-officiel.png (38px height).',
+      'PAGE CLIENT — Bouton "Valider et signer" devient juste "Valider" (la signature s\'opère en cliquant Valider). Confirm dialog reste "Valider et signer ce rapport ?" explicit pour user.',
+      'BOUTON MODIFIER ENTREPRISE — Fix payload PATCH : retrait du display_order superflu (la route PATCH ne l\'accepte pas et ça causait potentiellement un comportement erratique). Capture du modal state dans une const locale pour éviter les races avec setModal(null). Logs console explicites en cas d\'erreur serveur (status + body) pour debug facile.',
+      'BOUTON RÉCAPITULATIF — Affiché UNIQUEMENT si au moins 1 soumission est validée (status completed OU client_signed). Conditionné côté candidat (panneau récap collapsible) ET côté dashboard (bouton "Récapitulatif période" à droite de l\'historique). Évite l\'affichage de chiffres incomplets / biaisés.',
+      'MODAL VIEWER INLINE — Route GET /api/reports/[slug]/submissions/[id]/download accepte un query param ?inline=1 qui change le Content-Disposition de "attachment" à "inline". SubmissionViewerModal utilise ?inline=1 pour son iframe → aperçu PDF s\'affiche correctement (au lieu de déclencher le téléchargement direct). Bouton "Télécharger" garde le comportement attachment.',
+      'DÉDUPLICATION BROUILLONS — Filtre côté front dans la construction de allMissions : si une soumission non-draft existe pour une semaine donnée, les drafts orphelins (report_link_client_id=NULL, legacy avant migration v2.4.0) sur la même semaine sont MASQUÉS de "Mes derniers rapports". Évite l\'affichage "Brouillon + En attente" pour la même semaine. SQL one-shot : DELETE des drafts NULL orphelins quand non-draft existe pour la même (link, week).',
+      'COHÉRENCE UI — Bandeaux "Validé par X" / "En attente de signature de X" utilisent désormais selectedClient.client_name en priorité, fallback link.client_name (cas legacy).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.4.6 — Logo partout + dashboard nettoyé + footer mode document only
   // ─────────────────────────────────────────────────────────────────────

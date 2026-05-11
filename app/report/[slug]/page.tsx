@@ -342,7 +342,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   // ─── v2.3.x Bug 4 — Renvoyer la notif client (route /resend dédiée) ───
   const handleResendToClient = async () => {
     if (!submissionForWeek) return
-    if (!confirm('Renvoyer la notification au client ? Le lien de signature reste valide 7 jours.')) return
+    if (!confirm('Renvoyer la notification à l\'entreprise ? Le lien de signature reste valide 7 jours.')) return
     setResending(true)
     try {
       const r = await fetch(`/api/reports/${slug}/submissions/${submissionForWeek.id}/resend`, {
@@ -350,7 +350,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Erreur')
-      toast.success('Notification renvoyée au client')
+      toast.success('Notification renvoyée à l\'entreprise')
     } catch (e: any) {
       toast.error(e.message || 'Erreur renvoi')
     } finally {
@@ -426,7 +426,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         <CenteredCard>
           <div style={iconWrap('#D1FAE5', '#059669')}><CheckCircle2 size={28} /></div>
           <h1 style={titleStyle}>Merci pour votre rapport&nbsp;!</h1>
-          <p style={textStyle}>Il a été envoyé au client pour validation.</p>
+          <p style={textStyle}>Il a été envoyé à l&apos;entreprise pour validation.</p>
           <button
             type="button"
             onClick={() => {
@@ -455,18 +455,35 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
 
   // v2.4.0 — Données pour landing
   const candidatePrenomLanding = data.candidat?.prenom || ''
-  const allMissions: MissionItem[] = (data.submissions || []).map(s => {
-    const clientId = (s as any).report_link_client_id || null
-    const resolvedClient = clientId ? clients.find(c => c.id === clientId) : null
-    return {
-      id: s.id,
-      week_start: s.week_start,
-      week_end: s.week_end,
-      status: s.status,
-      client_name: resolvedClient?.client_name || data.link?.client_name || null,
-      report_link_client_id: clientId,
-    }
-  })
+  // v2.4.7 — Dédup : si une soumission non-draft existe pour (week, entreprise), masquer
+  // les drafts orphelins (legacy report_link_client_id=NULL) sur la même semaine. Évite
+  // l'affichage "Brouillon + En attente" pour la même semaine + même entreprise.
+  const rawSubmissions = data.submissions || []
+  const weeksWithFinal = new Set(
+    rawSubmissions
+      .filter(s => s.status !== 'draft' && s.status !== 'cancelled')
+      .map(s => s.week_start),
+  )
+  const allMissions: MissionItem[] = rawSubmissions
+    .filter(s => {
+      const clientId = (s as any).report_link_client_id || null
+      if (s.status !== 'draft') return true
+      // Draft NULL orphelin sur une semaine qui a déjà une soumission validée → hide
+      if (clientId === null && weeksWithFinal.has(s.week_start)) return false
+      return true
+    })
+    .map(s => {
+      const clientId = (s as any).report_link_client_id || null
+      const resolvedClient = clientId ? clients.find(c => c.id === clientId) : null
+      return {
+        id: s.id,
+        week_start: s.week_start,
+        week_end: s.week_end,
+        status: s.status,
+        client_name: resolvedClient?.client_name || data.link?.client_name || null,
+        report_link_client_id: clientId,
+      }
+    })
   const recentMissions = allMissions.slice(0, 3)
   const hasMoreHistory = allMissions.length > 3
 
@@ -567,8 +584,9 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           </div>
         )}
 
-        {/* v2.4.1 — Section Récapitulatif (collapsible) */}
-        {allMissions.length > 0 && (
+        {/* v2.4.1 — Section Récapitulatif (collapsible)
+            v2.4.7 — Affichée UNIQUEMENT si ≥ 1 rapport validé (status completed) — évite chiffres incomplets */}
+        {allMissions.some(m => m.status === 'completed' || m.status === 'client_signed') && (
           <div style={{ padding: '18px 16px 0' }}>
             <button
               type="button"
@@ -819,7 +837,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       {/* v2.3.x Bug 2c — Bandeau dynamique selon status submission */}
       {isLockedWeek && submissionForWeek && (() => {
         const st = submissionForWeek.status
-        const clientName = data.link.client_name || 'le client'
+        const clientName = selectedClient?.client_name || data.link.client_name || 'l\'entreprise'
         if (st === 'completed' || st === 'client_signed') {
           // Validé : vert + bouton télécharger
           return (
@@ -846,7 +864,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           )
         }
         if (st === 'candidate_signed') {
-          // En attente client : jaune + bouton renvoyer + bouton aperçu direct
+          // En attente entreprise : jaune + bouton renvoyer + bouton aperçu direct
           // v2.3.5 Bug 3a — window.open direct (plus fiable que blob fetch)
           return (
             <div style={bannerStyle('#FEF3C7', '#FDE68A', '#A16207')}>
@@ -1112,13 +1130,11 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
 
       {/* v2.3.3 Bug 1 — Message post-envoi géré par early return (CenteredCard) au-dessus */}
 
-      {/* v2.4.4 — Dialog confirmation simple. Le WhatsApp candidat a été retiré
-          (sécurité : le lien ne doit pas transiter par le candidat). */}
+      {/* v2.4.4 — Dialog confirmation simple. v2.4.7 — Email destinataire masqué (protection données) */}
       {confirmOpen && (
         <ConfirmDialog
           weekLabel={weekDates.label}
           clientName={selectedClient?.client_name || data.link.client_name || ''}
-          clientEmail={selectedClient?.client_email || null}
           submitting={submitting}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={handleSubmit}
@@ -1163,11 +1179,10 @@ function bannerBtnStyle(color: string): React.CSSProperties {
 // dans report_link_clients reçoit le lien automatiquement.
 
 function ConfirmDialog({
-  weekLabel, clientName, clientEmail, submitting, onCancel, onConfirm,
+  weekLabel, clientName, submitting, onCancel, onConfirm,
 }: {
   weekLabel: string
   clientName: string
-  clientEmail: string | null
   submitting: boolean
   onCancel: () => void
   onConfirm: () => void
@@ -1209,22 +1224,16 @@ function ConfirmDialog({
           Le rapport <strong>{weekLabel}</strong>{clientName ? <> sera envoyé à <strong>{clientName}</strong></> : null} pour validation et signature.
         </p>
 
+        {/* v2.4.7 — Email du destinataire MASQUÉ pour protection des données candidat */}
         <div style={{
           padding: '10px 12px',
           background: '#F0FDF4',
           border: '1px solid #BBF7D0',
           borderRadius: 10,
           fontSize: 12.5, color: '#065F46',
-          display: 'flex', flexDirection: 'column', gap: 4,
+          display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600,
         }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-            <CheckCircle2 size={14} /> Rapport signé prêt à envoyer
-          </div>
-          {clientEmail && (
-            <div style={{ fontSize: 11.5, color: '#047857' }}>
-              Email destinataire : <strong>{clientEmail}</strong>
-            </div>
-          )}
+          <CheckCircle2 size={14} /> Rapport signé prêt à envoyer
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
@@ -1301,10 +1310,13 @@ function CenteredCard({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
       minHeight: '100vh',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: 24, background: '#FAFAF7',
       fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+      gap: 18,
     }}>
+      {/* v2.4.7 — Logo officiel en haut des pages de confirmation */}
+      <LogoLAgence height={36} color="dark" />
       <div style={{
         maxWidth: 460, width: '100%', padding: 32,
         background: '#fff', border: '1px solid #E5E7EB',

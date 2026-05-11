@@ -129,10 +129,11 @@ export default function SubmissionViewerModal({ open, onClose, pdfUrl, title, su
           </div>
         </div>
 
-        {/* PDF iframe */}
+        {/* v2.4.7 — PDF iframe avec ?inline=1 pour forcer Content-Disposition: inline
+            (au lieu d'attachment qui déclenche le téléchargement). Permet l'aperçu réel. */}
         <div style={{ flex: 1, overflow: 'hidden', background: '#F3F4F6' }}>
           <iframe
-            src={pdfUrl}
+            src={`${pdfUrl}${pdfUrl.includes('?') ? '&' : '?'}inline=1`}
             title={title}
             style={{ width: '100%', height: '100%', border: 'none' }}
           />

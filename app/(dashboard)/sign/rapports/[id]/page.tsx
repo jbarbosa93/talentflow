@@ -361,15 +361,19 @@ export default function ReportLinkDetailPage({
           }}>
             Historique des soumissions
           </h2>
-          <button
-            type="button"
-            onClick={() => setRecapOpen(true)}
-            className="neo-btn-ghost neo-btn-sm"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <BarChart3 size={13} />
-            Récapitulatif période
-          </button>
+          {/* v2.4.7 — Bouton Récapitulatif affiché UNIQUEMENT si ≥ 1 soumission validée
+              (status completed ou client_signed). Évite d'afficher des chiffres incomplets. */}
+          {submissions.some(s => s.status === 'completed' || s.status === 'client_signed') && (
+            <button
+              type="button"
+              onClick={() => setRecapOpen(true)}
+              className="neo-btn-ghost neo-btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <BarChart3 size={13} />
+              Récapitulatif période
+            </button>
+          )}
         </div>
         <SubmissionHistoryTable submissions={submissions} slug={link.slug} />
       </div>

@@ -4,7 +4,7 @@
 // URL : /report/client/{token}
 // Le client voit le rapport rempli par le candidat (fields recipientOrder=1 en
 // lecture seule grâce à currentRecipientOrder=2 sur PublicFieldsLayer) et signe
-// ses propres champs (fields recipientOrder=2). Bouton "Valider et signer" en bas.
+// ses propres champs (fields recipientOrder=2). Bouton "Valider" en bas.
 'use client'
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react'
@@ -14,6 +14,7 @@ import {
   AlertTriangle, CheckCircle2, ClipboardList, Clock, Edit3, FileText, Loader2, Lock, ListChecks, Save, X as XIcon,
 } from 'lucide-react'
 import PublicFieldsLayer, { areAllRequiredFieldsFilled } from '@/components/sign/PublicFieldsLayer'
+import LogoLAgence from '@/components/report/LogoLAgence'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { SignDocument, SignField } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
@@ -347,19 +348,10 @@ export default function PublicClientReportPage({
         display: 'flex', alignItems: 'center', gap: 12,
         flexShrink: 0,
       }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 8,
-          background: '#EAB308',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          <ClipboardList size={18} style={{ color: '#1C1A14' }} />
-        </div>
+        {/* v2.4.7 — Logo officiel (au lieu de l'icône jaune + texte L-AGENCE approximatif) */}
+        <LogoLAgence height={isMobile ? 30 : 34} color="dark" />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: 'Georgia, serif', fontSize: isMobile ? 16 : 18, fontWeight: 400, color: '#1C1A14', letterSpacing: '-0.3px' }}>
-            L-AGENCE
-          </div>
-          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             Validation de rapport — {data.weekLabel}
           </div>
         </div>
@@ -388,7 +380,7 @@ export default function PublicClientReportPage({
           </button>
         )}
 
-        {/* v2.3.14 — Indicateur + bouton "Valider et signer" COMPACT en haut DESKTOP.
+        {/* v2.3.14 — Indicateur + bouton "Valider" COMPACT en haut DESKTOP.
             Remplace le footer sticky bottom (masqué sur desktop). Disabled tant
             que la signature ou un champ requis manque. */}
         {!isMobile && (
@@ -405,7 +397,7 @@ export default function PublicClientReportPage({
               type="button"
               onClick={handleFinalize}
               disabled={submitting || !canFinalize}
-              title={!canFinalize ? 'Signe le rapport avant de valider' : 'Valider et signer le rapport'}
+              title={!canFinalize ? 'Signe le rapport avant de valider' : 'Valider le rapport'}
               style={{
                 flexShrink: 0,
                 padding: '8px 16px',
@@ -420,7 +412,7 @@ export default function PublicClientReportPage({
               }}
             >
               {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-              Valider et signer
+              Valider
             </button>
           </>
         )}
@@ -684,7 +676,7 @@ export default function PublicClientReportPage({
                 {submitting
                   ? <Loader2 size={16} className="animate-spin" />
                   : <CheckCircle2 size={16} />}
-                Valider et signer
+                Valider
               </button>
               {!canFinalize && (
                 <div style={{
