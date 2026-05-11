@@ -394,6 +394,37 @@ export default function TemplateEditor({
     updateDocFields(fields.map(f => set.has(f.id) ? { ...f, ...patch } : f))
   }
 
+  // v2.6.10 — Update plusieurs champs avec un patch DIFFÉRENT par champ
+  // (utilisé pour aligner gauche/droite/haut/bas, distribuer, etc.)
+  const patchFieldsMixed = (updates: Array<{ id: string; patch: Partial<SignField> }>) => {
+    const byId = new Map(updates.map(u => [u.id, u.patch]))
+    updateDocFields(fields.map(f => byId.has(f.id) ? { ...f, ...byId.get(f.id)! } : f))
+  }
+
+  // v2.6.10 — Apply size (width/height) d'un champ à tous les autres avec le même
+  // tooltip/label (utilisé pour uniformiser les "Heures normales" du rapport).
+  const applySizeToSimilar = (sourceId: string) => {
+    const src = fields.find(f => f.id === sourceId)
+    if (!src) return 0
+    // Critère "similaire" : même tooltip non vide (priorité) sinon même label non vide
+    const srcKey = (src.tooltip || '').trim().toLowerCase()
+      || (src.label || '').trim().toLowerCase()
+    if (!srcKey) return 0  // Pas de critère identifiable → ne fait rien
+    let count = 0
+    const next = fields.map(f => {
+      if (f.id === sourceId) return f
+      const fKey = (f.tooltip || '').trim().toLowerCase()
+        || (f.label || '').trim().toLowerCase()
+      if (fKey === srcKey) {
+        count++
+        return { ...f, width: src.width, height: src.height }
+      }
+      return f
+    })
+    if (count > 0) updateDocFields(next)
+    return count
+  }
+
   // Patche tous les champs d'un groupe (pour propager nom/règle/min/max)
   const patchAllInGroup = (groupId: string, patch: Partial<SignField>) => {
     updateDocFields(fields.map(f => f.groupId === groupId ? { ...f, ...patch } : f))
@@ -812,6 +843,8 @@ export default function TemplateEditor({
             recipients={recipients}
             onPatch={patchField}
             onPatchMany={patchFields}
+            onPatchManyMixed={patchFieldsMixed}
+            onApplySizeToSimilar={applySizeToSimilar}
             onDelete={handleDeleteSelected}
             onGroupCheckboxes={handleGroupCheckboxes}
             onUngroup={handleUngroup}
@@ -1103,7 +1136,7 @@ export default function TemplateEditor({
 // Panel "Champ(s) sélectionné(s)" — gère 1 ou plusieurs sélections
 // ─────────────────────────────────────────────────────────────────
 function SelectedFieldsPanel({
-  selectedIds, fields, recipients, onPatch, onPatchMany, onDelete,
+  selectedIds, fields, recipients, onPatch, onPatchMany, onPatchManyMixed, onApplySizeToSimilar, onDelete,
   onGroupCheckboxes, onUngroup, onPatchAllInGroup,
   wizardSteps, setWizardSteps,
 }: {
@@ -1112,6 +1145,10 @@ function SelectedFieldsPanel({
   recipients: SignRecipientSchema[]
   onPatch: (id: string, patch: Partial<SignField>) => void
   onPatchMany: (ids: string[], patch: Partial<SignField>) => void
+  /** v2.6.10 — Pour aligner/distribuer : patch différent par field */
+  onPatchManyMixed: (updates: Array<{ id: string; patch: Partial<SignField> }>) => void
+  /** v2.6.10 — Apply size to all fields with same tooltip/label */
+  onApplySizeToSimilar: (sourceId: string) => number
   onDelete: () => void
   onGroupCheckboxes: (rule: 'SelectAtLeast' | 'SelectAtMost' | 'SelectExactly', count: number, label?: string) => void
   onUngroup: (id: string) => void
@@ -1709,6 +1746,33 @@ function SelectedFieldsPanel({
             onPatch={patch => onPatch(f.id, patch)}
           />
 
+          {/* v2.6.10 — Apply size to similar (uniformiser tous les fields portant le même nom) */}
+          {(() => {
+            const key = (f.tooltip || '').trim().toLowerCase() || (f.label || '').trim().toLowerCase()
+            if (!key) return null
+            const similarCount = fields.filter(ff => {
+              if (ff.id === f.id) return false
+              const k = (ff.tooltip || '').trim().toLowerCase() || (ff.label || '').trim().toLowerCase()
+              return k === key
+            }).length
+            if (similarCount === 0) return null
+            return (
+              <button
+                type="button"
+                onClick={() => {
+                  const n = onApplySizeToSimilar(f.id)
+                  if (n > 0) toast.success(`Taille appliquée à ${n} champ${n > 1 ? 's' : ''} portant le même nom`)
+                  else toast.info('Aucun autre champ avec le même nom')
+                }}
+                className="neo-btn-ghost neo-btn-sm"
+                style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                title={`Applique la largeur + hauteur de ce champ aux ${similarCount} autre${similarCount > 1 ? 's' : ''} champ${similarCount > 1 ? 's' : ''} portant le même nom (« ${f.tooltip || f.label} »)`}
+              >
+                📏 Appliquer cette taille aux {similarCount} similaires
+              </button>
+            )
+          })()}
+
           {/* Logique conditionnelle */}
           <ConditionalLogicEditor
             field={f}
@@ -1804,6 +1868,13 @@ function SelectedFieldsPanel({
             Facultatif
           </button>
         </div>
+
+        {/* v2.6.10 — Aligner & Égaliser (multi-sélection) */}
+        <AlignEqualizeSection
+          selectedFields={selectedFields}
+          onPatchManyMixed={onPatchManyMixed}
+          onPatchMany={onPatchMany}
+        />
 
         {/* Grouper les checkboxes */}
         {allCheckboxes && (
@@ -2834,4 +2905,141 @@ function zoomBtnStyle(disabled: boolean): React.CSSProperties {
     justifyContent: "center",
     opacity: disabled ? 0.5 : 1,
   }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// v2.6.10 — Aligner & Égaliser (multi-sélection, mode Figma-like)
+// ─────────────────────────────────────────────────────────────────
+function AlignEqualizeSection({
+  selectedFields,
+  onPatchManyMixed,
+  onPatchMany,
+}: {
+  selectedFields: SignField[]
+  onPatchManyMixed: (updates: Array<{ id: string; patch: Partial<SignField> }>) => void
+  onPatchMany: (ids: string[], patch: Partial<SignField>) => void
+}) {
+  if (selectedFields.length < 2) return null
+  const ids = selectedFields.map(f => f.id)
+  // Référence = 1er field sélectionné (le "leader") pour l'égalisation taille
+  const leader = selectedFields[0]
+
+  // Bornes du groupe
+  const minX = Math.min(...selectedFields.map(f => f.x))
+  const maxRight = Math.max(...selectedFields.map(f => f.x + f.width))
+  const minY = Math.min(...selectedFields.map(f => f.y))
+  const maxBottom = Math.max(...selectedFields.map(f => f.y + f.height))
+  const centerX = (minX + maxRight) / 2
+  const centerY = (minY + maxBottom) / 2
+
+  const alignLeft = () => {
+    onPatchManyMixed(selectedFields.map(f => ({ id: f.id, patch: { x: minX } })))
+  }
+  const alignRight = () => {
+    onPatchManyMixed(selectedFields.map(f => ({ id: f.id, patch: { x: maxRight - f.width } })))
+  }
+  const alignCenterH = () => {
+    onPatchManyMixed(selectedFields.map(f => ({ id: f.id, patch: { x: centerX - f.width / 2 } })))
+  }
+  const alignTop = () => {
+    onPatchManyMixed(selectedFields.map(f => ({ id: f.id, patch: { y: minY } })))
+  }
+  const alignBottom = () => {
+    onPatchManyMixed(selectedFields.map(f => ({ id: f.id, patch: { y: maxBottom - f.height } })))
+  }
+  const alignCenterV = () => {
+    onPatchManyMixed(selectedFields.map(f => ({ id: f.id, patch: { y: centerY - f.height / 2 } })))
+  }
+  // Égaliser largeur / hauteur : applique la dim du leader (1er sélectionné) aux autres
+  const equalizeWidth = () => {
+    onPatchMany(ids, { width: leader.width })
+  }
+  const equalizeHeight = () => {
+    onPatchMany(ids, { height: leader.height })
+  }
+  const equalizeBoth = () => {
+    onPatchMany(ids, { width: leader.width, height: leader.height })
+  }
+  // Distribuer horizontalement (espace égal entre fields, basé sur centres)
+  const distributeH = () => {
+    if (selectedFields.length < 3) return
+    const sorted = [...selectedFields].sort((a, b) => a.x - b.x)
+    const first = sorted[0]
+    const last = sorted[sorted.length - 1]
+    const totalSpan = (last.x + last.width / 2) - (first.x + first.width / 2)
+    const step = totalSpan / (sorted.length - 1)
+    onPatchManyMixed(sorted.slice(1, -1).map((f, i) => ({
+      id: f.id,
+      patch: { x: (first.x + first.width / 2) + step * (i + 1) - f.width / 2 },
+    })))
+  }
+  const distributeV = () => {
+    if (selectedFields.length < 3) return
+    const sorted = [...selectedFields].sort((a, b) => a.y - b.y)
+    const first = sorted[0]
+    const last = sorted[sorted.length - 1]
+    const totalSpan = (last.y + last.height / 2) - (first.y + first.height / 2)
+    const step = totalSpan / (sorted.length - 1)
+    onPatchManyMixed(sorted.slice(1, -1).map((f, i) => ({
+      id: f.id,
+      patch: { y: (first.y + first.height / 2) + step * (i + 1) - f.height / 2 },
+    })))
+  }
+
+  const btn: React.CSSProperties = {
+    flex: '0 0 auto',
+    minWidth: 36,
+    height: 32,
+    padding: '0 8px',
+    fontSize: 11,
+    fontFamily: 'inherit',
+    fontWeight: 600,
+    border: '1px solid var(--border)',
+    background: 'var(--card)',
+    color: 'var(--foreground)',
+    borderRadius: 6,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  }
+  const labelStyle: React.CSSProperties = {
+    fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em',
+    textTransform: 'uppercase', color: 'var(--muted)',
+    marginBottom: 4,
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 6, borderTop: '1px dashed var(--border)' }}>
+      <div>
+        <div style={labelStyle}>Aligner ({selectedFields.length} champs)</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          <button type="button" onClick={alignLeft}    style={btn} title="Aligner à gauche">⬅ G</button>
+          <button type="button" onClick={alignCenterH} style={btn} title="Centrer horizontalement">↔ C</button>
+          <button type="button" onClick={alignRight}   style={btn} title="Aligner à droite">D ➡</button>
+          <span style={{ width: 6 }} />
+          <button type="button" onClick={alignTop}     style={btn} title="Aligner en haut">⬆ H</button>
+          <button type="button" onClick={alignCenterV} style={btn} title="Centrer verticalement">↕ C</button>
+          <button type="button" onClick={alignBottom}  style={btn} title="Aligner en bas">B ⬇</button>
+        </div>
+      </div>
+      <div>
+        <div style={labelStyle}>Égaliser taille (référence : 1er sélectionné)</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          <button type="button" onClick={equalizeWidth}  style={btn} title="Largeur identique au 1er">Largeur</button>
+          <button type="button" onClick={equalizeHeight} style={btn} title="Hauteur identique au 1er">Hauteur</button>
+          <button type="button" onClick={equalizeBoth}   style={{ ...btn, background: '#FEF3C7', borderColor: '#FCD34D' }} title="Largeur + hauteur identiques au 1er">L + H</button>
+        </div>
+      </div>
+      {selectedFields.length >= 3 && (
+        <div>
+          <div style={labelStyle}>Distribuer (espacement égal)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            <button type="button" onClick={distributeH} style={btn} title="Distribuer horizontalement">⇆ H</button>
+            <button type="button" onClick={distributeV} style={btn} title="Distribuer verticalement">⇅ V</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }

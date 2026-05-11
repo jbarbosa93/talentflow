@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.9'
+export const APP_VERSION = '2.6.10'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.10 — Smart snap + aligner/égaliser/distribuer fields (éditeur template)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.10',
+    date: '2026-05-11',
+    label: 'Smart snap drag + Aligner / Égaliser / Distribuer (Figma-like)',
+    features: [
+      'SMART SNAP (FieldsCanvas) — Quand on drag un champ, il s\'aligne automatiquement avec les bords (left/center/right + top/middle/bottom) des autres champs de la même page. Lignes pointillées bleues affichées pendant le snap. Tolérance 6px. Override : Cmd (⌘) ou Ctrl maintenu = drag libre sans snap. Pas de snap sur multi-drag (comportement existant préservé).',
+      'ALIGNER (multi-sélection) — Nouveaux boutons dans le panneau "N champs sélectionnés" : Aligner Gauche / Centre H / Droite + Aligner Haut / Centre V / Bas. Calcule les bornes du groupe et patche chaque champ avec son x/y final.',
+      'ÉGALISER TAILLE (multi-sélection) — Boutons Largeur / Hauteur / L+H : applique la dimension du 1ᵉʳ champ sélectionné (= leader) à tous les autres. Idéal pour uniformiser une colonne "Heures normales".',
+      'DISTRIBUER (multi-sélection ≥ 3 champs) — Boutons "⇆ H" / "⇅ V" : espace les champs avec un pas régulier basé sur les positions du 1ᵉʳ et du dernier (tri ASC).',
+      'APPLY TO SIMILAR (sélection simple) — Sur la card d\'1 champ, bouton "📏 Appliquer cette taille aux N similaires" qui propage width + height à tous les champs portant le même tooltip/label (insensible à la casse). Affiche le compteur dans le libellé.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.9 — Format date "Numéro de semaine" (Semaine 20)
   // ─────────────────────────────────────────────────────────────────────

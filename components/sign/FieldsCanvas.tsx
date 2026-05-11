@@ -3,7 +3,7 @@
 'use client'
 
 import { useMemo, useEffect, useRef, useState } from 'react'
-import { Stage, Layer, Rect, Text, Group, Path } from 'react-konva'
+import { Stage, Layer, Rect, Text, Group, Path, Line } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { SignField, SignFieldType } from '@/lib/sign/types'
@@ -89,6 +89,9 @@ const PLACEHOLDER: Record<SignFieldType, string> = {
 const HANDLE_SIZE = 9
 const MIN_FIELD_W_PCT = 0.008
 const MIN_FIELD_H_PCT = 0.005
+
+// v2.6.10 — Smart snap tolerance en pixels (distance max entre 2 lignes pour snap)
+const SNAP_THRESHOLD_PX = 6
 
 const PEN_PATH = 'M3 21l3-1 11-11-2-2L4 18l-1 3zm14-14l2-2 2 2-2 2-2-2z'
 
@@ -269,6 +272,8 @@ export default function FieldsCanvas({
 
   // v2.2.4 — Multi-drag : mémorise positions initiales au dragStart pour calculer le delta.
   const dragStartPosRef = useRef<{ leaderId: string; positions: Map<string, { x: number; y: number }> } | null>(null)
+  // v2.6.10 — Snap guides actifs pendant un drag single (lignes pointillées rendues sur un Layer dédié)
+  const [snapGuides, setSnapGuides] = useState<{ vLines: number[]; hLines: number[] }>({ vLines: [], hLines: [] })
 
   const handleDragStart = (id: string, e: KonvaEventObject<DragEvent>) => {
     const node = e.target
@@ -289,23 +294,104 @@ export default function FieldsCanvas({
 
   const handleDragMove = (id: string, e: KonvaEventObject<DragEvent>) => {
     const ref = dragStartPosRef.current
-    if (!ref || ref.leaderId !== id) return
+    // v2.6.10 — Si multi-drag : ancienne logique inchangée (pas de snap pour group)
+    if (ref && ref.leaderId === id) {
+      const node = e.target
+      const initial = ref.positions.get(id)
+      if (!initial) return
+      const dx = node.x() - initial.x
+      const dy = node.y() - initial.y
+      const stage = node.getStage()
+      if (!stage) return
+      for (const [otherId, pos] of ref.positions) {
+        if (otherId === id) continue
+        const otherNode = stage.findOne(`#fld-${otherId}`)
+        if (otherNode) {
+          otherNode.x(pos.x + dx)
+          otherNode.y(pos.y + dy)
+        }
+      }
+      return
+    }
+    // v2.6.10 — Single drag : smart snap vers les autres champs de la même page
+    const evt = e.evt as MouseEvent | undefined
+    // Override : Cmd / Ctrl maintenu = drag libre
+    if (evt && (evt.metaKey || evt.ctrlKey)) {
+      if (snapGuides.vLines.length || snapGuides.hLines.length) {
+        setSnapGuides({ vLines: [], hLines: [] })
+      }
+      return
+    }
+    const draggedField = fields.find(f => f.id === id)
+    if (!draggedField) return
     const node = e.target
-    const initial = ref.positions.get(id)
-    if (!initial) return
-    const dx = node.x() - initial.x
-    const dy = node.y() - initial.y
-    // Update visuellement les autres Group Konva nodes (pas de setState pour fluidité)
-    const stage = node.getStage()
-    if (!stage) return
-    for (const [otherId, pos] of ref.positions) {
-      if (otherId === id) continue
-      const otherNode = stage.findOne(`#fld-${otherId}`)
-      if (otherNode) {
-        otherNode.x(pos.x + dx)
-        otherNode.y(pos.y + dy)
+    const nx = node.x()
+    const ny = node.y()
+    const nw = draggedField.width * width
+    const nh = draggedField.height * height
+    // Collecte les lignes de référence des autres fields (même page, non hidden)
+    const others = fields.filter(f => f.id !== id && f.page === page && !f.metadata?.hidden)
+    const vLines = new Set<number>()
+    const hLines = new Set<number>()
+    for (const f of others) {
+      const ox = f.x * width
+      const oy = f.y * height
+      const ow = f.width * width
+      const oh = f.height * height
+      vLines.add(Math.round(ox))
+      vLines.add(Math.round(ox + ow / 2))
+      vLines.add(Math.round(ox + ow))
+      hLines.add(Math.round(oy))
+      hLines.add(Math.round(oy + oh / 2))
+      hLines.add(Math.round(oy + oh))
+    }
+    // X : meilleur snap parmi left/center/right du field draggé
+    let snapX = nx
+    let bestVLine: number | null = null
+    let bestDX = SNAP_THRESHOLD_PX + 1
+    for (const line of vLines) {
+      const candidates = [
+        { snapped: line,            d: line - nx },              // left aligns to line
+        { snapped: line - nw / 2,   d: line - (nx + nw / 2) },   // center
+        { snapped: line - nw,       d: line - (nx + nw) },       // right
+      ]
+      for (const c of candidates) {
+        const abs = Math.abs(c.d)
+        if (abs <= SNAP_THRESHOLD_PX && abs < bestDX) {
+          bestDX = abs
+          snapX = c.snapped
+          bestVLine = line
+        }
       }
     }
+    // Y : meilleur snap parmi top/middle/bottom
+    let snapY = ny
+    let bestHLine: number | null = null
+    let bestDY = SNAP_THRESHOLD_PX + 1
+    for (const line of hLines) {
+      const candidates = [
+        { snapped: line,            d: line - ny },
+        { snapped: line - nh / 2,   d: line - (ny + nh / 2) },
+        { snapped: line - nh,       d: line - (ny + nh) },
+      ]
+      for (const c of candidates) {
+        const abs = Math.abs(c.d)
+        if (abs <= SNAP_THRESHOLD_PX && abs < bestDY) {
+          bestDY = abs
+          snapY = c.snapped
+          bestHLine = line
+        }
+      }
+    }
+    // Apply snap si match trouvé
+    if (snapX !== nx) node.x(snapX)
+    if (snapY !== ny) node.y(snapY)
+    // Update guides visuels (uniquement si change pour éviter re-render inutiles)
+    const newV = bestVLine !== null ? [bestVLine] : []
+    const newH = bestHLine !== null ? [bestHLine] : []
+    const sameV = newV.length === snapGuides.vLines.length && newV.every((v, i) => v === snapGuides.vLines[i])
+    const sameH = newH.length === snapGuides.hLines.length && newH.every((v, i) => v === snapGuides.hLines[i])
+    if (!sameV || !sameH) setSnapGuides({ vLines: newV, hLines: newH })
   }
 
   const handleDragEnd = (id: string, e: KonvaEventObject<DragEvent>) => {
@@ -337,6 +423,10 @@ export default function FieldsCanvas({
     const xPx = node.x()
     const yPx = node.y()
     onChange(fields.map(f => f.id === id ? { ...f, x: clamp01(xPx / width), y: clamp01(yPx / height) } : f))
+    // v2.6.10 — Clear snap guides à la fin du drag
+    if (snapGuides.vLines.length || snapGuides.hLines.length) {
+      setSnapGuides({ vLines: [], hLines: [] })
+    }
   }
 
   // Resize : on récupère la position ABSOLUE de la handle (sur le Stage), pas relative au Group.
@@ -522,6 +612,31 @@ export default function FieldsCanvas({
           </Layer>
         )
       })()}
+      {/* v2.6.10 — Snap guides : lignes pointillées bleues quand un drag single snap */}
+      {(snapGuides.vLines.length > 0 || snapGuides.hLines.length > 0) && (
+        <Layer listening={false}>
+          {snapGuides.vLines.map((x, i) => (
+            <Line
+              key={`v-${i}-${x}`}
+              points={[x, 0, x, height]}
+              stroke="#2563EB"
+              strokeWidth={1}
+              dash={[4, 3]}
+              opacity={0.9}
+            />
+          ))}
+          {snapGuides.hLines.map((y, i) => (
+            <Line
+              key={`h-${i}-${y}`}
+              points={[0, y, width, y]}
+              stroke="#2563EB"
+              strokeWidth={1}
+              dash={[4, 3]}
+              opacity={0.9}
+            />
+          ))}
+        </Layer>
+      )}
     </Stage>
   )
 }
