@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.12'
+export const APP_VERSION = '2.6.13'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.13 — Matching "similaires" tolérant (tooltip OR label) + tooltip détaillé
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.13',
+    date: '2026-05-11',
+    label: 'Bouton "Uniformiser" : matching plus tolérant (résout cas 5/6 fields)',
+    features: [
+      'MATCHING SIMILAIRES PLUS TOLÉRANT — Avant : match exclusif sur tooltip OU label (le 1er non vide). Maintenant : match si AU MOINS UN nom commun entre tooltip ET label des 2 fields → résout le cas où un field a un tooltip personnalisé alors qu\'un autre garde son label DocuSign d\'origine.',
+      'Sécurité : le type doit être identique (un date ne match pas un number même avec le même nom). Le placeholder DocuSign "0" est exclu pour ne pas créer de faux positifs.',
+      'TOOLTIP DÉTAILLÉ — Le tooltip du bouton liste désormais les noms des champs trouvés (max 8 + "+N") avec leur wizardSection préfixée. Permet de diagnostiquer rapidement pourquoi un champ est exclu (= il n\'apparaît pas dans la liste).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.12 — "Uniformiser similaires" applique aussi le y (alignement vertical)
   // ─────────────────────────────────────────────────────────────────────

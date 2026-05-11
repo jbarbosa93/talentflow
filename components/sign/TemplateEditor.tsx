@@ -401,22 +401,23 @@ export default function TemplateEditor({
     updateDocFields(fields.map(f => byId.has(f.id) ? { ...f, ...byId.get(f.id)! } : f))
   }
 
-  // v2.6.10 / v2.6.12 — Apply size+y d'un champ à tous les autres avec le même tooltip/label.
+  // v2.6.10 / v2.6.12 / v2.6.13 — Apply size+y d'un champ à tous les autres similaires.
+  // "Similaire" = au moins UN nom commun entre tooltip OR label des deux fields (insensible
+  // casse + espaces). Plus tolérant que la v2.6.12 qui matchait tooltip XOR label en exclusif.
   // Width + height + y sont propagés (uniformise taille ET aligne verticalement sur la même ligne).
   // Le x reste propre à chaque field (= chaque colonne du tableau a son x).
   const applySizeToSimilar = (sourceId: string) => {
     const src = fields.find(f => f.id === sourceId)
     if (!src) return 0
-    // Critère "similaire" : même tooltip non vide (priorité) sinon même label non vide
-    const srcKey = (src.tooltip || '').trim().toLowerCase()
-      || (src.label || '').trim().toLowerCase()
-    if (!srcKey) return 0  // Pas de critère identifiable → ne fait rien
+    const srcKeys = fieldNameKeys(src)
+    if (srcKeys.length === 0) return 0  // Pas de critère identifiable → ne fait rien
     let count = 0
     const next = fields.map(f => {
       if (f.id === sourceId) return f
-      const fKey = (f.tooltip || '').trim().toLowerCase()
-        || (f.label || '').trim().toLowerCase()
-      if (fKey === srcKey) {
+      if (f.type !== src.type) return f  // sécurité : ne propage qu'entre fields du même type
+      const fKeys = fieldNameKeys(f)
+      if (fKeys.length === 0) return f
+      if (srcKeys.some(k => fKeys.includes(k))) {
         count++
         return { ...f, width: src.width, height: src.height, y: src.y }
       }
@@ -424,6 +425,18 @@ export default function TemplateEditor({
     })
     if (count > 0) updateDocFields(next)
     return count
+  }
+
+  // v2.6.13 — Helper "noms d'un field pour matching" : retourne tooltip + label trim+lower,
+  // dédupliqués. Permet matching tolérant entre fields qui ont tooltip différent mais label identique
+  // (ou l'inverse).
+  function fieldNameKeys(f: SignField): string[] {
+    const t = (f.tooltip || '').trim().toLowerCase()
+    const l = (f.label || '').trim().toLowerCase()
+    const out: string[] = []
+    if (t && t !== '0') out.push(t)  // exclut les "0" placeholder DocuSign
+    if (l && l !== t && l !== '0') out.push(l)
+    return out
   }
 
   // Patche tous les champs d'un groupe (pour propager nom/règle/min/max)
@@ -1747,27 +1760,42 @@ function SelectedFieldsPanel({
             onPatch={patch => onPatch(f.id, patch)}
           />
 
-          {/* v2.6.10 — Apply size to similar (uniformiser tous les fields portant le même nom) */}
+          {/* v2.6.10 / v2.6.13 — Apply size to similar (uniformiser tous les fields portant le même nom)
+              Matching tolérant : tooltip OR label match (exclut placeholder "0"), même type requis. */}
           {(() => {
-            const key = (f.tooltip || '').trim().toLowerCase() || (f.label || '').trim().toLowerCase()
-            if (!key) return null
-            const similarCount = fields.filter(ff => {
+            const fieldKeys = (ff: SignField): string[] => {
+              const t = (ff.tooltip || '').trim().toLowerCase()
+              const l = (ff.label || '').trim().toLowerCase()
+              const out: string[] = []
+              if (t && t !== '0') out.push(t)
+              if (l && l !== t && l !== '0') out.push(l)
+              return out
+            }
+            const srcKeys = fieldKeys(f)
+            if (srcKeys.length === 0) return null
+            const similarFields = fields.filter(ff => {
               if (ff.id === f.id) return false
-              const k = (ff.tooltip || '').trim().toLowerCase() || (ff.label || '').trim().toLowerCase()
-              return k === key
-            }).length
+              if (ff.type !== f.type) return false
+              const kk = fieldKeys(ff)
+              return kk.some(k => srcKeys.includes(k))
+            })
+            const similarCount = similarFields.length
             if (similarCount === 0) return null
+            // Liste des noms pour le tooltip (max 8)
+            const previewNames = similarFields.slice(0, 8).map(ff =>
+              `${ff.metadata?.wizardSection ? `[${ff.metadata.wizardSection}] ` : ''}${ff.tooltip || ff.label || '(?)'}`
+            ).join('\n')
             return (
               <button
                 type="button"
                 onClick={() => {
                   const n = onApplySizeToSimilar(f.id)
-                  if (n > 0) toast.success(`Taille + alignement vertical appliqués à ${n} champ${n > 1 ? 's' : ''} portant le même nom`)
-                  else toast.info('Aucun autre champ avec le même nom')
+                  if (n > 0) toast.success(`Taille + alignement vertical appliqués à ${n} champ${n > 1 ? 's' : ''}`)
+                  else toast.info('Aucun autre champ similaire trouvé')
                 }}
                 className="neo-btn-ghost neo-btn-sm"
                 style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                title={`Applique aux ${similarCount} autre${similarCount > 1 ? 's' : ''} champ${similarCount > 1 ? 's' : ''} « ${f.tooltip || f.label} » :\n• la même largeur\n• la même hauteur\n• le même y (alignés horizontalement sur la même ligne du tableau)\nLe x de chaque champ est préservé (chaque colonne garde sa position).`}
+                title={`Applique aux ${similarCount} champ${similarCount > 1 ? 's' : ''} :\n${previewNames}${similarCount > 8 ? `\n... +${similarCount - 8}` : ''}\n\n• même largeur\n• même hauteur\n• même y (alignés sur la même ligne)\nLe x de chaque champ est préservé.`}
               >
                 📏 Uniformiser les {similarCount} similaires (taille + ligne)
               </button>
