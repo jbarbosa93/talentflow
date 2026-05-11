@@ -1312,30 +1312,38 @@ function FieldEditor({
         >
           <GripVertical size={14} />
         </span>
-        {/* v2.6.7 — Badge "Section" devant l'input pour s'organiser sans
-            ouvrir les options. Affiche la wizardSection si présente (ex: Lundi). */}
-        {field.wizardSection && field.wizardSection.trim() && (
-          <span
-            title={`Section : ${field.wizardSection}`}
-            style={{
-              flexShrink: 0,
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.02em',
-              padding: '2px 7px',
-              borderRadius: 999,
-              background: 'var(--primary-soft, #FEF3C7)',
-              color: 'var(--accent-foreground, #92400E)',
-              border: '1px solid var(--primary, #EAB308)',
-              whiteSpace: 'nowrap',
-              maxWidth: 100,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {field.wizardSection.trim()}
-          </span>
-        )}
+        {/* v2.6.8 — Badge "Section" TOUJOURS visible (cliquable). Affiche la wizardSection
+            si présente, sinon "+ section" en gris pour signaler qu'on peut grouper. Clic
+            sur le badge ouvre le panel expand où on peut éditer la section. */}
+        {(() => {
+          const hasSection = !!(field.wizardSection && field.wizardSection.trim())
+          return (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              title={hasSection ? `Section : ${field.wizardSection}` : 'Cliquer pour assigner ce champ à une section (Lundi, Mardi…)'}
+              style={{
+                flexShrink: 0,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.02em',
+                padding: '2px 7px',
+                borderRadius: 999,
+                background: hasSection ? 'var(--primary-soft, #FEF3C7)' : 'transparent',
+                color: hasSection ? 'var(--accent-foreground, #92400E)' : 'var(--muted, #9CA3AF)',
+                border: hasSection ? '1px solid var(--primary, #EAB308)' : '1px dashed var(--border, #E5E7EB)',
+                whiteSpace: 'nowrap',
+                maxWidth: 110,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              {hasSection ? field.wizardSection!.trim() : '+ section'}
+            </button>
+          )
+        })()}
         <input
           type="text"
           value={field.tooltip || ''}

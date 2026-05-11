@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.7'
+export const APP_VERSION = '2.6.8'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.8 — Badge section TOUJOURS visible (+ "+ section" si pas configurée)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.8',
+    date: '2026-05-11',
+    label: 'Badge section toujours visible + cliquable',
+    features: [
+      'BADGE SECTION VISIBLE PARTOUT — Le badge à gauche du nom du field affiche toujours sa wizardSection si configurée (badge jaune), sinon "+ section" en pastille pointillée grise. Clic sur le badge ouvre le panneau d\'options pour assigner une section. Plus besoin d\'ouvrir l\'expand pour voir quelle section est attribuée.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.7 — Badge "Section" devant le nom du field dans la liste Wizard
   // ─────────────────────────────────────────────────────────────────────
