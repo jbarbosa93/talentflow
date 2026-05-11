@@ -435,10 +435,59 @@ export default function FieldsCanvas({
     if (!f) return
     const node = e.target
     // Position du handle dans le Layer (pas dans le Group, car handle est rendu hors Group).
-    const hx = node.x()
-    const hy = node.y()
+    let hx = node.x()
+    let hy = node.y()
     const fxPx = f.x * width
     const fyPx = f.y * height
+
+    // v2.6.10 fix — Smart snap pendant le resize : le coin bas-droit du field
+    // (qui est ce qu'on déplace via la handle) s'aligne sur les bords des autres
+    // champs (left/center/right + top/middle/bottom). Override : Cmd / Ctrl.
+    const evt = e.evt as MouseEvent | undefined
+    let snapVLine: number | null = null
+    let snapHLine: number | null = null
+    if (!evt || !(evt.metaKey || evt.ctrlKey)) {
+      // La handle est centrée sur le coin bas-droit → le coin réel = (hx + HANDLE_SIZE/2, hy + HANDLE_SIZE/2)
+      const cornerX = hx + HANDLE_SIZE / 2
+      const cornerY = hy + HANDLE_SIZE / 2
+      const others = fields.filter(ff => ff.id !== id && ff.page === page && !ff.metadata?.hidden)
+      const vLines = new Set<number>()
+      const hLines = new Set<number>()
+      for (const o of others) {
+        const ox = o.x * width
+        const oy = o.y * height
+        const ow = o.width * width
+        const oh = o.height * height
+        vLines.add(Math.round(ox))
+        vLines.add(Math.round(ox + ow / 2))
+        vLines.add(Math.round(ox + ow))
+        hLines.add(Math.round(oy))
+        hLines.add(Math.round(oy + oh / 2))
+        hLines.add(Math.round(oy + oh))
+      }
+      let bestDX = SNAP_THRESHOLD_PX + 1
+      for (const line of vLines) {
+        const d = Math.abs(line - cornerX)
+        if (d <= SNAP_THRESHOLD_PX && d < bestDX) {
+          bestDX = d
+          hx = line - HANDLE_SIZE / 2  // corrige la position de la handle
+          snapVLine = line
+        }
+      }
+      let bestDY = SNAP_THRESHOLD_PX + 1
+      for (const line of hLines) {
+        const d = Math.abs(line - cornerY)
+        if (d <= SNAP_THRESHOLD_PX && d < bestDY) {
+          bestDY = d
+          hy = line - HANDLE_SIZE / 2
+          snapHLine = line
+        }
+      }
+      // Update visuel position handle
+      if (snapVLine !== null) node.x(hx)
+      if (snapHLine !== null) node.y(hy)
+    }
+
     const newWPx = Math.max(MIN_FIELD_W_PCT * width, hx - fxPx + HANDLE_SIZE / 2)
     const newHPx = Math.max(MIN_FIELD_H_PCT * height, hy - fyPx + HANDLE_SIZE / 2)
     // Conversion en coords normalisées 0-1
@@ -467,6 +516,13 @@ export default function FieldsCanvas({
       }
     }
     onChange(fields.map(ff => ff.id === id ? { ...ff, width: nextW, height: nextH } : ff))
+
+    // v2.6.10 fix — Update guides visuels pour le resize (idem drag)
+    const newV = snapVLine !== null ? [snapVLine] : []
+    const newH = snapHLine !== null ? [snapHLine] : []
+    const sameV = newV.length === snapGuides.vLines.length && newV.every((v, i) => v === snapGuides.vLines[i])
+    const sameH = newH.length === snapGuides.hLines.length && newH.every((v, i) => v === snapGuides.hLines[i])
+    if (!sameV || !sameH) setSnapGuides({ vLines: newV, hLines: newH })
   }
 
   // Suppression au clavier (toutes les sélections)
@@ -564,6 +620,12 @@ export default function FieldsCanvas({
               cornerRadius={2}
               draggable
               onDragMove={ev => onHandleDragMove(f.id, ev)}
+              onDragEnd={() => {
+                // v2.6.10 fix — Clear snap guides à la fin du resize
+                if (snapGuides.vLines.length || snapGuides.hLines.length) {
+                  setSnapGuides({ vLines: [], hLines: [] })
+                }
+              }}
               dragBoundFunc={pos => ({
                 x: Math.max(x + 8, Math.min(width - HANDLE_SIZE / 2, pos.x)),
                 y: Math.max(y + 6, Math.min(height - HANDLE_SIZE / 2, pos.y)),

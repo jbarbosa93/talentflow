@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.10'
+export const APP_VERSION = '2.6.11'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.11 — Smart snap aussi pendant le resize handle
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.11',
+    date: '2026-05-11',
+    label: 'Smart snap aussi sur le resize (handle coin bas-droit)',
+    features: [
+      'SMART SNAP RESIZE — Pendant le redimensionnement d\'un champ via la handle bas-droit, le coin bas-droit s\'aligne désormais aussi sur les bords des autres champs (left/center/right + top/middle/bottom). Lignes pointillées bleues affichées comme pour le drag. Override Cmd / Ctrl maintenu = resize libre sans snap.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.10 — Smart snap + aligner/égaliser/distribuer fields (éditeur template)
   // ─────────────────────────────────────────────────────────────────────
