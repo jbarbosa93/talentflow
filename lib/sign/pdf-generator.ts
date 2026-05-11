@@ -13,6 +13,8 @@
 // Pas de dépendance circulaire avec finalize/route.ts : tout est self-contained.
 
 import { createHash } from 'crypto'
+import fs from 'fs'
+import path from 'path'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { stampPdf } from './pdf-stamp'
@@ -277,31 +279,53 @@ async function appendCertificatePage(args: CertificateArgs): Promise<Uint8Array>
     x: 0, y: y - 12, width: W, height: 6,
     color: rgb(0.918, 0.706, 0.031),  // #EAB308
   })
-  y -= 32
+  y -= 24
 
-  // Logo texte L-AGENCE (style cohérent avec email completed)
-  const logoText = senderCompanyName.toUpperCase()
-  const logoSize = 22
-  const logoWidth = helvBold.widthOfTextAtSize(logoText, logoSize)
-  page.drawText(logoText, {
-    x: (W - logoWidth) / 2,
-    y,
-    size: logoSize,
-    font: helvBold,
-    color: rgb(0.11, 0.10, 0.08),  // #1C1A14
-  })
-  y -= 16
+  // v2.6.3 — Vrai logo L-Agence officiel (PNG transparent texte noir).
+  // Fallback texte si le fichier est absent (lecture FS).
+  let logoEmbedded = false
+  try {
+    const logoPath = path.join(process.cwd(), 'public', 'logo-agence-officiel-noir.png')
+    const logoBytes = fs.readFileSync(logoPath)
+    const logoPng = await pdf.embedPng(logoBytes)
+    const targetWidth = 200
+    const ratio = logoPng.height / logoPng.width
+    const targetHeight = targetWidth * ratio
+    page.drawImage(logoPng, {
+      x: (W - targetWidth) / 2,
+      y: y - targetHeight,
+      width: targetWidth,
+      height: targetHeight,
+    })
+    y -= targetHeight + 6
+    logoEmbedded = true
+  } catch {
+    // Fallback texte si le PNG est absent (build sans public/ ou bug FS)
+  }
+  if (!logoEmbedded) {
+    const logoText = senderCompanyName.toUpperCase()
+    const logoSize = 22
+    const logoWidth = helvBold.widthOfTextAtSize(logoText, logoSize)
+    page.drawText(logoText, {
+      x: (W - logoWidth) / 2,
+      y: y - logoSize,
+      size: logoSize,
+      font: helvBold,
+      color: rgb(0.11, 0.10, 0.08),
+    })
+    y -= logoSize + 6
+  }
   const subLogo = 'TalentFlow Sign · Signature électronique'
   const subSize = 9
   const subWidth = helv.widthOfTextAtSize(subLogo, subSize)
   page.drawText(subLogo, {
     x: (W - subWidth) / 2,
-    y,
+    y: y - subSize,
     size: subSize,
     font: helv,
     color: rgb(0.42, 0.45, 0.50),
   })
-  y -= 38
+  y -= 32
 
   // ─── Titre principal ───
   const title = 'Certificat de signature'

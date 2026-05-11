@@ -167,25 +167,18 @@ export default function CandidatDetailPage() {
   //           la fiche. Forcer router.push(fallbackRoute) dans ce cas.
   const fallbackRoute = fromPage === 'pipeline' ? '/pipeline' : fromPage === 'missions' ? '/missions' : fromPage === 'secretariat' ? '/secretariat' : fromPage === 'matching' ? '/matching' : fromPage === 'messages' ? '/messages' : fromPage === 'historique' ? '/messages?tab=historique' : '/candidats'
   const backLabel = fromPage === 'pipeline' ? 'Retour au pipeline' : fromPage === 'missions' ? 'Retour aux missions' : fromPage === 'secretariat' ? 'Retour au secrétariat' : fromPage === 'matching' ? 'Retour au matching' : fromPage === 'messages' || fromPage === 'historique' ? 'Retour à l\'historique' : 'Retour'
-  // Snapshot de window.history.length au mount pour détecter la pollution iframe
-  const historyLengthOnMount = useRef<number | null>(null)
-  useEffect(() => {
-    if (typeof window !== 'undefined' && historyLengthOnMount.current === null) {
-      historyLengthOnMount.current = window.history.length
-    }
-  }, [])
+  // Snapshot synchrone (avant le premier render = avant que l'iframe Office soit montée)
+  // Edge + view.officeapps.live.com pousse plusieurs entries avant que useEffect se déclenche
+  const historyLengthOnMount = useRef<number>(
+    typeof window !== 'undefined' ? window.history.length : 0
+  )
   const goBack = () => {
     if (typeof window === 'undefined') { router.push(fallbackRoute); return }
-    // Détection pollution iframe Office : si window.history.length a augmenté
-    // depuis le mount, c'est que l'iframe a poussé des entries → router.back()
-    // reviendrait dessus. On force le fallback.
-    const startLen = historyLengthOnMount.current ?? window.history.length
-    const polluted = window.history.length > startLen
-    if (polluted) {
-      router.push(fallbackRoute)
-      return
-    }
-    if (window.history.length > 1) {
+    const delta = window.history.length - historyLengthOnMount.current
+    if (delta > 0 && historyLengthOnMount.current > 1) {
+      // Saute les entries iframe + revient à la page précédente en une seule opération
+      window.history.go(-(delta + 1))
+    } else if (historyLengthOnMount.current > 1) {
       router.back()
     } else {
       router.push(fallbackRoute)

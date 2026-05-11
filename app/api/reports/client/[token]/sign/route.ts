@@ -232,6 +232,10 @@ export async function POST(
         downloadUrl: pdfDownloadUrl,
         notesCandidat: (submission as any).notes_candidat || null,
         notesClient: (submission as any).notes_client || null,
+        clientModified: !!(submission.metadata as any)?.client_modified,
+        modifiedFields: Array.isArray((submission.metadata as any)?.modified_fields)
+          ? (submission.metadata as any).modified_fields as string[]
+          : [],
       })
       if (!notifs.admin_email.ok) {
         console.error('[REPORT SIGN] admin email FAILED — to:', creatorEmail, '— err:', notifs.admin_email.error)
@@ -304,6 +308,10 @@ export async function POST(
         clientName: link.client_name || link.client_email || '',
         weekLabel: weekDates.label,
         attachments: reportAttachments,
+        clientModified: !!(submission.metadata as any)?.client_modified,
+        modifiedFields: Array.isArray((submission.metadata as any)?.modified_fields)
+          ? (submission.metadata as any).modified_fields as string[]
+          : [],
       })
       if (!notifs.candidat_email.ok) {
         console.error('[reports/client/sign] candidat email FAILED:', notifs.candidat_email.error)

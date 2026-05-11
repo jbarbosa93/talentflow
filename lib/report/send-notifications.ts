@@ -172,6 +172,10 @@ export async function sendCompletedEmailToAdmin(args: {
   notesCandidat?: string | null
   /** v2.4.0 — Note libre du client (max 300 chars). Affichée en bandeau si présente. */
   notesClient?: string | null
+  /** v2.6.3 — Si true, affiche un bandeau "Modifié par le client" + liste des champs modifiés. */
+  clientModified?: boolean
+  /** v2.6.3 — Liste des field IDs / labels modifiés par le client (depuis metadata.modified_fields). */
+  modifiedFields?: string[]
 }): Promise<NotifResult> {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
@@ -188,6 +192,15 @@ export async function sendCompletedEmailToAdmin(args: {
       <div style="background:#DBEAFE;border-left:3px solid #2563EB;border-radius:0 8px 8px 0;padding:12px 14px;margin:14px 0;font-size:13px;color:#1E40AF;line-height:1.55;">
         <strong style="color:#1E3A8A;">📝 Note du client</strong><br>
         ${escapeHtml((args.notesClient || '').trim())}
+      </div>` : ''
+  // v2.6.3 — Bandeau modification client (avant les notes pour priorité visuelle)
+  const modifiedFieldsList = (args.modifiedFields || []).filter(s => s && s.trim())
+  const clientModifiedBlock = args.clientModified ? `
+      <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:14px 16px;margin:14px 0;font-size:13px;color:#92400E;line-height:1.55;">
+        <strong style="color:#78350F;display:block;margin-bottom:6px;">⚠️ Données modifiées par le client</strong>
+        Le client a ajusté ${modifiedFieldsList.length > 0 ? `<strong>${modifiedFieldsList.length} champ${modifiedFieldsList.length > 1 ? 's' : ''}</strong>` : 'certains champs'} du rapport avant de signer.
+        ${modifiedFieldsList.length > 0 ? `<div style="font-size:12px;margin-top:6px;color:#78350F;">Champs : ${escapeHtml(modifiedFieldsList.slice(0, 10).join(', '))}${modifiedFieldsList.length > 10 ? ` (+${modifiedFieldsList.length - 10})` : ''}</div>` : ''}
+        <div style="font-size:11.5px;margin-top:6px;color:#78350F;font-style:italic;">Détails complets sur le certificat de signatures joint.</div>
       </div>` : ''
 
   const html = `<!DOCTYPE html>
@@ -209,7 +222,7 @@ export async function sendCompletedEmailToAdmin(args: {
         <strong>Collaborateur :</strong> ${escapeHtml(args.candidateName)}<br>
         <strong>Client :</strong> ${escapeHtml(args.clientName)}<br>
         <strong>Semaine :</strong> ${escapeHtml(args.weekLabel)}
-      </div>${notesCandidatBlock}${notesClientBlock}
+      </div>${clientModifiedBlock}${notesCandidatBlock}${notesClientBlock}
       <p style="font-size:13px;color:#374151;line-height:1.6;margin:0 0 18px;">
         Le PDF signé est joint à cet email.
       </p>
@@ -227,6 +240,7 @@ export async function sendCompletedEmailToAdmin(args: {
 </body></html>`
 
   const notesText = [
+    args.clientModified ? `/!\\ Données modifiées par le client (${modifiedFieldsList.length || '?'} champ(s)) — détails sur le certificat.` : '',
     (args.notesCandidat || '').trim() ? `Note collaborateur : ${args.notesCandidat}` : '',
     (args.notesClient || '').trim() ? `Note client : ${args.notesClient}` : '',
   ].filter(Boolean).join('\n')
@@ -280,6 +294,10 @@ export async function sendCompletedEmailToCandidat(args: {
   clientName: string
   weekLabel: string
   attachments: { filename: string; content: string }[]
+  /** v2.6.3 — Si true, affiche un bandeau "Modifié par le client" avant le corps. */
+  clientModified?: boolean
+  /** v2.6.3 — Liste des champs modifiés par le client (depuis metadata.modified_fields). */
+  modifiedFields?: string[]
 }): Promise<NotifResult> {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
@@ -287,6 +305,17 @@ export async function sendCompletedEmailToCandidat(args: {
 
   const firstName = (args.candidateName || '').normalize('NFC').trim().split(/\s+/)[0] || ''
   const subject = `Votre rapport est signé — ${args.weekLabel}`
+  // v2.6.3 — Bandeau "Modifié par le client" si applicable
+  const modifiedFieldsList = (args.modifiedFields || []).filter(s => s && s.trim())
+  const clientModifiedBlock = args.clientModified ? `
+      <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:14px 16px;margin:0 0 16px;font-size:13px;color:#92400E;line-height:1.55;">
+        <strong style="color:#78350F;display:block;margin-bottom:6px;">⚠️ Le client a ajusté votre rapport</strong>
+        ${modifiedFieldsList.length > 0
+          ? `${escapeHtml(args.clientName)} a modifié <strong>${modifiedFieldsList.length} champ${modifiedFieldsList.length > 1 ? 's' : ''}</strong> avant de signer.`
+          : `${escapeHtml(args.clientName)} a modifié certains champs avant de signer.`}
+        ${modifiedFieldsList.length > 0 ? `<div style="font-size:12px;margin-top:6px;color:#78350F;">Champs : ${escapeHtml(modifiedFieldsList.slice(0, 10).join(', '))}${modifiedFieldsList.length > 10 ? ` (+${modifiedFieldsList.length - 10})` : ''}</div>` : ''}
+        <div style="font-size:11.5px;margin-top:6px;color:#78350F;font-style:italic;">Détails complets sur le certificat de signatures. En cas de désaccord, contactez L-Agence.</div>
+      </div>` : ''
   const html = `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -302,6 +331,7 @@ export async function sendCompletedEmailToCandidat(args: {
       <h1 style="font-family:Georgia,serif;font-size:22px;font-weight:400;color:#1C1A14;margin:0 0 12px;">
         Bonjour ${escapeHtml(firstName) || escapeHtml(args.candidateName)},
       </h1>
+      ${clientModifiedBlock}
       <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 16px;">
         Votre rapport d'heures pour la <strong>${escapeHtml(args.weekLabel)}</strong> a été signé par <strong>${escapeHtml(args.clientName)}</strong>.
       </p>
@@ -318,11 +348,14 @@ export async function sendCompletedEmailToCandidat(args: {
   const text = [
     `Bonjour ${firstName || args.candidateName},`,
     '',
+    args.clientModified
+      ? `/!\\ ${args.clientName} a modifié ${modifiedFieldsList.length || 'certains'} champ(s) avant de signer. Détails sur le certificat joint.`
+      : '',
     `Votre rapport d'heures pour la ${args.weekLabel} a été signé par ${args.clientName}.`,
     'Une copie complète signée est jointe à cet email.',
     '',
     'L-Agence SA · TalentFlow Sign',
-  ].join('\n')
+  ].filter(Boolean).join('\n')
 
   return await sendResend({
     to: args.to,

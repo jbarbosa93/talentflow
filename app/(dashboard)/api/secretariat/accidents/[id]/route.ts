@@ -35,6 +35,21 @@ export async function PATCH(
 
     if (error) throw error
 
+    // Auto-résoudre l'alerte assurance_expiree si la nouvelle date n'est plus expirée >20j
+    if (body.assurance_payee_jusqu_au) {
+      const joursExpire = Math.floor(
+        (Date.now() - new Date(body.assurance_payee_jusqu_au).getTime()) / 86400000
+      )
+      if (joursExpire <= 20) {
+        await (supabase as any)
+          .from('secretariat_notifications')
+          .update({ traitee: true, traitee_at: new Date().toISOString(), lue: true })
+          .eq('reference_id', `assurance_${id}`)
+          .eq('type', 'assurance_expiree')
+          .eq('traitee', false)
+      }
+    }
+
     if (before) {
       const diff = diffChanges(before, body)
       if (diff) {

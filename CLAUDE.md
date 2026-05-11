@@ -115,7 +115,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.4.0 prod (Rapports v2 Phase 1 — multi-entreprise + notes + accueil mobile + WhatsApp candidat)** — 11/05/2026
+**v2.6.2 prod (Secrétariat Accidents v2 + Fix retour Edge + Photo crop Word)** — 11/05/2026
 
 Phase 1 du chantier Rapports v2 (FEATURE 1 → 5 du brief João) :
 

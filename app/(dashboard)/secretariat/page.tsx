@@ -57,7 +57,7 @@ interface SecretariatAccident {
   id: string
   candidat_id: string | null
   nom_prenom: string
-  type_cas: 'Accident' | 'Maladie'
+  type_cas: 'Accident' | 'Maladie' | 'Bagatelle' | 'LCA Maladie'
   sous_type: string | null
   raison: string | null
   numero_sinistre: string | null
@@ -67,6 +67,7 @@ interface SecretariatAccident {
   licenciement_pour_le: string | null
   remarque: string | null
   termine: boolean
+  statut_cas: 'nouveau' | 'en_cours' | 'termine'
   decision: string | null
   note: string | null
   couleur: 'normal' | 'jaune' | 'rouge'
@@ -811,7 +812,7 @@ const EMPTY_ACCIDENT_FORM = {
   candidat_id: null as string | null,
   candidat_nom_complet: '',
   nom_prenom: '',
-  type_cas: 'Accident' as 'Accident' | 'Maladie',
+  type_cas: 'Accident' as 'Accident' | 'Maladie' | 'Bagatelle' | 'LCA Maladie',
   sous_type: '',
   raison: '',
   numero_sinistre: '',
@@ -821,6 +822,7 @@ const EMPTY_ACCIDENT_FORM = {
   licenciement_pour_le: '',
   remarque: '',
   termine: false,
+  statut_cas: 'nouveau' as 'nouveau' | 'en_cours' | 'termine',
   decision: '',
   note: '',
   couleur: 'normal' as 'normal' | 'jaune' | 'rouge',
@@ -842,6 +844,7 @@ function AccidentModal({ item, onClose, onSaved }: { item?: SecretariatAccident 
     licenciement_pour_le: item.licenciement_pour_le || '',
     remarque: item.remarque || '',
     termine: item.termine || false,
+    statut_cas: (item.statut_cas || (item.termine ? 'termine' : 'en_cours')) as 'nouveau' | 'en_cours' | 'termine',
     decision: item.decision || '',
     note: item.note || '',
     couleur: item.couleur || 'normal' as 'normal' | 'jaune' | 'rouge',
@@ -854,11 +857,12 @@ function AccidentModal({ item, onClose, onSaved }: { item?: SecretariatAccident 
     if (!form.nom_prenom) { toast.error('Nom / Prénom requis'); return }
     setSaving(true)
     try {
+      const hasSousType = form.type_cas === 'Accident' || form.type_cas === 'Bagatelle'
       const payload = {
         candidat_id: form.candidat_id || null,
         nom_prenom: form.nom_prenom,
         type_cas: form.type_cas,
-        sous_type: form.sous_type || null,
+        sous_type: hasSousType ? (form.sous_type || null) : null,
         raison: form.raison || null,
         numero_sinistre: form.numero_sinistre || null,
         date_debut: form.date_debut || null,
@@ -866,7 +870,8 @@ function AccidentModal({ item, onClose, onSaved }: { item?: SecretariatAccident 
         assurance_payee_jusqu_au: form.assurance_payee_jusqu_au || null,
         licenciement_pour_le: form.licenciement_pour_le || null,
         remarque: form.remarque || null,
-        termine: form.termine,
+        statut_cas: form.statut_cas,
+        termine: form.statut_cas === 'termine',
         decision: form.decision || null,
         note: form.note || null,
         couleur: form.couleur,
@@ -918,15 +923,23 @@ function AccidentModal({ item, onClose, onSaved }: { item?: SecretariatAccident 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
                 <label style={S.label}>Type de cas</label>
-                <select value={form.type_cas} onChange={e => set('type_cas', e.target.value as 'Accident' | 'Maladie')} style={{ ...S.input }}>
+                <select value={form.type_cas} onChange={e => { set('type_cas', e.target.value as 'Accident' | 'Maladie' | 'Bagatelle' | 'LCA Maladie'); set('sous_type', '') }} style={{ ...S.input }}>
                   <option value="Accident">Accident</option>
+                  <option value="Bagatelle">Bagatelle</option>
                   <option value="Maladie">Maladie</option>
+                  <option value="LCA Maladie">LCA Maladie</option>
                 </select>
               </div>
-              <div>
-                <label style={S.label}>Sous-type</label>
-                <input value={form.sous_type} onChange={e => set('sous_type', e.target.value)} placeholder="Ex: Professionnel, Sportif…" style={S.input} />
-              </div>
+              {(form.type_cas === 'Accident' || form.type_cas === 'Bagatelle') && (
+                <div>
+                  <label style={S.label}>Sous-type</label>
+                  <select value={form.sous_type} onChange={e => set('sous_type', e.target.value)} style={{ ...S.input }}>
+                    <option value="">— Choisir —</option>
+                    <option value="AANP">AANP</option>
+                    <option value="AAP">AAP</option>
+                  </select>
+                </div>
+              )}
             </div>
             <div>
               <label style={S.label}>Raison / Description</label>
@@ -968,14 +981,23 @@ function AccidentModal({ item, onClose, onSaved }: { item?: SecretariatAccident 
               <label style={S.label}>Décision</label>
               <input value={form.decision} onChange={e => set('decision', e.target.value)} placeholder="Décision prise…" style={S.input} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
-                <label style={S.label}>Couleur alerte</label>
-                <select value={form.couleur} onChange={e => set('couleur', e.target.value as 'normal' | 'jaune' | 'rouge')} style={{ ...S.input }}>
-                  <option value="normal">Normal</option>
-                  <option value="jaune">Jaune (attention)</option>
-                  <option value="rouge">Rouge (urgent)</option>
-                </select>
+                <label style={S.label}>Statut</label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {([
+                    { key: 'nouveau', label: 'Nouveau Cas', bg: 'rgba(99,102,241,0.12)', color: '#818CF8', border: 'rgba(99,102,241,0.3)' },
+                    { key: 'en_cours', label: 'En cours', bg: 'rgba(6,182,212,0.12)', color: '#06B6D4', border: 'rgba(6,182,212,0.3)' },
+                    { key: 'termine', label: 'Terminé', bg: 'rgba(34,197,94,0.12)', color: '#22C55E', border: 'rgba(34,197,94,0.3)' },
+                  ] as const).map(opt => (
+                    <button key={opt.key} type="button" onClick={() => set('statut_cas', opt.key)} style={{
+                      flex: 1, padding: '7px 4px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                      background: form.statut_cas === opt.key ? opt.bg : 'var(--secondary)',
+                      color: form.statut_cas === opt.key ? opt.color : 'var(--muted)',
+                      border: `1.5px solid ${form.statut_cas === opt.key ? opt.border : 'var(--border)'}`,
+                    }}>{opt.label}</button>
+                  ))}
+                </div>
               </div>
               <div>
                 <label style={S.label}>Année</label>
@@ -983,12 +1005,6 @@ function AccidentModal({ item, onClose, onSaved }: { item?: SecretariatAccident 
                   <option value={2026}>2026</option>
                   <option value={2025}>2025</option>
                 </select>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
-                  <input type="checkbox" checked={form.termine} onChange={e => set('termine', e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
-                  Cas terminé
-                </label>
               </div>
             </div>
           </ZoneSection>
@@ -1973,87 +1989,9 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange, alfaCandid
 
 // ─── AccidentsTable ───────────────────────────────────────────────────────────
 
-function AccidentCard({ accident, onEdit, onDelete, onColorChange, onArchive }: { accident: SecretariatAccident; onEdit: () => void; onDelete: () => void; onColorChange: (color: string) => void; onArchive: () => void }) {
-  const [expanded, setExpanded] = useState(false)
-  const telCleaned = cleanPhone(accident.tel || null)
-  const rowBg = ROW_COLORS.find(rc => rc.key === (accident.couleur || ''))?.bg || 'transparent'
-
-  return (
-    <div style={{ ...S.card, padding: 16, background: rowBg !== 'transparent' ? rowBg : undefined, opacity: accident.archive ? 0.55 : 1 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        {accident.photo_url && accident.photo_url !== 'checked'
-          ? <Image src={accident.photo_url} alt="" width={44} height={44} unoptimized style={{ borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-          : <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
-              {(accident.nom_prenom || '?').split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase()}
-            </div>
-        }
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-            <div>
-              {accident.candidat_id
-                ? <a href={`/candidats/${accident.candidat_id}?from=secretariat`} style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{accident.nom_prenom}</a>
-                : <div style={{ fontWeight: 700, fontSize: 14 }}>{accident.nom_prenom}</div>
-              }
-              <div style={{ display: 'flex', gap: 5, marginTop: 4, flexWrap: 'wrap' }}>
-                <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: accident.type_cas === 'Accident' ? 'rgba(239,68,68,0.12)' : 'rgba(234,179,8,0.12)', color: accident.type_cas === 'Accident' ? '#EF4444' : '#CA8A04' }}>{accident.type_cas}</span>
-                {accident.sous_type && <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: 'var(--secondary)', color: 'var(--muted)', border: '1px solid var(--border)' }}>{accident.sous_type}</span>}
-                <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: accident.termine ? 'rgba(34,197,94,0.12)' : 'rgba(99,102,241,0.12)', color: accident.termine ? '#22C55E' : '#818CF8' }}>
-                  {accident.termine ? '✓ Terminé' : '● En cours'}
-                </span>
-                {accident.archive && <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(100,116,139,0.1)', color: 'var(--muted)', border: '1px solid var(--border)' }}>📦 Archivé</span>}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-              {telCleaned && <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', borderRadius: 6, background: 'rgba(37,211,102,0.1)', color: '#25D366', textDecoration: 'none', border: '1px solid rgba(37,211,102,0.2)' }}><WaIcon size={12} /></a>}
-              {accident.email && <a href={`mailto:${accident.email}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', borderRadius: 6, background: 'rgba(99,102,241,0.1)', color: '#6366F1', textDecoration: 'none', border: '1px solid rgba(99,102,241,0.2)' }}><Mail size={11} /></a>}
-              {accident.termine && (
-                <button onClick={onArchive} title={accident.archive ? 'Désarchiver' : 'Archiver'} style={{ padding: '5px 8px', borderRadius: 6, background: accident.archive ? 'rgba(100,116,139,0.1)' : 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: 11, fontWeight: 600, gap: 3 }}>
-                  📦
-                </button>
-              )}
-              <ColorPicker currentColor={accident.couleur || null} onChange={onColorChange} />
-              <button onClick={onEdit} title="Modifier" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
-              <button onClick={onDelete} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
-            </div>
-          </div>
-          {(accident.raison || accident.numero_sinistre || accident.decision || accident.note || accident.remarque) && (
-            <div style={{ marginTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
-              {accident.raison && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Raison :</strong> {accident.raison}</span>}
-              {accident.numero_sinistre && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Sinistre :</strong> {accident.numero_sinistre}</span>}
-              {accident.decision && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Décision :</strong> {accident.decision}</span>}
-              {accident.note && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Note :</strong> {accident.note}</span>}
-              {accident.remarque && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Remarque :</strong> {accident.remarque}</span>}
-            </div>
-          )}
-          <div style={{ marginTop: 10 }}>
-            <button onClick={() => setExpanded(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}>
-              {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-              Détails timeline
-            </button>
-            {expanded && (
-              <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap', padding: '10px 0', borderTop: '1px solid var(--border)' }}>
-                {[
-                  { label: 'Début', value: formatDate(accident.date_debut), icon: Calendar },
-                  { label: 'Fin', value: formatDate(accident.date_fin), icon: Calendar },
-                  { label: 'Assurance jusqu\'au', value: formatDate(accident.assurance_payee_jusqu_au), icon: CheckCircle2 },
-                  { label: 'Licenciement le', value: formatDate(accident.licenciement_pour_le), icon: AlertCircle },
-                ].map(({ label, value, icon: Icon }) => (
-                  <div key={label} style={{ minWidth: 130 }}>
-                    <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{label}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: value === '—' ? 'var(--muted)' : 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 5 }}><Icon size={12} style={{ color: 'var(--muted)' }} />{value}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function AccidentsTable({ accidents, onEdit, onDelete, onColorChange, onArchive }: { accidents: SecretariatAccident[]; onEdit: (a: SecretariatAccident) => void; onDelete: (a: SecretariatAccident) => void; onColorChange: (id: string, color: string) => void; onArchive: (a: SecretariatAccident) => void }) {
+function AccidentsTable({ accidents, onEdit, onDelete, onArchive }: { accidents: SecretariatAccident[]; onEdit: (a: SecretariatAccident) => void; onDelete: (a: SecretariatAccident) => void; onArchive: (a: SecretariatAccident) => void }) {
   const [sortDir, setSortDir] = useState<SortDir>(null)
+  const [sortAss, setSortAss] = useState<'recent' | 'ancien' | null>(null)
 
   if (accidents.length === 0) {
     return (
@@ -2066,7 +2004,16 @@ function AccidentsTable({ accidents, onEdit, onDelete, onColorChange, onArchive 
 
   let displayed = [...accidents]
 
-  if (sortDir) {
+  if (sortAss) {
+    displayed = [...displayed].sort((a, b) => {
+      const da = a.assurance_payee_jusqu_au || ''
+      const db = b.assurance_payee_jusqu_au || ''
+      if (!da && !db) return 0
+      if (!da) return 1
+      if (!db) return -1
+      return sortAss === 'recent' ? db.localeCompare(da) : da.localeCompare(db)
+    })
+  } else if (sortDir) {
     displayed = [...displayed].sort((a, b) => {
       const va = (a.nom_prenom || '').toLowerCase()
       const vb = (b.nom_prenom || '').toLowerCase()
@@ -2074,18 +2021,125 @@ function AccidentsTable({ accidents, onEdit, onDelete, onColorChange, onArchive 
     })
   }
 
+  const thStyle: React.CSSProperties = { padding: '8px 6px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', borderBottom: '1.5px solid var(--border)' }
+  const tdStyle: React.CSSProperties = { padding: '7px 6px', fontSize: 11, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }
+
+  const fmtDate = (d: string | null) => d ? d.split('-').reverse().join('.') : '—'
+
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
-        <button onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : prev === 'desc' ? null : 'asc')} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: sortDir ? 'var(--primary)' : 'var(--secondary)', color: sortDir ? 'var(--primary-foreground)' : 'var(--muted)', border: `1.5px solid ${sortDir ? 'var(--primary)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', gap: 3 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button onClick={() => { setSortDir(prev => prev === 'asc' ? 'desc' : prev === 'desc' ? null : 'asc'); setSortAss(null) }} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: sortDir ? 'var(--primary)' : 'var(--secondary)', color: sortDir ? 'var(--primary-foreground)' : 'var(--muted)', border: `1.5px solid ${sortDir ? 'var(--primary)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', gap: 3 }}>
           {sortDir === 'asc' ? <ArrowUp size={10} /> : sortDir === 'desc' ? <ArrowDown size={10} /> : <ArrowUpDown size={10} />} Nom
+        </button>
+        <button onClick={() => { setSortAss(prev => prev === 'recent' ? 'ancien' : prev === 'ancien' ? null : 'recent'); setSortDir(null) }} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: sortAss ? 'rgba(34,197,94,0.15)' : 'var(--secondary)', color: sortAss ? '#16A34A' : 'var(--muted)', border: `1.5px solid ${sortAss ? 'rgba(34,197,94,0.4)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', gap: 3 }}>
+          {sortAss === 'recent' ? <ArrowDown size={10} /> : sortAss === 'ancien' ? <ArrowUp size={10} /> : <ArrowUpDown size={10} />} Ass.
         </button>
         <span style={{ fontSize: 11, color: 'var(--muted)' }}>{displayed.length} cas</span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {displayed.map(a => (
-          <AccidentCard key={a.id} accident={a} onEdit={() => onEdit(a)} onDelete={() => onDelete(a)} onColorChange={color => onColorChange(a.id, color)} onArchive={() => onArchive(a)} />
-        ))}
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <table style={{ width: '100%', minWidth: 1100, borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Candidat</th>
+              <th style={thStyle}>Type / Statut</th>
+              <th style={thStyle}>Raison</th>
+              <th style={thStyle}>N° Sinistre</th>
+              <th style={thStyle}>Début</th>
+              <th style={thStyle}>Fin</th>
+              <th style={{ ...thStyle, color: '#16A34A' }}>Ass. jusqu'au</th>
+              <th style={thStyle}>Licenciement</th>
+              <th style={thStyle}>Décision</th>
+              <th style={thStyle}>Note / Remarque</th>
+              <th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayed.map(a => (
+              <tr key={a.id} style={{ opacity: a.archive ? 0.55 : 1 }}>
+                {/* Candidat */}
+                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {a.photo_url && a.photo_url !== 'checked'
+                      ? <Image src={a.photo_url} alt="" width={32} height={32} unoptimized style={{ borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                      : <div style={{ width: 32, height: 32, borderRadius: 6, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
+                          {(a.nom_prenom || '?').split(' ').slice(0, 2).map((w: string) => w[0] || '').join('').toUpperCase()}
+                        </div>
+                    }
+                    <div>
+                      {a.candidat_id
+                        ? <a href={`/candidats/${a.candidat_id}?from=secretariat`} style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', textDecoration: 'none' }}>{a.nom_prenom}</a>
+                        : <span style={{ fontWeight: 700, fontSize: 12 }}>{a.nom_prenom}</span>
+                      }
+                    </div>
+                  </div>
+                </td>
+                {/* Type / Statut */}
+                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      <span style={{ padding: '1px 6px', borderRadius: 99, fontSize: 10, fontWeight: 700,
+                        background: a.type_cas === 'Accident' ? 'rgba(239,68,68,0.12)' : a.type_cas === 'Bagatelle' ? 'rgba(249,115,22,0.12)' : 'rgba(234,179,8,0.12)',
+                        color: a.type_cas === 'Accident' ? '#EF4444' : a.type_cas === 'Bagatelle' ? '#EA580C' : '#CA8A04' }}>
+                        {a.type_cas}
+                      </span>
+                      {a.sous_type && <span style={{ padding: '1px 6px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(239,68,68,0.12)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}>{a.sous_type}</span>}
+                    </div>
+                    <span style={{ padding: '1px 6px', borderRadius: 99, fontSize: 10, fontWeight: 700, width: 'fit-content',
+                      background: a.statut_cas === 'termine' ? 'rgba(34,197,94,0.12)' : a.statut_cas === 'nouveau' ? 'rgba(99,102,241,0.12)' : 'rgba(6,182,212,0.12)',
+                      color: a.statut_cas === 'termine' ? '#22C55E' : a.statut_cas === 'nouveau' ? '#818CF8' : '#06B6D4' }}>
+                      {a.statut_cas === 'termine' ? '✓ Terminé' : a.statut_cas === 'nouveau' ? '◆ Nouveau' : '● En cours'}
+                    </span>
+                  </div>
+                </td>
+                {/* Raison */}
+                <td style={{ ...tdStyle, maxWidth: 140 }}>
+                  <span style={{ fontSize: 11, color: 'var(--muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={a.raison || ''}>{a.raison || '—'}</span>
+                </td>
+                {/* N° Sinistre */}
+                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 11 }}>{a.numero_sinistre || '—'}</span>
+                </td>
+                {/* Début */}
+                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 11 }}>{fmtDate(a.date_debut)}</span>
+                </td>
+                {/* Fin */}
+                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 11 }}>{fmtDate(a.date_fin)}</span>
+                </td>
+                {/* Ass. jusqu'au */}
+                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                  {a.assurance_payee_jusqu_au
+                    ? <span style={{ fontSize: 13, fontWeight: 800, color: '#16A34A' }}>{fmtDate(a.assurance_payee_jusqu_au)}</span>
+                    : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>
+                  }
+                </td>
+                {/* Licenciement */}
+                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 11 }}>{fmtDate(a.licenciement_pour_le)}</span>
+                </td>
+                {/* Décision */}
+                <td style={{ ...tdStyle, maxWidth: 140 }}>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }} title={a.decision || ''}>{a.decision || '—'}</span>
+                </td>
+                {/* Note / Remarque */}
+                <td style={{ ...tdStyle, maxWidth: 160 }}>
+                  <span style={{ fontSize: 10, color: 'var(--muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={[a.note, a.remarque].filter(Boolean).join(' | ')}>
+                    {[a.note, a.remarque].filter(Boolean).join(' | ') || '—'}
+                  </span>
+                </td>
+                {/* Actions */}
+                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={() => onEdit(a)} title="Modifier" style={{ padding: '4px 7px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={12} /></button>
+                    <button onClick={() => onDelete(a)} title="Supprimer" style={{ padding: '4px 7px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={12} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
@@ -2662,6 +2716,88 @@ function FinAlfaCaissePopup() {
   )
 }
 
+// ─── Popup assurance expirée >20j ─────────────────────────────────────────────
+
+function AssuranceExpireePopup() {
+  const queryClient = useQueryClient()
+  const { data: alertes = [], refetch } = useQuery<any[]>({
+    queryKey: ['secretariat-assurance-actives'],
+    queryFn: async () => {
+      const res = await fetch('/api/secretariat/notifications/assurance-actives')
+      if (!res.ok) return []
+      const d = await res.json()
+      return d.alertes || []
+    },
+    refetchInterval: 60_000,
+  })
+
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const visible = alertes.filter((a: any) => !dismissed.has(a.id))
+  if (visible.length === 0) return null
+  const current = visible[0]
+
+  const handleFait = async () => {
+    try {
+      const res = await fetch(`/api/secretariat/notifications/${current.id}/cest-fait`, { method: 'PATCH' })
+      if (!res.ok) throw new Error('Erreur')
+      toast.success('Alerte assurance archivée')
+      setDismissed(prev => new Set(prev).add(current.id))
+      refetch()
+      queryClient.invalidateQueries({ queryKey: ['secretariat-notifs-count'] })
+      queryClient.invalidateQueries({ queryKey: ['secretariat-notifications'] })
+    } catch (e: any) { toast.error(e.message) }
+  }
+
+  const handleAFaire = () => {
+    // Ferme le popup, reste dans la cloche comme À faire
+    setDismissed(prev => new Set(prev).add(current.id))
+  }
+
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ ...S.card, padding: 28, width: '100%', maxWidth: 540, border: '2px solid #CA8A04', boxShadow: '0 24px 64px rgba(202,138,4,0.3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(234,179,8,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AlertTriangle size={28} color="#CA8A04" />
+          </div>
+          <div>
+            <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 24, fontWeight: 400, color: '#78350F', letterSpacing: '-0.01em', lineHeight: 1.1 }}>Assurance expirée</h2>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Assurance payée depuis plus de 20 jours</div>
+          </div>
+        </div>
+
+        <div style={{ background: 'rgba(234,179,8,0.06)', border: '1.5px solid rgba(234,179,8,0.25)', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#78350F', marginBottom: 6 }}>{current.titre.replace(/^🟡\s*/, '')}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--foreground)', lineHeight: 1.5 }}>{current.message}</div>
+        </div>
+
+        {visible.length > 1 && (
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 14, padding: '6px 10px', background: 'var(--secondary)', borderRadius: 6 }}>
+            ℹ️ {visible.length - 1} autre{visible.length > 2 ? 's' : ''} assurance{visible.length > 2 ? 's' : ''} expirée{visible.length > 2 ? 's' : ''} en attente.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={handleAFaire} style={{
+            padding: '10px 18px', borderRadius: 8, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', fontSize: 13, fontWeight: 700, cursor: 'pointer'
+          }}>À faire</button>
+          <button onClick={handleFait} style={{
+            padding: '10px 20px', borderRadius: 8, background: '#16A34A', border: 'none', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
+          }}>
+            <CheckCircle2 size={15} /> FAIT
+          </button>
+        </div>
+
+        <div style={{ marginTop: 12, fontSize: 10, color: 'var(--muted)', textAlign: 'center' }}>
+          ⚠️ « À faire » ferme ce popup mais l'alerte reste active dans la cloche jusqu'à « FAIT ».
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function SecretariatPageWrapper() {
@@ -2709,7 +2845,7 @@ function SecretariatPage() {
   const [showAlertModal, setShowAlertModal] = useState(false)
 
   // Filtres accidents
-  const [accidentStatut, setAccidentStatut] = useState<'tous' | 'en_cours' | 'termine'>('tous')
+  const [accidentStatut, setAccidentStatut] = useState<'tous' | 'nouveau' | 'en_cours' | 'termine'>('tous')
   const [accidentType, setAccidentType] = useState<'tous' | 'Accident' | 'Maladie'>('tous')
 
   // Filtre candidats (permis urgents / surveillance / docs manquants)
@@ -2880,6 +3016,24 @@ function SecretariatPage() {
       }
     }
 
+    // Assurances expirées depuis >20j (cas non terminés)
+    for (const a of accidentsList) {
+      if (a.statut_cas === 'termine' || !a.assurance_payee_jusqu_au) continue
+      const joursExpire = Math.floor((today.getTime() - new Date(a.assurance_payee_jusqu_au).getTime()) / 86400000)
+      if (joursExpire > 20) {
+        const dateFormatted = a.assurance_payee_jusqu_au.split('-').reverse().join('.')
+        batch.push({
+          type: 'assurance_expiree',
+          titre: `🟡 Assurance expirée : ${a.nom_prenom}`,
+          message: `L'assurance (${a.type_cas}${a.sous_type ? ' / ' + a.sous_type : ''}) était payée jusqu'au ${dateFormatted} — expirée depuis ${joursExpire} jours. Vérifier le renouvellement.`,
+          candidat_id: a.candidat_id,
+          reference_id: `assurance_${a.id}`,
+          reference_table: 'secretariat_accidents',
+          urgence: joursExpire > 60 ? 'urgente' : 'normale',
+        })
+      }
+    }
+
     // Sinistres en cours >30j
     for (const a of accidentsList) {
       if (a.termine || !a.date_debut) continue
@@ -2964,8 +3118,7 @@ function SecretariatPage() {
   })
 
   const filteredAccidents = accidents.filter(a => {
-    if (accidentStatut === 'en_cours' && a.termine) return false
-    if (accidentStatut === 'termine' && !a.termine) return false
+    if (accidentStatut !== 'tous' && a.statut_cas !== accidentStatut) return false
     if (accidentType !== 'tous' && a.type_cas !== accidentType) return false
     return !q || (a.nom_prenom || '').toLowerCase().includes(q) || (a.raison || '').toLowerCase().includes(q) || (a.numero_sinistre || '').toLowerCase().includes(q)
   })
@@ -3189,7 +3342,7 @@ function SecretariatPage() {
                 )}
               </div>
             </div>
-            {notif.type === 'fin_alfa_caisse' && !notif.traitee && (
+            {(notif.type === 'fin_alfa_caisse' || notif.type === 'assurance_expiree') && !notif.traitee && (
               <button
                 onClick={async (e) => {
                   e.stopPropagation()
@@ -3199,6 +3352,7 @@ function SecretariatPage() {
                     refetchNotifs()
                     queryClient.invalidateQueries({ queryKey: ['secretariat-notifs-count'] })
                     queryClient.invalidateQueries({ queryKey: ['secretariat-fin-alfa-actives'] })
+                    queryClient.invalidateQueries({ queryKey: ['secretariat-assurance-actives'] })
                   } catch { toast.error('Erreur') }
                 }}
                 title="C'est fait — archiver"
@@ -3206,8 +3360,17 @@ function SecretariatPage() {
                 <CheckCircle2 size={11} /> C'est fait
               </button>
             )}
-            {!notif.lue && notif.type !== 'fin_alfa_caisse' && (
-              <button onClick={() => handleMarkNotifLue(notif)} title="Marquer comme lue"
+            {!notif.lue && notif.type !== 'fin_alfa_caisse' && notif.type !== 'assurance_expiree' && (
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  try {
+                    await fetch(`/api/secretariat/notifications/${notif.id}/cest-fait`, { method: 'PATCH' })
+                    refetchNotifs()
+                    queryClient.invalidateQueries({ queryKey: ['secretariat-notifs-count'] })
+                  } catch { handleMarkNotifLue(notif) }
+                }}
+                title="Archiver"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, flexShrink: 0 }}>
                 <X size={13} />
               </button>
@@ -3389,13 +3552,18 @@ function SecretariatPage() {
       {activeTab === 'accidents' && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: 4 }}>
-            {(['tous', 'en_cours', 'termine'] as const).map(s => (
-              <button key={s} onClick={() => setAccidentStatut(s)} style={{
+            {([
+              { key: 'tous',     label: 'Tous',       bg: 'var(--primary)',           fg: 'var(--primary-foreground)', border: 'var(--primary)' },
+              { key: 'nouveau',  label: 'Nouveau Cas', bg: 'rgba(99,102,241,0.15)',   fg: '#818CF8',  border: 'rgba(99,102,241,0.4)' },
+              { key: 'en_cours', label: 'En cours',   bg: 'rgba(6,182,212,0.12)',     fg: '#06B6D4',  border: 'rgba(6,182,212,0.3)' },
+              { key: 'termine',  label: 'Terminé',    bg: 'rgba(34,197,94,0.15)',     fg: '#16A34A',  border: 'rgba(34,197,94,0.4)' },
+            ] as { key: 'tous' | 'nouveau' | 'en_cours' | 'termine'; label: string; bg: string; fg: string; border: string }[]).map(s => (
+              <button key={s.key} onClick={() => setAccidentStatut(s.key)} style={{
                 padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                background: accidentStatut === s ? 'var(--primary)' : 'var(--secondary)',
-                color: accidentStatut === s ? 'var(--primary-foreground)' : 'var(--muted)',
-                border: `1.5px solid ${accidentStatut === s ? 'var(--primary)' : 'var(--border)'}`,
-              }}>{s === 'tous' ? 'Tous' : s === 'en_cours' ? 'En cours' : 'Terminé'}</button>
+                background: accidentStatut === s.key ? s.bg : 'var(--secondary)',
+                color: accidentStatut === s.key ? s.fg : 'var(--muted)',
+                border: `1.5px solid ${accidentStatut === s.key ? s.border : 'var(--border)'}`,
+              }}>{s.label}</button>
             ))}
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
@@ -3621,7 +3789,6 @@ function SecretariatPage() {
                 accidents={filteredAccidents}
                 onEdit={a => { setEditItem(a); setShowForm(true) }}
                 onDelete={a => setDeleteItem(a)}
-                onColorChange={handleColorChange}
                 onArchive={handleArchive}
               />
             )}
@@ -3672,6 +3839,9 @@ function SecretariatPage() {
 
       {/* Popup persistant fin ALFA caisse — s'affiche tant que pas archivé */}
       <FinAlfaCaissePopup />
+
+      {/* Popup assurances expirées >20j */}
+      <AssuranceExpireePopup />
 
       {/* Modal suppression */}
       {deleteItem && (

@@ -14,6 +14,8 @@
 //   6. Upload des 2 fichiers + persist signed_pdf_paths
 
 import { createHash } from 'crypto'
+import fs from 'fs'
+import path from 'path'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { stampPdf } from '@/lib/sign/pdf-stamp'
 import { uploadSignDocument, SIGN_BUCKET } from '@/lib/sign/storage'

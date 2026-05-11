@@ -1,8 +1,9 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { X, Check, Loader2 } from 'lucide-react'
+import { X, Check, Loader2, ChevronLeft } from 'lucide-react'
 
 type Rect = { x: number; y: number; w: number; h: number }
+type DocxImage = { name: string; dataUrl: string; size: number }
 
 type Props = {
   cvUrl: string
@@ -19,8 +20,12 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
   const [dragging, setDragging] = useState(false)
   const startPt = useRef<{ x: number; y: number } | null>(null)
 
+  // Mode DOCX : grille d'images extraites
+  const [docxImages, setDocxImages] = useState<DocxImage[] | null>(null)
+  const [docxMode, setDocxMode] = useState(false)
+  const [selectedDocxImage, setSelectedDocxImage] = useState<DocxImage | null>(null)
+
   useEffect(() => {
-    // Déterminer le type de fichier
     const urlLower = cvUrl.toLowerCase()
     const isDoc = /\.(doc|docx)($|\?)/i.test(urlLower) ||
       urlLower.includes('_doc_') || urlLower.includes('.doc_') ||
@@ -29,18 +34,56 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
     const isImage = /\.(jpg|jpeg|png|webp)($|\?)/i.test(urlLower)
 
     if (isDoc) {
-      setError('Le crop photo n\'est pas disponible pour les fichiers Word (.doc/.docx). Utilisez le bouton upload photo (📷) pour ajouter une photo manuellement.')
-      setLoading(false)
+      setDocxMode(true)
+      loadDocxImages()
     } else if (isPdf) {
       loadPdf()
     } else if (isImage) {
       loadImage()
     } else {
-      // Essayer comme image par défaut
       loadImage()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cvUrl])
+
+  async function loadDocxImages() {
+    try {
+      setLoading(true)
+      const res = await fetch(`/api/cv/docx-images?url=${encodeURIComponent(cvUrl)}`)
+      if (!res.ok) throw new Error('Extraction échouée')
+      const data = await res.json()
+      if (!data.images || data.images.length === 0) {
+        setError('Aucune image trouvée dans ce fichier Word. Utilisez le bouton 📷 pour ajouter une photo manuellement.')
+      } else {
+        setDocxImages(data.images)
+      }
+      setLoading(false)
+    } catch {
+      setError('Impossible d\'extraire les images du fichier Word.')
+      setLoading(false)
+    }
+  }
+
+  // Quand l'utilisateur choisit une image DOCX, la charger dans le canvas pour crop
+  const selectDocxImage = (img: DocxImage) => {
+    setSelectedDocxImage(img)
+    setDocxImages(null)
+    setLoading(true)
+    const image = new Image()
+    image.onload = () => {
+      const canvas = canvasRef.current!
+      const scale = Math.min(1, 900 / image.width)
+      canvas.width = image.width * scale
+      canvas.height = image.height * scale
+      canvas.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height)
+      const overlay = overlayRef.current!
+      overlay.width = canvas.width
+      overlay.height = canvas.height
+      setLoading(false)
+    }
+    image.onerror = () => { setError('Impossible de charger l\'image'); setLoading(false) }
+    image.src = img.dataUrl
+  }
 
   async function loadPdf() {
     try {
@@ -179,27 +222,67 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
 
         {/* Header */}
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          {selectedDocxImage && (
+            <button
+              onClick={() => { setSelectedDocxImage(null); loadDocxImages() }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4, display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}
+            >
+              <ChevronLeft size={16} /> Images
+            </button>
+          )}
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>✂️ Sélectionner la zone photo</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Cliquez et glissez pour délimiter la zone à utiliser comme photo du candidat</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>
+              {docxImages ? '📎 Choisir une image du fichier Word' : '✂️ Sélectionner la zone photo'}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+              {docxImages
+                ? 'Cliquez sur l\'image à utiliser comme photo du candidat'
+                : 'Cliquez et glissez pour délimiter la zone à utiliser comme photo'}
+            </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4, display: 'flex' }}>
             <X size={18} />
           </button>
         </div>
 
-        {/* Canvas area */}
-        <div style={{ flex: 1, overflow: 'auto', background: '#111', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', minHeight: 200 }}>
+        {/* Canvas area ou grille DOCX */}
+        <div style={{ flex: 1, overflow: 'auto', background: docxImages ? 'var(--background)' : '#111', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', minHeight: 200 }}>
           {loading && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 200, gap: 12 }}>
               <Loader2 size={28} color="#F5A723" style={{ animation: 'spin 1s linear infinite' }} />
-              <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>Chargement du CV…</span>
+              <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+                {docxMode && !selectedDocxImage ? 'Extraction des images…' : 'Chargement…'}
+              </span>
             </div>
           )}
           {error && (
             <div style={{ padding: 40, color: 'var(--destructive)', textAlign: 'center', fontSize: 13, maxWidth: 400 }}>{error}</div>
           )}
-          <div style={{ position: 'relative', display: loading ? 'none' : 'inline-block' }}>
+          {/* Grille DOCX */}
+          {docxImages && !loading && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, padding: 20, width: '100%' }}>
+              {docxImages.map((img, i) => (
+                <button
+                  key={i}
+                  onClick={() => selectDocxImage(img)}
+                  style={{ background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', transition: 'border-color 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#F5A723')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                >
+                  <img
+                    src={img.dataUrl}
+                    alt={img.name}
+                    style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--muted)', padding: '6px 8px', textAlign: 'center' }}>
+                    {img.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Canvas crop (PDF, image, ou image DOCX sélectionnée) */}
+          <div style={{ position: 'relative', display: (!loading && !docxImages && !error) ? 'inline-block' : 'none' }}>
             <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%' }} />
             <canvas
               ref={overlayRef}
@@ -213,6 +296,7 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
         </div>
 
         {/* Footer */}
+        {!docxImages && (
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, alignItems: 'center' }}>
           {hasSelection
             ? <span style={{ fontSize: 12, color: 'var(--muted)', marginRight: 'auto' }}>
@@ -241,6 +325,7 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
             <Check size={14} />Utiliser cette zone
           </button>
         </div>
+        )}
       </div>
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     </div>
