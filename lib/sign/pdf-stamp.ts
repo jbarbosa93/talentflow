@@ -358,6 +358,16 @@ export function formatDate(s: string, format?: string): string {
   const dateObj = new Date(`${y}-${mo}-${d}T00:00:00Z`)
   const dow = isNaN(dateObj.getTime()) ? -1 : dateObj.getUTCDay()
   const moIdx = parseInt(mo, 10) - 1
+  // v2.6.9 — Numéro de semaine ISO 8601 (semaine 1 = celle du 1er jeudi de l'année)
+  let isoWeekStr = ''
+  if (!isNaN(dateObj.getTime())) {
+    const dCopy = new Date(dateObj.getTime())
+    const dayNum = dCopy.getUTCDay() || 7
+    dCopy.setUTCDate(dCopy.getUTCDate() + 4 - dayNum)
+    const yearStart = new Date(Date.UTC(dCopy.getUTCFullYear(), 0, 1))
+    const week = Math.ceil(((dCopy.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+    isoWeekStr = String(week)
+  }
   // Ordre important : tokens longs AVANT les courts (EEEE avant EEE, MMMM avant MMM,
   // yyyy avant yy si on l'ajoutait). Sinon "EEEE" deviendrait "Lun" + "E".
   return fmt
@@ -365,6 +375,7 @@ export function formatDate(s: string, format?: string): string {
     .replace('EEE',  dow >= 0 ? (WEEKDAYS_FR_SHORT[dow] || '') : '')
     .replace('MMMM', moIdx >= 0 && moIdx < 12 ? MONTHS_FR_LONG[moIdx] : mo)
     .replace('MMM',  moIdx >= 0 && moIdx < 12 ? MONTHS_FR_SHORT[moIdx] : mo)
+    .replace('WW',   isoWeekStr)
     .replace('dd', d)
     .replace('MM', mo)
     .replace('yyyy', y)

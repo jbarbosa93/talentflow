@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.8'
+export const APP_VERSION = '2.6.9'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.9 — Format date "Numéro de semaine" (Semaine 20)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.9',
+    date: '2026-05-11',
+    label: 'Option format date "Numéro de semaine ISO" (Semaine 20)',
+    features: [
+      'NOUVELLES OPTIONS FORMAT DATE — Dans le dropdown Format d\'un champ date, 4 nouvelles options : "Numéro de semaine (Semaine 20)" / "Semaine court (Sem. 20)" / "Numéro seul (20)" / "Semaine + année (Semaine 20 · 2026)".',
+      'Token WW dans formatDate — calcule automatiquement le numéro de semaine ISO 8601 (semaine 1 = celle du 1er jeudi de l\'année) depuis la date stockée.',
+      'Usage typique : sur un rapport hebdomadaire, un champ date avec format "Semaine WW" auto-rempli depuis la semaine sélectionnée → affiche "Semaine 20" automatiquement.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.8 — Badge section TOUJOURS visible (+ "+ section" si pas configurée)
   // ─────────────────────────────────────────────────────────────────────

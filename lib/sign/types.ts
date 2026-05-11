@@ -166,6 +166,11 @@ export const DATE_FORMATS: { value: string; label: string }[] = [
   { value: 'EEEE',         label: 'Jour de la semaine (Lundi)' },
   { value: 'EEE',          label: 'Jour court (Lun)' },
   { value: 'EEEE dd.MM',   label: 'Jour + date (Lundi 11.05)' },
+  // v2.6.9 — Numéro de semaine ISO (déduit automatiquement de la date)
+  { value: 'Semaine WW',   label: 'Numéro de semaine (Semaine 20)' },
+  { value: 'Sem. WW',      label: 'Semaine court (Sem. 20)' },
+  { value: 'WW',           label: 'Numéro seul (20)' },
+  { value: 'Semaine WW · yyyy', label: 'Semaine + année (Semaine 20 · 2026)' },
 ]
 
 export const CURRENCIES = ['', 'CHF', 'EUR', 'USD', 'GBP'] as const
