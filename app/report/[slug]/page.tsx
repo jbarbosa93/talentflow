@@ -545,7 +545,10 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       }
     })
   const recentMissions = allMissions.slice(0, 3)
-  const hasMoreHistory = allMissions.length > 3
+  // v2.6.5 — Historique = uniquement les rapports plus anciens que les 3 cards principales
+  // (évite la duplication "tout est aussi dans l'historique")
+  const olderMissions = allMissions.slice(3)
+  const hasMoreHistory = olderMissions.length > 0
 
   // v2.4.2 — Tap sur une mission : draft = reprendre, completed = ouvrir viewer
   const handleSelectMission = (m: MissionItem) => {
@@ -680,14 +683,14 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}
             >
-              {showFullHistory ? 'Masquer l\'historique' : `Voir tout l\'historique (${allMissions.length})`}
+              {showFullHistory ? 'Masquer l\'historique' : `Voir l\'historique (${olderMissions.length})`}
               <span style={{ fontSize: 12 }}>{showFullHistory ? '↑' : '→'}</span>
             </button>
           </div>
         )}
         {showFullHistory && (
           <div style={{ marginTop: 14 }}>
-            <HistoryAccordion items={allMissions} defaultOpenIndex={0} onSelect={handleSelectMission} onDeleteDraft={handleDeleteDraft} />
+            <HistoryAccordion items={olderMissions} defaultOpenIndex={0} onSelect={handleSelectMission} onDeleteDraft={handleDeleteDraft} />
           </div>
         )}
 

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.4'
+export const APP_VERSION = '2.6.5'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.5 — Historique candidat : plus de duplication, juste les plus anciens
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.5',
+    date: '2026-05-11',
+    label: 'Historique = uniquement les rapports plus anciens que les 3 cards principales',
+    features: [
+      'COHÉRENCE HISTORIQUE — L\'accordion "Voir l\'historique" affichait TOUS les rapports (incluant les 3 déjà visibles en cards principales), créant une duplication confuse. Désormais : 3 cards principales = 3 plus récents, historique = rapports plus anciens uniquement.',
+      'Exemple : 4 rapports total → 3 cards + 1 dans historique. 5 rapports → 3 cards + 2 dans historique. Le bouton est masqué si total ≤ 3.',
+      'Renommé "Voir tout l\'historique" → "Voir l\'historique" (le nombre indique le restant, pas le total).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.4 — Cards "Mes derniers rapports" : numéro semaine + année dans le titre
   // ─────────────────────────────────────────────────────────────────────
