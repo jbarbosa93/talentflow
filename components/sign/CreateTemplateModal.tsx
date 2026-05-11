@@ -14,14 +14,16 @@ interface Props {
   onCreated: (templateId: string) => void
 }
 
-/** v2.2.6 Phase 5 — Type fonctionnel choisi à la création.
+/** v2.2.6 Phase 5 / v2.4.9 — Type fonctionnel choisi à la création.
  *  - 'mappe' / 'contrat' → kind='envelope' (envelope classique avec catégorie pré-remplie)
- *  - 'report' → kind='report' (rapport hebdo récurrent — apparaît dans /sign/rapports/new) */
+ *  - 'report' → kind='report' (rapport hebdo récurrent — apparaît dans /sign/rapports/new)
+ *  v2.4.9 : label "Mappe" → "Général" pour couvrir tout type de document polyvalent.
+ *  La VALUE 'mappe' reste pour cohérence avec SignCategory côté envelopes. */
 type TemplateType = 'mappe' | 'contrat' | 'report'
 
 const TYPE_OPTIONS: { value: TemplateType; label: string; description: string; icon: typeof FileText }[] = [
-  { value: 'mappe',   label: 'Mappe',              description: 'Dossier d\'inscription candidat', icon: Briefcase },
-  { value: 'contrat', label: 'Contrat de travail', description: 'Contrat à signer client + candidat', icon: FileSignature },
+  { value: 'mappe',   label: 'Général',            description: 'Tout type de document (mappe, divers, multi-champs)', icon: FileText },
+  { value: 'contrat', label: 'Contrat de travail', description: 'Contrat à signer par le candidat (PDF pré-signé L-Agence scanné)', icon: FileSignature },
   { value: 'report',  label: 'Rapport d\'heures',  description: 'Rapport hebdomadaire récurrent', icon: ClipboardList },
 ]
 
@@ -333,7 +335,7 @@ export default function CreateTemplateModal({ open, onClose, onCreated }: Props)
               placeholder={
                 type === 'report' ? 'Ex : Rapport hebdomadaire L-Agence'
                 : type === 'contrat' ? 'Ex : Contrat CDI standard'
-                : 'Ex : Mappe candidat'
+                : 'Ex : Document candidat'
               }
               value={name}
               onChange={e => setName(e.target.value)}

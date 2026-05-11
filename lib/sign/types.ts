@@ -384,8 +384,12 @@ export function recipientStatusLabel(s: string | undefined | null): string {
   return RECIPIENT_STATUS_LABELS[s] || s
 }
 
+// v2.4.9 — Label "Mappe" → "Général" : couvre tout type de document (mappe,
+// CV, divers…) avec tous types de champs. "Contrat de travail" et "Autres"
+// inchangés. La VALUE interne reste 'mappe' pour ne pas casser les envelopes
+// existantes en DB.
 export const CATEGORY_LABELS: Record<SignCategory, string> = {
-  mappe: 'Mappe',
+  mappe: 'Général',
   contrat: 'Contrat de travail',
   autres: 'Autres',
 }

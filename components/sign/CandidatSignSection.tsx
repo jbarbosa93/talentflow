@@ -16,8 +16,9 @@ interface Props {
   candidatName?: string
 }
 
+// v2.4.9 — Label "Mappe" → "Général" (cohérent avec CATEGORY_LABELS + CreateTemplateModal)
 const CATEGORIES: { key: SignCategory; label: string; icon: typeof FolderOpen; color: string; bg: string; border: string }[] = [
-  { key: 'mappe',   label: 'Mappe',              icon: FolderOpen, color: 'var(--warning)', bg: 'var(--warning-soft)', border: 'var(--warning-soft)' },
+  { key: 'mappe',   label: 'Général',            icon: FolderOpen, color: 'var(--warning)', bg: 'var(--warning-soft)', border: 'var(--warning-soft)' },
   { key: 'contrat', label: 'Contrat de travail', icon: FileText,   color: 'var(--info)',    bg: 'var(--info-soft)',    border: 'var(--info-soft)' },
   { key: 'autres',  label: 'Autres',             icon: Paperclip,  color: 'var(--muted)',   bg: 'var(--secondary)',    border: 'var(--border)' },
 ]

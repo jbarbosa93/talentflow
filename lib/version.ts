@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.4.8'
+export const APP_VERSION = '2.4.9'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.4.9 — Renommage "Mappe" → "Général" partout (label UI uniquement)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.4.9',
+    date: '2026-05-11',
+    label: 'Renommage UI "Mappe" → "Général" (template polyvalent pour tout type de document) — value DB inchangée',
+    features: [
+      'LABEL "GÉNÉRAL" — Le type de template "Mappe" est rebrandé en "Général" partout dans l\'UI Sign. Description : "Tout type de document (mappe, divers, multi-champs)". Couvre désormais l\'usage initial (dossier d\'inscription candidat) ET tous les autres documents polyvalents. La VALUE interne reste \'mappe\' dans la DB (SignCategory enum) pour ne pas casser les envelopes existantes — seul l\'affichage change.',
+      'FICHIERS TOUCHÉS — (a) lib/sign/types.ts : CATEGORY_LABELS.mappe = "Général". (b) components/sign/CreateTemplateModal.tsx : option "Général" avec icône FileText (au lieu de Briefcase plus restrictif) + nouvelle description + placeholder "Ex : Document candidat". (c) components/sign/CandidatSignSection.tsx : CATEGORIES.mappe.label = "Général". (d) components/sign/TemplatesTable.tsx : libellés du convertisseur de kind ("Convertir en Général / Contrat") et confirm.',
+      'CONTRAT DE TRAVAIL CLARIFIÉ — La description du type "Contrat de travail" précise désormais le flow réel : "Contrat à signer par le candidat (PDF pré-signé L-Agence scanné)". L\'admin imprime + signe sa partie + scanne, puis upload → candidat signe sa partie électroniquement. Le template kind="contract" reste à implémenter dans une session future.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.4.8 — Autocomplete client modal entreprise + Récap dark mode
   // ─────────────────────────────────────────────────────────────────────

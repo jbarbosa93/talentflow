@@ -167,7 +167,7 @@ function TemplateRow({
   // v2.2.6 Phase 5 — Convertir le template entre 'envelope' (Mappe/Contrat) et 'report' (Rapport hebdo).
   const handleChangeKind = async (newKind: SignTemplateKind) => {
     if (tplKind === newKind) return
-    const label = newKind === 'report' ? 'Rapport d\'heures' : 'Mappe / Contrat (envelope)'
+    const label = newKind === 'report' ? 'Rapport d\'heures' : 'Général / Contrat (envelope)'
     if (!confirm(`Changer le type vers « ${label} » ?`)) return
     setBusy('kind')
     try {
@@ -396,7 +396,7 @@ function TplActionMenu({
           ) : (
             <MenuItem
               icon={Tag}
-              label="Convertir en Mappe / Contrat"
+              label="Convertir en Général / Contrat"
               onClick={() => { setOpen(false); onChangeKind('envelope') }}
             />
           )}
