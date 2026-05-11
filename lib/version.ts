@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.11'
+export const APP_VERSION = '2.6.12'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.12 — "Uniformiser similaires" applique aussi le y (alignement vertical)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.12',
+    date: '2026-05-11',
+    label: 'Bouton "Uniformiser similaires" : taille + alignement vertical',
+    features: [
+      'BOUTON UNIFORMISER SIMILAIRES — Désormais applique en 1 clic : largeur + hauteur + position y (= alignement horizontal sur la même ligne du tableau). Le x de chaque champ est préservé pour ne pas casser les colonnes Lundi/Mardi/etc.',
+      'Renommé "Appliquer cette taille aux N similaires" → "Uniformiser les N similaires (taille + ligne)" pour refléter le nouveau comportement.',
+      'Tooltip détaillé : liste les 3 propriétés appliquées + explique pourquoi le x n\'est pas touché.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.11 — Smart snap aussi pendant le resize handle
   // ─────────────────────────────────────────────────────────────────────

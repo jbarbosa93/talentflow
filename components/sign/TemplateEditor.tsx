@@ -401,8 +401,9 @@ export default function TemplateEditor({
     updateDocFields(fields.map(f => byId.has(f.id) ? { ...f, ...byId.get(f.id)! } : f))
   }
 
-  // v2.6.10 — Apply size (width/height) d'un champ à tous les autres avec le même
-  // tooltip/label (utilisé pour uniformiser les "Heures normales" du rapport).
+  // v2.6.10 / v2.6.12 — Apply size+y d'un champ à tous les autres avec le même tooltip/label.
+  // Width + height + y sont propagés (uniformise taille ET aligne verticalement sur la même ligne).
+  // Le x reste propre à chaque field (= chaque colonne du tableau a son x).
   const applySizeToSimilar = (sourceId: string) => {
     const src = fields.find(f => f.id === sourceId)
     if (!src) return 0
@@ -417,7 +418,7 @@ export default function TemplateEditor({
         || (f.label || '').trim().toLowerCase()
       if (fKey === srcKey) {
         count++
-        return { ...f, width: src.width, height: src.height }
+        return { ...f, width: src.width, height: src.height, y: src.y }
       }
       return f
     })
@@ -1761,14 +1762,14 @@ function SelectedFieldsPanel({
                 type="button"
                 onClick={() => {
                   const n = onApplySizeToSimilar(f.id)
-                  if (n > 0) toast.success(`Taille appliquée à ${n} champ${n > 1 ? 's' : ''} portant le même nom`)
+                  if (n > 0) toast.success(`Taille + alignement vertical appliqués à ${n} champ${n > 1 ? 's' : ''} portant le même nom`)
                   else toast.info('Aucun autre champ avec le même nom')
                 }}
                 className="neo-btn-ghost neo-btn-sm"
                 style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                title={`Applique la largeur + hauteur de ce champ aux ${similarCount} autre${similarCount > 1 ? 's' : ''} champ${similarCount > 1 ? 's' : ''} portant le même nom (« ${f.tooltip || f.label} »)`}
+                title={`Applique aux ${similarCount} autre${similarCount > 1 ? 's' : ''} champ${similarCount > 1 ? 's' : ''} « ${f.tooltip || f.label} » :\n• la même largeur\n• la même hauteur\n• le même y (alignés horizontalement sur la même ligne du tableau)\nLe x de chaque champ est préservé (chaque colonne garde sa position).`}
               >
-                📏 Appliquer cette taille aux {similarCount} similaires
+                📏 Uniformiser les {similarCount} similaires (taille + ligne)
               </button>
             )
           })()}
