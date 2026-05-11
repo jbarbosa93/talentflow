@@ -62,7 +62,8 @@ export default function MissionList({ items, onSelect, onDeleteDraft, emptyText 
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 16px' }}>
       {items.map((m) => {
         const b = statusBadge(m.status)
-        const dateRange = `${formatDateChDot(m.week_start).slice(0, 5)} → ${formatDateChDot(m.week_end).slice(0, 5)}`
+        // v2.6.4 — Format complet "S20 · 11.05.2026 → 17.05.2026" (avec année + numéro semaine)
+        const dateRange = `${formatDateChDot(m.week_start)} → ${formatDateChDot(m.week_end)}`
         const wkLabel = m.week_number ? `S${m.week_number}` : ''
         const isDraft = m.status === 'draft'
         return (

@@ -531,10 +531,14 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     .map(s => {
       const clientId = (s as any).report_link_client_id || null
       const resolvedClient = clientId ? clients.find(c => c.id === clientId) : null
+      // v2.6.4 — calcule le numéro de semaine ISO pour l'affichage "S20 · ..."
+      let weekNumber: number | null = null
+      try { weekNumber = getWeekDates(s.week_start).weekNumber ?? null } catch { weekNumber = null }
       return {
         id: s.id,
         week_start: s.week_start,
         week_end: s.week_end,
+        week_number: weekNumber,
         status: s.status,
         client_name: resolvedClient?.client_name || data.link?.client_name || null,
         report_link_client_id: clientId,

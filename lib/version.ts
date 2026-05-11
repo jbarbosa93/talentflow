@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.3'
+export const APP_VERSION = '2.6.4'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.4 — Cards "Mes derniers rapports" : numéro semaine + année dans le titre
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.4',
+    date: '2026-05-11',
+    label: 'Cards rapports : "S20 · 11.05.2026 → 17.05.2026"',
+    features: [
+      'CARDS RAPPORTS MOBILE — Format date complet désormais affiché : "S20 · 11.05.2026 → 17.05.2026" au lieu de "11.05 → 17.05". Plus de doute possible sur l\'année du rapport.',
+      'Page candidat : ajout calcul automatique du numéro de semaine ISO (via getWeekDates) dans le mapping allMissions → propagé à MissionList + HistoryAccordion.',
+      'MissionList : retrait du .slice(0, 5) sur formatDateChDot → date jj.mm.aaaa complète conservée.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.3 — Bandeau "modifié par le client" emails + logo officiel certificat
   // ─────────────────────────────────────────────────────────────────────
