@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.0'
+export const APP_VERSION = '2.6.1'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.1 — Entreprises : responsable mission + tel + dates + section "Mes missions"
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.1',
+    date: '2026-05-11',
+    label: 'Infos mission par entreprise + section "Mes missions" candidat',
+    features: [
+      'MIGRATION DB — 4 nouvelles colonnes nullables sur `report_link_clients` : mission_contact_name + mission_phone + mission_start_date + mission_end_date. Contrainte CHECK end_date >= start_date. Aucune rupture sur les liens existants (tout en NULL = comportement v2.6.0 inchangé).',
+      'MODAL "ENTREPRISES AUTORISÉES" — Nouvelle section "Mission (affiché côté candidat)" avec 4 inputs : responsable terrain (distinct du contact signataire), téléphone, début + fin mission. Validation dates côté UI + serveur.',
+      'ROUTES API — POST + PATCH /api/admin/reports/[id]/clients[/:clientId] acceptent les 4 nouveaux champs. GET /api/reports/[slug]/clients (publique) les retourne.',
+      'PAGE CANDIDAT — Nouvelle section "Mes missions" insérée entre "Nouveau rapport" et "Mes derniers rapports". Cards par entreprise affichant : nom responsable terrain · 📞 téléphone cliquable (tel:) · 📅 période. Tap → auto-select l\'entreprise + bascule en phase form direct.',
+      'COMPOSANT MissionInfoList — Réutilisable (props clients + onSelect optionnel). Filtre auto les entreprises sans aucune info mission pour éviter une section vide.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.0 — Rapports candidat : contraste mobile lisible + suppression brouillons
   // ─────────────────────────────────────────────────────────────────────

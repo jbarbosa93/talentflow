@@ -25,7 +25,7 @@ export async function GET(
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('report_link_clients' as any)
-    .select('id, client_name, client_email, client_contact_name, client_phone, display_order')
+    .select('id, client_name, client_email, client_contact_name, client_phone, mission_contact_name, mission_phone, mission_start_date, mission_end_date, display_order')
     .eq('link_id', link.id)
     .order('display_order', { ascending: true })
     .order('created_at', { ascending: true })

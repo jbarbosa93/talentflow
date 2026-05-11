@@ -62,6 +62,15 @@ export interface ReportLinkClient {
   client_email: string | null
   client_contact_name: string | null
   client_phone: string | null
+  /** v2.6.1 — Nom du responsable terrain de la mission (peut différer du contact signataire).
+   *  Affiché côté candidat dans la section "Mes missions". */
+  mission_contact_name: string | null
+  /** v2.6.1 — Téléphone du responsable terrain (idéalement E.164). Cliquable tel: côté candidat. */
+  mission_phone: string | null
+  /** v2.6.1 — Date de début de mission (YYYY-MM-DD, incluse). NULL = pas de limite. */
+  mission_start_date: string | null
+  /** v2.6.1 — Date de fin de mission (YYYY-MM-DD, incluse). NULL = pas de limite. */
+  mission_end_date: string | null
   display_order: number
   created_at: string
 }

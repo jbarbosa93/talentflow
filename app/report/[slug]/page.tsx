@@ -25,6 +25,7 @@ import type { ReportSubmissionStatus, ReportLinkClient } from '@/lib/report/type
 import CandidatWelcomeHeader from '@/components/report/CandidatWelcomeHeader'
 import ClientSelector from '@/components/report/ClientSelector'
 import MissionList, { type MissionItem } from '@/components/report/MissionList'
+import MissionInfoList from '@/components/report/MissionInfoList'
 import HistoryAccordion from '@/components/report/HistoryAccordion'
 import RecapPeriode from '@/components/report/RecapPeriode'
 import ContactAgenceButton from '@/components/report/ContactAgenceButton'
@@ -573,6 +574,32 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             <ClipboardList size={18} /> Nouveau rapport
           </button>
         </div>
+
+        {/* v2.6.1 — Section "Mes missions" : entreprises avec infos mission renseignées */}
+        {clients.some(c => c.mission_contact_name || c.mission_phone || c.mission_start_date || c.mission_end_date) && (
+          <>
+            <div style={{ padding: '14px 16px 6px' }}>
+              <div style={{
+                fontSize: 11,
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: '#6B7280',
+                marginBottom: 10,
+              }}>
+                Mes missions
+              </div>
+            </div>
+            <MissionInfoList
+              clients={clients}
+              onSelect={(c) => {
+                setSelectedClient(c)
+                setPhase('form')
+              }}
+            />
+          </>
+        )}
+
         <div style={{ padding: '14px 16px 6px' }}>
           <div style={{
             fontSize: 11,

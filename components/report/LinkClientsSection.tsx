@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Building2, Trash2, Plus, Mail, User, Loader2, Pencil, X as XIcon, Check } from 'lucide-react'
+import { Building2, Trash2, Plus, Mail, User, Loader2, Pencil, X as XIcon, Check, Phone, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ReportLinkClient } from '@/lib/report/types'
 import ClientContactAutocomplete, { type ClientContactPick } from './ClientContactAutocomplete'
@@ -33,11 +33,18 @@ interface FormState {
   client_id: string | null
   /** v2.4.8 — true si l'entreprise est liée à un client existant en DB (autocomplete) */
   isLinked: boolean
+  /** v2.6.1 — Mission fields (responsable terrain) */
+  mission_contact_name: string
+  mission_phone: string
+  mission_start_date: string  // YYYY-MM-DD ou ''
+  mission_end_date: string    // YYYY-MM-DD ou ''
 }
 
 const EMPTY_FORM: FormState = {
   client_name: '', client_contact_name: '', client_email: '',
   client_id: null, isLinked: false,
+  mission_contact_name: '', mission_phone: '',
+  mission_start_date: '', mission_end_date: '',
 }
 
 export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
@@ -96,6 +103,10 @@ export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
       client_email: c.client_email || '',
       client_id: c.client_id || null,
       isLinked: !!c.client_id,
+      mission_contact_name: c.mission_contact_name || '',
+      mission_phone: c.mission_phone || '',
+      mission_start_date: c.mission_start_date || '',
+      mission_end_date: c.mission_end_date || '',
     })
     setModal(c)
   }
@@ -124,6 +135,16 @@ export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
         client_name: form.client_name.trim(),
         client_contact_name: form.client_contact_name.trim() || null,
         client_email: form.client_email.trim().toLowerCase() || null,
+        mission_contact_name: form.mission_contact_name.trim() || null,
+        mission_phone: form.mission_phone.trim() || null,
+        mission_start_date: form.mission_start_date || null,
+        mission_end_date: form.mission_end_date || null,
+      }
+      // Validation côté UI (le serveur revalide aussi)
+      if (form.mission_start_date && form.mission_end_date && form.mission_end_date < form.mission_start_date) {
+        toast.error('La date de fin doit être ≥ date de début')
+        setBusy(false)
+        return
       }
       // v2.4.8 — Persiste client_id si l'entreprise vient de la DB clients (autocomplete)
       if (!isEdit) {
@@ -354,13 +375,15 @@ export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
                 onChange={(name, pick) => {
                   if (pick) {
                     // Sélection dans le dropdown : remplit nom + contact + email + client_id
-                    setForm({
+                    // v2.6.1 : préserve les éventuelles infos mission déjà saisies
+                    setForm(prev => ({
+                      ...prev,
                       client_name: pick.clientName,
                       client_contact_name: pick.contactName || '',
                       client_email: pick.contactEmail || '',
                       client_id: pick.clientId,
                       isLinked: true,
-                    })
+                    }))
                   } else {
                     // Saisie libre — pas de lien DB
                     setForm(prev => ({ ...prev, client_name: name }))
@@ -391,6 +414,58 @@ export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
                 style={inputStyle}
               />
             </FormField>
+
+            {/* v2.6.1 — Section Mission (séparée visuellement) */}
+            <div style={{
+              marginTop: 6, paddingTop: 14,
+              borderTop: '1px dashed var(--border)',
+              display: 'flex', flexDirection: 'column', gap: 14,
+            }}>
+              <div style={{
+                fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em',
+                textTransform: 'uppercase', color: 'var(--muted)',
+              }}>
+                Mission (affiché côté candidat)
+              </div>
+              <FormField label="Responsable de mission (terrain)">
+                <input
+                  type="text"
+                  value={form.mission_contact_name}
+                  onChange={(e) => setForm({ ...form, mission_contact_name: e.target.value })}
+                  placeholder="Ex : Pedro Silva (chef de chantier)"
+                  style={inputStyle}
+                />
+              </FormField>
+              <FormField label="Téléphone du responsable">
+                <input
+                  type="tel"
+                  value={form.mission_phone}
+                  onChange={(e) => setForm({ ...form, mission_phone: e.target.value })}
+                  placeholder="Ex : +41 79 123 45 67"
+                  style={inputStyle}
+                />
+              </FormField>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <FormField label="Début mission">
+                  <input
+                    type="date"
+                    value={form.mission_start_date}
+                    onChange={(e) => setForm({ ...form, mission_start_date: e.target.value })}
+                    max={form.mission_end_date || undefined}
+                    style={inputStyle}
+                  />
+                </FormField>
+                <FormField label="Fin mission">
+                  <input
+                    type="date"
+                    value={form.mission_end_date}
+                    onChange={(e) => setForm({ ...form, mission_end_date: e.target.value })}
+                    min={form.mission_start_date || undefined}
+                    style={inputStyle}
+                  />
+                </FormField>
+              </div>
+            </div>
 
             {modal !== 'create' && (
               <div style={{

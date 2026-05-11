@@ -57,6 +57,36 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     patch.client_phone = v ? normalizePhoneE164(v) : null
   }
 
+  // v2.6.1 — Mission fields
+  if (body.mission_contact_name !== undefined) {
+    const v = typeof body.mission_contact_name === 'string' ? body.mission_contact_name.trim() : ''
+    patch.mission_contact_name = v || null
+  }
+  if (body.mission_phone !== undefined) {
+    const v = typeof body.mission_phone === 'string' ? body.mission_phone.trim() : ''
+    patch.mission_phone = v ? normalizePhoneE164(v) : null
+  }
+  const isoDate = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) ? v : null
+  if (body.mission_start_date !== undefined) {
+    patch.mission_start_date = body.mission_start_date === null ? null : isoDate(body.mission_start_date)
+  }
+  if (body.mission_end_date !== undefined) {
+    patch.mission_end_date = body.mission_end_date === null ? null : isoDate(body.mission_end_date)
+  }
+  // Validation dates cohérentes (utilise les valeurs finales si fournies, sinon les existantes)
+  if (patch.mission_start_date !== undefined || patch.mission_end_date !== undefined) {
+    const { data: current } = await supabase
+      .from('report_link_clients' as any)
+      .select('mission_start_date, mission_end_date')
+      .eq('id', clientId)
+      .single()
+    const start = (patch.mission_start_date !== undefined ? patch.mission_start_date : (current as any)?.mission_start_date) as string | null
+    const end = (patch.mission_end_date !== undefined ? patch.mission_end_date : (current as any)?.mission_end_date) as string | null
+    if (start && end && end < start) {
+      return NextResponse.json({ error: 'La date de fin doit être ≥ date de début' }, { status: 400 })
+    }
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: 'Aucun champ à mettre à jour' }, { status: 400 })
   }

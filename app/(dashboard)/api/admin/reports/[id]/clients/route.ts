@@ -51,6 +51,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const clientPhoneRaw = typeof body.client_phone === 'string' ? body.client_phone.trim() : ''
   const clientPhone = clientPhoneRaw ? normalizePhoneE164(clientPhoneRaw) : null
 
+  // v2.6.1 — Mission fields
+  const missionContact = typeof body.mission_contact_name === 'string' ? body.mission_contact_name.trim() || null : null
+  const missionPhoneRaw = typeof body.mission_phone === 'string' ? body.mission_phone.trim() : ''
+  const missionPhone = missionPhoneRaw ? normalizePhoneE164(missionPhoneRaw) : null
+  const isoDate = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) ? v : null
+  const missionStartDate = isoDate(body.mission_start_date)
+  const missionEndDate = isoDate(body.mission_end_date)
+  if (missionStartDate && missionEndDate && missionEndDate < missionStartDate) {
+    return NextResponse.json({ error: 'La date de fin doit être ≥ date de début' }, { status: 400 })
+  }
+
   const displayOrder = Number.isFinite(body.display_order) ? Math.max(0, Math.floor(body.display_order)) : 0
 
   // Vérifie que le lien existe
@@ -70,6 +81,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       client_email: clientEmail,
       client_contact_name: clientContact,
       client_phone: clientPhone,
+      mission_contact_name: missionContact,
+      mission_phone: missionPhone,
+      mission_start_date: missionStartDate,
+      mission_end_date: missionEndDate,
       display_order: displayOrder,
     })
     .select('*')
