@@ -235,6 +235,14 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         if (dayOffset !== null) {
           const dayDate = dateForDayOfWeek(weekStart, dayOffset)
           if (dayDate) out[f.id] = dayDate
+          continue
+        }
+        // v2.6.14 — Auto-fill numéro de semaine : si le field date n'a pas de jour mappé
+        // mais que son dateFormat utilise WW (numéro semaine) → auto-fill avec weekStart
+        // (= lundi de la semaine sélectionnée). Le format "Semaine WW" affichera "Semaine 20".
+        const fmt = (f.dateFormat || '').toString()
+        if (fmt.includes('WW')) {
+          out[f.id] = weekStart
         }
       }
       return out

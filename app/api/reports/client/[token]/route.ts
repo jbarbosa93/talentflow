@@ -129,6 +129,12 @@ export async function GET(
         if (dayOffset !== null) {
           const dayDate = dateForDayOfWeek(submission.week_start, dayOffset)
           if (dayDate) resolvedCandidatValues[fid] = dayDate
+          break
+        }
+        // v2.6.14 — Auto-fill numéro de semaine : si dateFormat contient WW → weekStart
+        const fmt = (field.dateFormat || '').toString()
+        if (fmt.includes('WW')) {
+          resolvedCandidatValues[fid] = submission.week_start
         }
         break
       }

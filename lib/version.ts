@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.13'
+export const APP_VERSION = '2.6.14'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.14 — Auto-fill semaine pour champs date avec format WW
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.14',
+    date: '2026-05-11',
+    label: 'Champ date "Semaine WW" auto-rempli depuis la semaine sélectionnée',
+    features: [
+      'AUTO-FILL NUMÉRO DE SEMAINE — Tout champ de type date avec un format contenant "WW" (Semaine WW, Sem. WW, etc.) est désormais auto-rempli avec la date du lundi de la semaine sélectionnée par le candidat. Affiché en "Semaine 20" via le format. Pas besoin de wizardSection jour : le format WW déclenche l\'auto-fill directement.',
+      'Appliqué côté candidat (page form) ET côté client (résolution des valeurs auto-fill candidat dans le PDF stampé).',
+      'Cas d\'usage : champ "Numéro de la semaine" en haut du rapport → s\'affiche automatiquement "Semaine 20" sans saisie manuelle.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.13 — Matching "similaires" tolérant (tooltip OR label) + tooltip détaillé
   // ─────────────────────────────────────────────────────────────────────
