@@ -187,9 +187,8 @@ function buildCompletedHtml(p: SignCompletedEmailParams, dateStr: string, timeSt
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
-    <div style="text-align:center;margin-bottom:20px;background:#ffffff;padding:18px 12px;border-radius:14px;border:1px solid #E5E7EB;">
-      <img src="https://www.talent-flow.ch/logo-agence-officiel.png" alt="L-Agence" width="160" style="height:38px;width:auto;display:inline-block;border:0;" />
-      <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Emplois fixes &amp; temporaires</div>
+    <div style="text-align:center;margin-bottom:24px;">
+      <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence — Emplois fixes & temporaires" width="200" style="height:42px;width:auto;display:inline-block;border:0;" />
     </div>
     <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;box-shadow:0 4px 16px rgba(0,0,0,0.04);">
       <div style="display:inline-block;background:#D1FAE5;color:#059669;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px;">

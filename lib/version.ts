@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.5.2'
+export const APP_VERSION = '2.5.3'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.5.3 — Logo vraie transparence (2 nouveaux PNGs alpha) — retrait des hacks
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.5.3',
+    date: '2026-05-11',
+    label: 'Logo officiel VRAIE transparence — 2 PNGs alpha (noir + blanc) — retrait mix-blend-mode + wrapper card blanche',
+    features: [
+      'NOUVEAUX FICHIERS LOGO TRANSPARENTS — João a fourni 2 PNGs avec vrai canal alpha (fond transparent au lieu de fond blanc opaque) :',
+      '  • public/logo-agence-officiel-noir.png  (texte NOIR, 722×147, alpha) → fond clair',
+      '  • public/logo-agence-officiel-blanc.png (texte BLANC, 723×147, alpha) → fond foncé',
+      'COMPOSANT LogoLAgence.tsx — Pointe vers les 2 nouveaux fichiers selon prop color. Retrait de la prop mix-blend-mode (plus nécessaire avec vraie alpha). Ratio recalculé 722/147 ≈ 4.91 (au lieu de l\'ancien 550/170 ≈ 3.23).',
+      'EMAILS RAPPORTS — Retrait du wrapper card blanche (background:#fff + padding + border-radius + border) qui servait à masquer le rectangle blanc du PNG opaque. Le PNG transparent ne nécessite plus ce hack. URL des `<img>` mise à jour vers /logo-agence-officiel-noir.png. Hauteur passée de 38px à 42px (légèrement plus grand pour profiter du ratio).',
+      'EMAILS SIGN — Idem, retrait wrapper + nouvelle URL. Bonus : sous-titre HTML "Emplois fixes & temporaires" retiré car déjà inclus dans le PNG officiel (le sous-titre est partie intégrante du logo dessiné). Plus de doublon. Alt text du `<img>` enrichi : "L-Agence — Emplois fixes & temporaires".',
+      'PDFs — cv-generator.ts (CV candidat) et rapport-heures/route.ts (rapport heures legacy) pointent vers le nouveau PNG noir transparent. Cohérent avec les pages web et emails.',
+      'CODE PLUS PROPRE — Plus besoin de hack mix-blend-mode CSS (cause potentielle de bugs Safari/Chrome edge cases), plus besoin de wrapper card blanche dans les emails. Le PNG transparent fait le boulot proprement partout.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.5.2 — Logo officiel partout (vraiment) + fix refs cassées logo-lagence.png
   // ─────────────────────────────────────────────────────────────────────

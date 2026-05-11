@@ -163,8 +163,8 @@ export async function generateBrandedCV(
   // Charger le logo
   let logoPng: Awaited<ReturnType<typeof doc.embedPng>> | null = null
   try {
-    // v2.5.2 — fichier renommé en v2.4.4 : logo-lagence.png → logo-agence-officiel.png
-    const logoPath = path.join(process.cwd(), 'public', 'logo-agence-officiel.png')
+    // v2.5.3 — Logo officiel vraie transparence (texte noir, fond alpha=0)
+    const logoPath = path.join(process.cwd(), 'public', 'logo-agence-officiel-noir.png')
     const logoBytes = fs.readFileSync(logoPath)
     logoPng = await doc.embedPng(logoBytes)
   } catch {

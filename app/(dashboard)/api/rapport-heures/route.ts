@@ -87,11 +87,11 @@ export async function POST(req: NextRequest) {
     const fB = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
     const f  = await pdfDoc.embedFont(StandardFonts.Helvetica)
 
-    // Logo L-AGENCE (PNG officiel)
-    // v2.5.2 — fichier renommé en v2.4.4 : logo-lagence.png → logo-agence-officiel.png
+    // Logo L-AGENCE (PNG officiel vraie transparence)
+    // v2.5.3 — texte noir, canal alpha → s'imprime parfaitement sur fond clair
     let logoPng: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null = null
     try {
-      const logoPath = path.join(process.cwd(), 'public', 'logo-agence-officiel.png')
+      const logoPath = path.join(process.cwd(), 'public', 'logo-agence-officiel-noir.png')
       const logoBytes = fs.readFileSync(logoPath)
       logoPng = await pdfDoc.embedPng(logoBytes)
     } catch {

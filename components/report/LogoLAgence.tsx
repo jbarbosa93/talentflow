@@ -1,9 +1,8 @@
-// TalentFlow Rapports — Logo L-Agence officiel (PNG raster, fond transparent)
-// v2.4.4 — Bascule du SVG inline vers le VRAI PNG officiel uploadé dans public/
-//
-// 2 versions disponibles :
-//   - public/logo-agence-officiel.png             (texte NOIR, 550×170) → fond clair
-//   - public/logo-agence-officiel-transparent.png (texte BLANC, 250×60) → fond foncé
+// TalentFlow Rapports — Logo L-Agence officiel (PNG vraie transparence)
+// v2.5.3 — Bascule vers les 2 PNGs vraiment transparents (canal alpha) :
+//   - public/logo-agence-officiel-noir.png   (texte NOIR, 722×147) → fond clair
+//   - public/logo-agence-officiel-blanc.png  (texte BLANC, 723×147) → fond foncé
+// Plus de hack mix-blend-mode : les PNGs ont un vrai canal alpha.
 'use client'
 
 import Image from 'next/image'
@@ -11,24 +10,18 @@ import Image from 'next/image'
 interface Props {
   /** Hauteur cible en px. Le ratio est préservé. Défaut 36px. */
   height?: number
-  /** 'dark' (par défaut, texte noir pour fond clair) | 'light' (texte blanc pour fond foncé) */
+  /** 'dark' (défaut, texte noir pour fond clair) | 'light' (texte blanc pour fond foncé) */
   color?: 'dark' | 'light'
   className?: string
 }
 
 export default function LogoLAgence({ height = 36, color = 'dark', className }: Props) {
-  // Ratio des fichiers : 550/170 ≈ 3.235 (dark) / 250/60 ≈ 4.166 (light)
-  // On utilise un width généreux et `objectFit: contain` laisse Image gérer.
   const src = color === 'light'
-    ? '/logo-agence-officiel-transparent.png'
-    : '/logo-agence-officiel.png'
-  const ratio = color === 'light' ? (250 / 60) : (550 / 170)
+    ? '/logo-agence-officiel-blanc.png'
+    : '/logo-agence-officiel-noir.png'
+  // Ratio commun ~722/147 ≈ 4.91 (les 2 PNGs ont la même dimension)
+  const ratio = 722 / 147
   const width = Math.round(height * ratio)
-  // v2.4.5 — mix-blend-mode: multiply masque visuellement le fond blanc opaque
-  // du PNG (les pixels blancs deviennent invisibles, le texte noir reste visible).
-  // Évite d'avoir à régénérer le PNG avec un vrai canal alpha. Marche partout
-  // (Safari iOS 12+, Chrome 41+, Firefox 32+). Sur color='light' (fond foncé),
-  // le mode reste 'multiply' aussi — sans effet visible car le texte est blanc.
   return (
     <Image
       src={src}
@@ -37,10 +30,7 @@ export default function LogoLAgence({ height = 36, color = 'dark', className }: 
       height={height}
       priority
       className={className}
-      style={{
-        height, width: 'auto', objectFit: 'contain',
-        mixBlendMode: color === 'dark' ? 'multiply' : 'screen',
-      }}
+      style={{ height, width: 'auto', objectFit: 'contain' }}
     />
   )
 }
