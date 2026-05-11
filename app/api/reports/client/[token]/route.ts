@@ -201,5 +201,6 @@ export async function GET(
     },
     wizard: { enabled: wizardEnabled, steps: wizardSteps },
     weekLabel: weekDates.label,
+    weekNumber: weekDates.weekNumber,
   })
 }

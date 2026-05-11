@@ -162,6 +162,18 @@ function FieldInput({
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null)
   const [tooltipOpen, setTooltipOpen] = useState(false)
 
+  // v2.5.1 — FIX CRITICAL : useEffect doit être appelé AVANT tout early return,
+  // sinon les Rules of Hooks sont violées (l'ordre des hooks change quand
+  // forceReadOnly bascule true→false → React crash "Rendered fewer hooks").
+  // C'est ce qui causait l'erreur "Application error: a client-side exception"
+  // au clic sur "Modifier les données" côté client.
+  useEffect(() => {
+    if (forceReadOnly) return
+    if (isCurrent && inputRef.current) {
+      try { inputRef.current.focus({ preventScroll: true }) } catch { /* */ }
+    }
+  }, [isCurrent, forceReadOnly])
+
   // v2.2.3 Pack 1 — Si forceReadOnly (= field d'un signer précédent),
   // on rend juste la valeur en texte gris, sans input ni bouton signature.
   // C'est ce qui permet au client de VOIR les heures remplies par le candidat.
@@ -185,14 +197,14 @@ function FieldInput({
       }
       return <span>{String(value)}</span>
     })()
+    // v2.5.1 — Affichage épuré pour les fields déjà remplis : juste la valeur
+    // en texte, sans cadre vert ni fond. Le PDF de fond montre déjà la grille
+    // du contrat, pas besoin de doubler avec un rectangle vert. Plus propre.
     return (
       <div style={{
         width: '100%', height: '100%',
         display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
         padding: '2px 4px',
-        background: 'rgba(34,197,94,0.06)',  // léger fond vert = "déjà rempli"
-        border: '1px dashed rgba(34,197,94,0.45)',
-        borderRadius: 3,
         fontSize: Math.max(9, Math.min(13, heightPx * 0.55)),
         color: '#1C1A14',
         overflow: 'hidden',
@@ -204,12 +216,8 @@ function FieldInput({
     )
   }
 
-  // Auto-focus quand le champ devient le champ "courant"
-  useEffect(() => {
-    if (isCurrent && inputRef.current) {
-      try { inputRef.current.focus({ preventScroll: true }) } catch { /* */ }
-    }
-  }, [isCurrent])
+  // v2.5.1 — useEffect d'auto-focus déplacé EN HAUT du composant (avant le
+  // early return forceReadOnly) pour respecter les Rules of Hooks.
 
   // Indicateur "rempli" : bordure verte ; "requis non rempli" : bordure rouge ; sinon couleur destinataire
   const borderColor = isFilled

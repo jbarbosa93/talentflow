@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.5.0'
+export const APP_VERSION = '2.5.1'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.5.1 — Fixes UX client + crash "Modifier données" (Rules of Hooks) + logo emails
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.5.1',
+    date: '2026-05-11',
+    label: '4 corrections page client + fix crash "Modifier les données" (Rules of Hooks violées) + logo emails dans card blanche',
+    features: [
+      'CRASH "MODIFIER LES DONNÉES" — Cause identifiée : violation Rules of Hooks dans PublicFieldsLayer (useEffect appelé APRÈS un early return conditionnel sur forceReadOnly). Quand le client cliquait "Modifier les données", certains fields candidat passaient de forceReadOnly=true à false → l\'ordre des hooks changeait → React crash "Rendered fewer hooks than expected" → écran "Application error: a client-side exception". Fix : useEffect d\'auto-focus déplacé AVANT le return forceReadOnly + condition interne.',
+      'NUMÉRO DE SEMAINE — La page client affiche désormais le numéro ISO de la semaine en gras avant le label : "Semaine 19 · Semaine du 4 au 10 mai 2026". Route GET /api/reports/client/[token] retourne weekNumber depuis getWeekDates().',
+      'BOUTON WIZARD CÔTÉ CLIENT RETIRÉ — Le client n\'a pas à utiliser le mode wizard (il valide juste un rapport déjà rempli par le candidat, il n\'a pas à remplir étape par étape). Bouton bascule Wizard/Document supprimé du header. viewMode forcé à \'document\' en permanence côté client.',
+      'AFFICHAGE ÉPURÉ DES VALEURS CANDIDAT — Côté client, les fields déjà remplis par le candidat (forceReadOnly) ne sont plus encadrés d\'un rectangle vert dashed avec fond vert clair. Affichage en TEXTE SIMPLE par-dessus le PDF de fond (qui contient déjà la grille du contrat). Plus propre. Les fields client à remplir gardent leur cadre vert.',
+      'LOGO EMAILS DANS CARD BLANCHE — Le PNG logo-agence-officiel.png a un fond blanc opaque qui faisait un rectangle blanc visible sur le fond crème (#FAFAF7) des emails. Fix : le bloc d\'en-tête (logo + sous-titre) est désormais enveloppé dans une card blanche (background:#fff + padding + border-radius + border subtile). Le fond blanc du PNG se fond avec la card blanche → plus de rectangle visible. Appliqué aux 5 templates Resend.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.5.0 — Multi-entreprise même semaine + wording post-soumission candidat
   // ─────────────────────────────────────────────────────────────────────

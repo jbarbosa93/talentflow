@@ -56,6 +56,8 @@ interface VerifyResponse {
    *  À merger comme valeurs initiales pour que les fields candidat read-only s'affichent. */
   previousFieldValues?: Record<string, unknown>
   weekLabel?: string
+  /** v2.5.1 — Numéro de semaine ISO (ex: 19 pour la semaine du 4-10 mai 2026). */
+  weekNumber?: number
 }
 
 const COMPANY = 'L-Agence SA'
@@ -115,13 +117,11 @@ export default function PublicClientReportPage({
       .catch(() => setState('error'))
   }, [token])
 
-  // Mode initial : wizard sur mobile si dispo, sinon document
+  // v2.5.1 — Côté client : TOUJOURS en mode document (preview + signature).
+  // Plus de bascule vers le wizard — le client n'a pas à remplir étape par étape,
+  // il valide juste le rapport déjà rempli par le candidat.
   useEffect(() => {
-    if (state !== 'ok' || !data) return
-    const wizardEnabled = data.wizard?.enabled !== false
-    const stepsForClient = (data.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === 2)
-    if (wizardEnabled && stepsForClient.length > 0 && isMobile) setViewMode('wizard')
-    else setViewMode('document')
+    setViewMode('document')
   }, [state, data, isMobile])
 
   // Le client peut éditer SES champs (recipientOrder=2). Les champs candidat
@@ -352,33 +352,13 @@ export default function PublicClientReportPage({
         <LogoLAgence height={isMobile ? 30 : 34} color="dark" />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Validation de rapport — {data.weekLabel}
+            {data.weekNumber ? <strong style={{ color: '#1C1A14' }}>Semaine {data.weekNumber} · </strong> : null}
+            {data.weekLabel}
           </div>
         </div>
 
-        {wizardAvailable && (
-          <button
-            type="button"
-            onClick={() => setViewMode(m => m === 'wizard' ? 'document' : 'wizard')}
-            style={{
-              flexShrink: 0,
-              padding: isMobile ? 0 : '7px 12px',
-              width: isMobile ? 32 : undefined,
-              height: isMobile ? 32 : undefined,
-              fontSize: 11.5, fontWeight: 600,
-              border: '1px solid #E5E7EB',
-              borderRadius: isMobile ? 8 : 999,
-              background: '#fff', color: '#6B7280',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {viewMode === 'wizard' ? <FileText size={isMobile ? 14 : 11} /> : <ListChecks size={isMobile ? 14 : 11} />}
-            {!isMobile && (viewMode === 'wizard' ? 'Document' : 'Wizard')}
-          </button>
-        )}
+        {/* v2.5.1 — Bouton Wizard côté client retiré. Le client valide en mode
+            Document uniquement (preview PDF + signature) — pas besoin d'étape par étape. */}
 
         {/* v2.3.14 — Indicateur + bouton "Valider" COMPACT en haut DESKTOP.
             Remplace le footer sticky bottom (masqué sur desktop). Disabled tant
