@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.2'
+export const APP_VERSION = '2.6.3'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.3 — Bandeau "modifié par le client" emails + logo officiel certificat
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.3',
+    date: '2026-05-11',
+    label: 'Email candidat + créateur signalent "Modifié par le client" + vrai logo certif',
+    features: [
+      'BANDEAU "MODIFIÉ PAR LE CLIENT" — Les emails post-signature client (createur USER + candidat) affichent désormais un bandeau amber explicite "⚠️ Données modifiées par le client" avec liste des champs si le client a cliqué "Modifier les données" avant de signer. Avant, l\'info n\'était que sur le certificat PDF. Texte d\'invitation au candidat à contacter L-Agence en cas de désaccord.',
+      'LOGO L-AGENCE TRANSPARENT DANS CERTIFICAT — Les 2 certificats de signature (Sign global `lib/sign/pdf-generator.ts` + Rapports `lib/report/pdf-generator.ts`) embed désormais le vrai PNG officiel `public/logo-agence-officiel-noir.png` (722×147 alpha) au lieu du texte "L-AGENCE SA" en Helvetica Bold. Fallback texte conservé si lecture FS impossible.',
+      'sendCompletedEmailToAdmin/Candidat — nouveaux args clientModified + modifiedFields[]. Caller (sign route) lit submission.metadata.client_modified + .modified_fields.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.2 — Blocage jours hors mission + jours déjà déclarés ailleurs
   // ─────────────────────────────────────────────────────────────────────

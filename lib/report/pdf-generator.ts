@@ -369,22 +369,43 @@ async function buildCertificatePdf(args: CertStandaloneArgs): Promise<Uint8Array
     x: 0, y: y - 12, width: W, height: 6,
     color: rgb(0.918, 0.706, 0.031),
   })
-  y -= 32
+  y -= 24
 
-  // Logo L-AGENCE SA
-  const logoText = 'L-AGENCE SA'
-  const logoSize = 22
-  page.drawText(logoText, {
-    x: (W - helvBold.widthOfTextAtSize(logoText, logoSize)) / 2,
-    y, size: logoSize, font: helvBold, color: rgb(0.11, 0.10, 0.08),
-  })
-  y -= 16
+  // v2.6.3 — Vrai logo L-Agence officiel (PNG transparent texte noir). Fallback texte.
+  let logoEmbedded = false
+  try {
+    const logoPath = path.join(process.cwd(), 'public', 'logo-agence-officiel-noir.png')
+    const logoBytes = fs.readFileSync(logoPath)
+    const logoPng = await pdf.embedPng(logoBytes)
+    const targetWidth = 200
+    const ratio = logoPng.height / logoPng.width
+    const targetHeight = targetWidth * ratio
+    page.drawImage(logoPng, {
+      x: (W - targetWidth) / 2,
+      y: y - targetHeight,
+      width: targetWidth,
+      height: targetHeight,
+    })
+    y -= targetHeight + 6
+    logoEmbedded = true
+  } catch {
+    // Fallback texte
+  }
+  if (!logoEmbedded) {
+    const logoText = 'L-AGENCE SA'
+    const logoSize = 22
+    page.drawText(logoText, {
+      x: (W - helvBold.widthOfTextAtSize(logoText, logoSize)) / 2,
+      y: y - logoSize, size: logoSize, font: helvBold, color: rgb(0.11, 0.10, 0.08),
+    })
+    y -= logoSize + 6
+  }
   const sub = 'TalentFlow Sign · Certificat de rapport hebdomadaire'
   page.drawText(sub, {
     x: (W - helv.widthOfTextAtSize(sub, 9)) / 2,
-    y, size: 9, font: helv, color: rgb(0.42, 0.45, 0.50),
+    y: y - 9, size: 9, font: helv, color: rgb(0.42, 0.45, 0.50),
   })
-  y -= 36
+  y -= 32
 
   // Titre principal
   const title = 'Certificat de signature'
