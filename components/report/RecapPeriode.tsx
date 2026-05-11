@@ -89,20 +89,20 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Sélecteurs */}
+      {/* Sélecteurs — v2.4.8 dark mode tokens */}
       <div style={{
         display: 'flex',
         flexDirection: 'column',
         gap: 8,
         padding: '12px 14px',
-        background: '#FAFAF7',
-        border: '1px solid #E5E7EB',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
         borderRadius: 12,
       }}>
         <div style={{
           fontSize: 11, fontWeight: 700,
           textTransform: 'uppercase', letterSpacing: '0.06em',
-          color: '#6B7280',
+          color: 'var(--muted)',
         }}>
           Période
         </div>
@@ -135,9 +135,9 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
           style={{
             minHeight: 44,
             padding: '10px 14px',
-            background: '#1C1A14',
-            color: '#fff',
-            border: 'none',
+            background: '#EAB308',
+            color: '#1C1A14',
+            border: '1px solid #1C1A14',
             borderRadius: 10,
             fontSize: 13.5,
             fontWeight: 700,
@@ -157,11 +157,11 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
         <>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            fontSize: 13, color: '#6B7280',
+            fontSize: 13, color: 'var(--muted)',
           }}>
             <Calendar size={14} />
             <span>
-              <strong style={{ color: '#1C1A14' }}>{data.count}</strong> rapport{data.count > 1 ? 's' : ''} entre <strong style={{ color: '#1C1A14' }}>{formatDateChDot(data.from)}</strong> et <strong style={{ color: '#1C1A14' }}>{formatDateChDot(data.to)}</strong>
+              <strong style={{ color: 'var(--foreground)' }}>{data.count}</strong> rapport{data.count > 1 ? 's' : ''} entre <strong style={{ color: 'var(--foreground)' }}>{formatDateChDot(data.from)}</strong> et <strong style={{ color: 'var(--foreground)' }}>{formatDateChDot(data.to)}</strong>
             </span>
           </div>
 
@@ -175,8 +175,8 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
                     key={(m.client_id || 'legacy') + idx}
                     style={{
                       padding: '12px 14px',
-                      background: '#fff',
-                      border: '1px solid #E5E7EB',
+                      background: 'var(--card)',
+                      border: '1px solid var(--border)',
                       borderRadius: 12,
                       display: 'flex', alignItems: 'flex-start', gap: 12,
                     }}
@@ -191,11 +191,11 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
                       <Building2 size={17} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 600, color: '#1C1A14' }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--foreground)' }}>
                         {m.client_name}
                       </div>
-                      <div style={{ marginTop: 4, fontSize: 12.5, color: '#6B7280', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        <span><strong style={{ color: '#1C1A14' }}>{m.count}</strong> sem.</span>
+                      <div style={{ marginTop: 4, fontSize: 12.5, color: 'var(--muted)', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        <span><strong style={{ color: 'var(--foreground)' }}>{m.count}</strong> sem.</span>
                         {m.totals.heures_normales > 0 && <span>{formatHours(m.totals.heures_normales)}h</span>}
                         {m.totals.heures_sup > 0 && <span>{formatHours(m.totals.heures_sup)}h sup</span>}
                         {m.totals.repas > 0 && <span>{m.totals.repas} repas</span>}
@@ -208,7 +208,7 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
             </section>
           )}
 
-          {/* Total */}
+          {/* Total — card amber semantique (reste pareil light + dark) */}
           <section>
             <div style={sectionLabelStyle}>Total période</div>
             <div style={{
@@ -253,10 +253,10 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
           {data.count === 0 && (
             <div style={{
               padding: 18,
-              background: '#fff',
-              border: '1px dashed #E5E7EB',
+              background: 'var(--card)',
+              border: '1px dashed var(--border)',
               borderRadius: 12,
-              textAlign: 'center', fontSize: 13, color: '#9CA3AF',
+              textAlign: 'center', fontSize: 13, color: 'var(--muted)',
             }}>
               Aucun rapport sur cette période.
             </div>
@@ -282,7 +282,7 @@ const inputLabelStyle: React.CSSProperties = {
   fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
-  color: '#6B7280',
+  color: 'var(--muted)',
   marginBottom: 4,
 }
 
@@ -291,16 +291,16 @@ const inputStyle: React.CSSProperties = {
   padding: '10px 12px',
   fontSize: 14,
   fontFamily: 'inherit',
-  border: '1px solid #E5E7EB',
+  border: '1px solid var(--border)',
   borderRadius: 8,
-  background: '#fff',
-  color: '#1C1A14',
+  background: 'var(--card)',
+  color: 'var(--foreground)',
   boxSizing: 'border-box',
 }
 
 const sectionLabelStyle: React.CSSProperties = {
   fontSize: 10.5, fontWeight: 700,
   textTransform: 'uppercase', letterSpacing: '0.06em',
-  color: '#6B7280',
+  color: 'var(--muted)',
   marginBottom: 8,
 }

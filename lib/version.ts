@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.4.7'
+export const APP_VERSION = '2.4.8'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.4.8 — Autocomplete client modal entreprise + Récap dark mode
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.4.8',
+    date: '2026-05-11',
+    label: 'Modal "Ajouter une entreprise" branché sur la DB clients (autocomplete) + récap période compatible dark mode',
+    features: [
+      'AUTOCOMPLETE ENTREPRISE — Le modal "Ajouter une entreprise" dans LinkClientsSection utilise désormais le composant ClientContactAutocomplete (même pattern que /sign/rapports/new). Recherche dans /api/clients?search=…&per_page=15 dès la 2ᵉ lettre. Au clic sur une suggestion : pré-remplit nom + contact + email + persiste client_id en base. Saisie libre toujours possible pour les entreprises non-DB. Bouton X "délier" disponible.',
+      'PERSISTANCE client_id — Le payload POST /api/admin/reports/[id]/clients inclut désormais client_id quand l\'entreprise vient de la DB (autocomplete). Permet la liaison avec la table clients (pour stats futures).',
+      'RÉCAP PÉRIODE DARK MODE — components/report/RecapPeriode.tsx : remplacement des couleurs hardcodées #FAFAF7/#fff/#E5E7EB/#6B7280/#1C1A14 par les tokens CSS var(--surface)/var(--card)/var(--border)/var(--muted)/var(--foreground). Le modal du dashboard /sign/rapports/[id] s\'affiche correctement en dark mode. La card amber "TOTAL PÉRIODE" garde ses couleurs sémantiques (#FFFBEB + #FDE68A) — couleur dédiée fonctionnelle qui reste pareille light + dark.',
+      'BOUTON "GÉNÉRER" — Passe de fond noir/texte blanc à fond jaune brand (#EAB308) avec texte foncé + bordure noire. Cohérent avec les autres boutons primaires de l\'app et lisible en dark mode.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.4.7 — Sécurité données candidat + Logo emails + Fix Modifier + Récap conditionnel + Dédup brouillons
   // ─────────────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom'
 import { Building2, Trash2, Plus, Mail, User, Loader2, Pencil, X as XIcon, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ReportLinkClient } from '@/lib/report/types'
+import ClientContactAutocomplete, { type ClientContactPick } from './ClientContactAutocomplete'
 
 interface Props {
   linkId: string
@@ -29,9 +30,15 @@ interface FormState {
   client_name: string
   client_contact_name: string
   client_email: string
+  client_id: string | null
+  /** v2.4.8 — true si l'entreprise est liée à un client existant en DB (autocomplete) */
+  isLinked: boolean
 }
 
-const EMPTY_FORM: FormState = { client_name: '', client_contact_name: '', client_email: '' }
+const EMPTY_FORM: FormState = {
+  client_name: '', client_contact_name: '', client_email: '',
+  client_id: null, isLinked: false,
+}
 
 export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
   const [clients, setClients] = useState<ReportLinkClient[]>([])
@@ -87,6 +94,8 @@ export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
       client_name: c.client_name || '',
       client_contact_name: c.client_contact_name || '',
       client_email: c.client_email || '',
+      client_id: c.client_id || null,
+      isLinked: !!c.client_id,
     })
     setModal(c)
   }
@@ -116,8 +125,11 @@ export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
         client_contact_name: form.client_contact_name.trim() || null,
         client_email: form.client_email.trim().toLowerCase() || null,
       }
-      // display_order seulement en CRÉATION (route PATCH ne l'utilise pas)
-      if (!isEdit) payload.display_order = clients.length
+      // v2.4.8 — Persiste client_id si l'entreprise vient de la DB clients (autocomplete)
+      if (!isEdit) {
+        payload.display_order = clients.length
+        if (form.client_id) payload.client_id = form.client_id
+      }
 
       const url = isEdit
         ? `/api/admin/reports/${linkId}/clients/${editingId}`
@@ -332,13 +344,33 @@ export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
             </div>
 
             <FormField label="Nom de l'entreprise *">
-              <input
-                type="text"
+              {/* v2.4.8 — Autocomplete depuis la DB clients (même pattern que /sign/rapports/new).
+                  Au clic sur une suggestion : pré-remplit nom + contact + email + client_id.
+                  Tape directement un nom non-DB → saisie manuelle libre. */}
+              <ClientContactAutocomplete
                 value={form.client_name}
-                onChange={(e) => setForm({ ...form, client_name: e.target.value })}
-                placeholder="Ex : Metabader SA"
-                style={inputStyle}
-                autoFocus
+                isLinked={form.isLinked}
+                placeholder="Recherche entreprise ou saisie manuelle…"
+                onChange={(name, pick) => {
+                  if (pick) {
+                    // Sélection dans le dropdown : remplit nom + contact + email + client_id
+                    setForm({
+                      client_name: pick.clientName,
+                      client_contact_name: pick.contactName || '',
+                      client_email: pick.contactEmail || '',
+                      client_id: pick.clientId,
+                      isLinked: true,
+                    })
+                  } else {
+                    // Saisie libre — pas de lien DB
+                    setForm(prev => ({ ...prev, client_name: name }))
+                  }
+                }}
+                onUnlink={() => setForm(prev => ({
+                  ...prev,
+                  client_id: null,
+                  isLinked: false,
+                }))}
               />
             </FormField>
             <FormField label="Nom du contact">
