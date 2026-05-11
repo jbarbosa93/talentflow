@@ -332,7 +332,9 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   }
 
   // ─── Submit WhatsApp (bouton "Envoyer par WhatsApp à mon responsable") ───
-  // v2.4.0 — Submit DB d'abord (marque submitted=true côté historique) PUIS ouvre wa.me.
+  // v2.4.3 — Le client reçoit toujours par email côté infra. Le bouton WhatsApp
+  // ouvre wa.me/?text=… SANS numéro pré-rempli : le candidat choisit son contact
+  // dans WhatsApp (picker natif). Submit DB en parallèle pour marquer submitted=true.
   const handleSubmitWhatsApp = async () => {
     if (!signatureDataUrl) {
       toast.error('Signe le rapport avant de l\'envoyer')
@@ -343,16 +345,12 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       toast.error('Remplis tous les champs avant d\'envoyer')
       return
     }
-    if (!selectedClient?.client_phone) {
-      toast.error('Numéro WhatsApp du responsable non configuré')
-      return
-    }
     setSendingWa(true)
     try {
       const { clientToken } = await submitToDb()
       const appUrl = typeof window !== 'undefined' ? window.location.origin : ''
       const signUrl = clientToken ? `${appUrl}/report/client/${clientToken}` : ''
-      const contactName = selectedClient.client_contact_name || selectedClient.client_name
+      const contactName = selectedClient?.client_contact_name || selectedClient?.client_name || 'votre responsable'
       const candidateName = data?.candidat
         ? [data.candidat.prenom, data.candidat.nom].filter(Boolean).join(' ')
         : (data?.link?.title || 'Le collaborateur')
@@ -362,14 +360,15 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         + `Merci de cliquer sur le lien pour valider :\n${signUrl}\n\n`
         + `- ${candidateName}`,
       )
-      const url = waMeUrl(selectedClient.client_phone, msg)
+      // v2.4.3 — Pas de phone : ouvre wa.me/?text=… → picker contact WhatsApp natif.
+      const url = waMeUrl('', msg)
       if (isMobile) {
         window.location.href = url
       } else {
         window.open(url, '_blank', 'noopener,noreferrer')
       }
       setSubmitted(true)
-      toast.success('Rapport envoyé — WhatsApp ouvert')
+      toast.success('Rapport enregistré — choisissez votre responsable dans WhatsApp')
       fetch(`/api/reports/${slug}`)
         .then(r => r.json())
         .then((nd: VerifyResponse) => { if (nd.valid) setData(nd) })
@@ -1162,12 +1161,12 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
 
       {/* v2.3.3 Bug 1 — Message post-envoi géré par early return (CenteredCard) au-dessus */}
 
-      {/* v2.4.2 — Dialog choix canal (WhatsApp ou Email auto) après clic "Confirmer et envoyer" */}
+      {/* v2.4.2 — Dialog choix canal (WhatsApp ou Email auto) après clic "Confirmer et envoyer"
+          v2.4.3 — WhatsApp TOUJOURS actif (le candidat choisit son contact lui-même) */}
       {confirmOpen && (
         <SendChannelDialog
           weekLabel={weekDates.label}
           clientName={selectedClient?.client_name || data.link.client_name || ''}
-          hasWhatsApp={!!selectedClient?.client_phone}
           sendingWa={sendingWa}
           submitting={submitting}
           onCancel={() => setConfirmOpen(false)}
@@ -1215,12 +1214,11 @@ function bannerBtnStyle(color: string): React.CSSProperties {
 //  - Bandeau amber info + bandeau rouge alerte "Pas à L-Agence"
 
 function SendChannelDialog({
-  weekLabel, clientName, hasWhatsApp, sendingWa, submitting,
+  weekLabel, clientName, sendingWa, submitting,
   onCancel, onSendEmail, onSendWhatsApp,
 }: {
   weekLabel: string
   clientName: string
-  hasWhatsApp: boolean
   sendingWa: boolean
   submitting: boolean
   onCancel: () => void
@@ -1274,28 +1272,28 @@ function SendChannelDialog({
           <CheckCircle2 size={14} /> Rapport signé — choisissez le canal d&apos;envoi
         </div>
 
-        {/* Bouton 1 — WhatsApp */}
+        {/* Bouton 1 — WhatsApp (v2.4.3 : toujours actif, picker contact natif) */}
         <button
           type="button"
           onClick={onSendWhatsApp}
-          disabled={!hasWhatsApp || sendingWa || submitting}
-          title={!hasWhatsApp ? 'Numéro WhatsApp du responsable non configuré' : 'Ouvrir WhatsApp avec votre responsable'}
+          disabled={sendingWa || submitting}
+          title="Ouvrir WhatsApp et choisir votre responsable dans vos contacts"
           style={{
             width: '100%',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             padding: '14px 16px',
             fontSize: 14.5, fontWeight: 700,
             border: '1px solid #128C7E', borderRadius: 12,
-            background: hasWhatsApp ? '#25D366' : '#9CA3AF',
+            background: '#25D366',
             color: '#fff',
-            cursor: (!hasWhatsApp || sendingWa || submitting) ? 'not-allowed' : 'pointer',
-            opacity: (!hasWhatsApp || sendingWa || submitting) ? 0.55 : 1,
+            cursor: (sendingWa || submitting) ? 'not-allowed' : 'pointer',
+            opacity: (sendingWa || submitting) ? 0.55 : 1,
             fontFamily: 'inherit',
             minHeight: 52,
           }}
         >
           {sendingWa ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
-          {hasWhatsApp ? 'Envoyer par WhatsApp à mon responsable' : 'Numéro WhatsApp non disponible'}
+          Envoyer par WhatsApp à mon responsable
         </button>
 
         {/* Bouton 2 — Email auto */}
@@ -1320,7 +1318,7 @@ function SendChannelDialog({
           Envoyer au client automatiquement
         </button>
 
-        {/* Bandeau info amber */}
+        {/* Bandeau info amber (v2.4.3 : message clarifié — pas de pré-remplissage du numéro) */}
         <div style={{
           padding: '10px 12px',
           background: '#FEF3C7',
@@ -1328,7 +1326,7 @@ function SendChannelDialog({
           borderRadius: 10,
           fontSize: 12, color: '#92400E', lineHeight: 1.5,
         }}>
-          Si vous n&apos;avez pas le numéro WhatsApp de votre responsable, utilisez <strong>« Envoyer au client automatiquement »</strong> pour lui envoyer le lien par email.
+          <strong>WhatsApp</strong> : votre application s&apos;ouvre, vous choisissez votre responsable dans vos contacts. <strong>Email</strong> : envoi automatique à l&apos;adresse configurée par L-Agence.
         </div>
 
         {/* Bandeau alerte rouge */}

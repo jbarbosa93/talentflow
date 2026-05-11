@@ -322,7 +322,8 @@ export default function ReportLinkDetailPage({
         </button>
       </div>
 
-      {/* v2.3.9 Bug 6 — InfoCard "WhatsApp client" supprimée (canal email-only depuis v2.3.7) */}
+      {/* v2.4.3 — InfoCards CANDIDAT uniquement (les coords client vivent désormais
+          dans la section "Entreprises autorisées" en bas de page). */}
       <div style={{
         marginTop: 14,
         display: 'grid',
@@ -332,15 +333,20 @@ export default function ReportLinkDetailPage({
         <InfoCard label="Candidat" value={link.candidat_name || '—'} />
         <InfoCard label="Email candidat" value={link.candidat_email || '—'} />
         <InfoCard label="WhatsApp candidat" value={link.candidat_phone || '—'} />
-        <InfoCard label="Entreprise client" value={link.client_name || '—'} />
-        <InfoCard label="Contact client" value={link.client_contact_name || '—'} />
-        <InfoCard label="Email client" value={link.client_email || '—'} />
-        <InfoCard label="Canal de notif" value={link.delivery_channel} />
       </div>
 
-      {/* v2.4.0 — Entreprises autorisées (multi-entreprise par lien) */}
+      {/* v2.4.0 — Entreprises autorisées (multi-entreprise par lien)
+          v2.4.3 — fallbackClient pour auto-create si liste vide (cas legacy / lien créé avant migration) */}
       <div style={{ marginTop: 24 }}>
-        <LinkClientsSection linkId={link.id} />
+        <LinkClientsSection
+          linkId={link.id}
+          fallbackClient={{
+            client_name: link.client_name,
+            client_email: link.client_email,
+            client_contact_name: link.client_contact_name,
+            client_phone: link.client_phone,
+          }}
+        />
       </div>
 
       {/* Historique */}

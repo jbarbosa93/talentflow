@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.4.2'
+export const APP_VERSION = '2.4.3'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,23 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.4.3 — Refonte page détail lien : Entreprises autorisées éditables + WhatsApp candidat sans numéro
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.4.3',
+    date: '2026-05-11',
+    label: 'Page détail lien refondée — InfoCards CANDIDAT only + table Entreprises autorisées éditables (modal centré) + auto-create + WhatsApp candidat sans numéro',
+    features: [
+      'PAGE DÉTAIL LIEN — Header simplifié : retire les 4 InfoCards "Entreprise client / Contact client / Email client / Canal de notif". Ne garde que les 3 InfoCards CANDIDAT (Nom / Email / WhatsApp). Toutes les coords client vivent désormais dans la section "Entreprises autorisées" en bas de page.',
+      'ENTREPRISES AUTORISÉES — Format tableau (Nom entreprise / Nom client / Email client / Actions). Bouton ✏️ par ligne ouvre un MODAL centré (createPortal) avec 3 inputs (Nom entreprise + Nom contact + Email). Sauvegarde via PATCH /api/admin/reports/[id]/clients/[clientId]. Bandeau d\'info "💡 La modification s\'applique aux futures soumissions seulement" — les rapports déjà envoyés ne sont pas affectés.',
+      'AUTO-CREATE — Si un lien n\'a pas encore d\'entreprise dans report_link_clients (cas legacy ou créé avant la migration), LinkClientsSection auto-crée silencieusement la 1ʳᵉ row depuis link.client_* au montage du composant. Plus jamais "Aucune entreprise configurée" sur un lien actif.',
+      'CRÉATION DE LIEN — POST /api/admin/reports crée AUSSI une 1ʳᵉ row report_link_clients en parallèle de l\'insert report_links. Cohérence garantie dès la création.',
+      'WHATSAPP CANDIDAT SANS NUMÉRO — Le bouton "Envoyer par WhatsApp à mon responsable" ouvre désormais wa.me/?text=… SANS numéro pré-rempli. Le candidat choisit son responsable dans ses propres contacts WhatsApp (picker natif). Bouton TOUJOURS actif (plus de "Numéro non disponible" grisé). Le champ Téléphone WhatsApp dans le modal entreprise est retiré (devenu inutile). Le client reçoit toujours par email côté infra.',
+      'ROUTE API — PATCH /api/admin/reports/[id]/clients/[clientId] (édition d\'une entreprise autorisée : client_name, client_contact_name, client_email, client_phone). Validation strict côté serveur (nom requis, email lowercased, phone normalizé E.164).',
+      'BACKFILL SQL — One-shot pour le lien orphelin Metabader SA (créé avant la migration v2.4.0). Tous les liens actifs ont désormais au moins 1 entreprise dans report_link_clients.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.4.2 — Patch UX Rapports candidat (cards cliquables + viewer + share + flow simplifié + logo)
   // ─────────────────────────────────────────────────────────────────────

@@ -1,39 +1,74 @@
 // TalentFlow Rapports — Section "Entreprises autorisées" (dashboard détail lien)
 // v2.4.0 — Phase 1 multi-entreprise
+// v2.4.3 — Refonte : format tableau + modal édition + auto-create depuis legacy
 //
-// Liste les entreprises associées au lien + permet d'ajouter/supprimer.
-// Réutilise ClientContactAutocomplete existant pour le lookup clients DB,
-// avec fallback saisie manuelle (entreprise pas encore dans la DB clients).
+// Affiche TOUJOURS au moins 1 entreprise (auto-création depuis link.client_* si vide).
+// Format colonnes : Nom entreprise / Nom contact / Email / [⋮ Modifier / Supprimer].
+// Modal centré au clic sur Modifier (3 champs : nom entreprise, nom contact, email).
+// La modification s'applique aux soumissions FUTURES (les emails envoyés restent).
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Building2, Trash2, Plus, Phone, Mail, User, Loader2 } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Building2, Trash2, Plus, Mail, User, Loader2, Pencil, X as XIcon, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ReportLinkClient } from '@/lib/report/types'
 
 interface Props {
   linkId: string
+  /** Coords legacy du lien (link.client_*) — pour auto-create si liste vide */
+  fallbackClient?: {
+    client_name?: string | null
+    client_email?: string | null
+    client_contact_name?: string | null
+    client_phone?: string | null
+  } | null
 }
 
-export default function LinkClientsSection({ linkId }: Props) {
+interface FormState {
+  client_name: string
+  client_contact_name: string
+  client_email: string
+}
+
+const EMPTY_FORM: FormState = { client_name: '', client_contact_name: '', client_email: '' }
+
+export default function LinkClientsSection({ linkId, fallbackClient }: Props) {
   const [clients, setClients] = useState<ReportLinkClient[]>([])
   const [loading, setLoading] = useState(true)
-  const [adding, setAdding] = useState(false)
-  const [showForm, setShowForm] = useState(false)
-
-  const [form, setForm] = useState({
-    client_name: '',
-    client_contact_name: '',
-    client_email: '',
-    client_phone: '',
-  })
+  const [busy, setBusy] = useState(false)
+  /** Modal mode : null = fermé, 'create' = ajout, ReportLinkClient = édition de cette row */
+  const [modal, setModal] = useState<null | 'create' | ReportLinkClient>(null)
+  const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
   const fetchList = async () => {
     setLoading(true)
     try {
       const r = await fetch(`/api/admin/reports/${linkId}/clients`)
       const d = await r.json()
-      if (r.ok) setClients(d.clients || [])
+      if (r.ok) {
+        const list = (d.clients || []) as ReportLinkClient[]
+        // v2.4.3 — Auto-create silencieuse depuis legacy si vide et fallback dispo
+        if (list.length === 0 && fallbackClient?.client_name) {
+          await fetch(`/api/admin/reports/${linkId}/clients`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              client_name: fallbackClient.client_name,
+              client_email: fallbackClient.client_email || null,
+              client_contact_name: fallbackClient.client_contact_name || null,
+              client_phone: fallbackClient.client_phone || null,
+              display_order: 0,
+            }),
+          })
+          const r2 = await fetch(`/api/admin/reports/${linkId}/clients`)
+          const d2 = await r2.json()
+          if (r2.ok) setClients((d2.clients || []) as ReportLinkClient[])
+          else setClients([])
+        } else {
+          setClients(list)
+        }
+      }
     } catch {
       toast.error('Erreur chargement entreprises')
     } finally {
@@ -43,40 +78,67 @@ export default function LinkClientsSection({ linkId }: Props) {
 
   useEffect(() => { fetchList() }, [linkId])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAdd = async () => {
+  const openCreate = () => {
+    setForm(EMPTY_FORM)
+    setModal('create')
+  }
+  const openEdit = (c: ReportLinkClient) => {
+    setForm({
+      client_name: c.client_name || '',
+      client_contact_name: c.client_contact_name || '',
+      client_email: c.client_email || '',
+    })
+    setModal(c)
+  }
+  const closeModal = () => {
+    if (busy) return
+    setModal(null)
+    setForm(EMPTY_FORM)
+  }
+
+  const handleSave = async () => {
     if (!form.client_name.trim()) {
       toast.error('Nom de l\'entreprise requis')
       return
     }
-    setAdding(true)
+    setBusy(true)
     try {
-      const r = await fetch(`/api/admin/reports/${linkId}/clients`, {
-        method: 'POST',
+      const isEdit = modal !== null && modal !== 'create'
+      const payload = {
+        client_name: form.client_name.trim(),
+        client_contact_name: form.client_contact_name.trim() || null,
+        client_email: form.client_email.trim().toLowerCase() || null,
+      }
+      const url = isEdit
+        ? `/api/admin/reports/${linkId}/clients/${(modal as ReportLinkClient).id}`
+        : `/api/admin/reports/${linkId}/clients`
+      const r = await fetch(url, {
+        method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          display_order: clients.length,
-        }),
+        body: JSON.stringify({ ...payload, display_order: clients.length }),
       })
       const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Erreur ajout')
-      setClients(prev => [...prev, d.client])
-      setForm({ client_name: '', client_contact_name: '', client_email: '', client_phone: '' })
-      setShowForm(false)
-      toast.success('Entreprise ajoutée')
+      if (!r.ok) throw new Error(d.error || 'Erreur enregistrement')
+      // Refresh
+      if (isEdit) {
+        setClients(prev => prev.map(c => c.id === (modal as ReportLinkClient).id ? d.client : c))
+      } else {
+        setClients(prev => [...prev, d.client])
+      }
+      toast.success(isEdit ? 'Entreprise modifiée' : 'Entreprise ajoutée')
+      setModal(null)
+      setForm(EMPTY_FORM)
     } catch (e: any) {
       toast.error(e.message || 'Erreur')
     } finally {
-      setAdding(false)
+      setBusy(false)
     }
   }
 
   const handleDelete = async (clientId: string, name: string) => {
-    if (!confirm(`Supprimer l'entreprise "${name}" de ce lien ?`)) return
+    if (!confirm(`Supprimer l'entreprise "${name}" de ce lien ?\n\nLes rapports déjà envoyés ne sont pas affectés.`)) return
     try {
-      const r = await fetch(`/api/admin/reports/${linkId}/clients/${clientId}`, {
-        method: 'DELETE',
-      })
+      const r = await fetch(`/api/admin/reports/${linkId}/clients/${clientId}`, { method: 'DELETE' })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
         throw new Error(d.error || 'Erreur suppression')
@@ -102,192 +164,265 @@ export default function LinkClientsSection({ linkId }: Props) {
         }}>
           Entreprises autorisées
         </h2>
-        {!showForm && (
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="neo-btn-ghost neo-btn-sm"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-          >
-            <Plus size={13} /> Ajouter
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={openCreate}
+          className="neo-btn-ghost neo-btn-sm"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+        >
+          <Plus size={13} /> Ajouter
+        </button>
       </div>
 
       {loading ? (
         <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>
           <Loader2 size={16} className="animate-spin" />
         </div>
+      ) : clients.length === 0 ? (
+        <div style={{
+          padding: 18,
+          background: 'var(--surface)',
+          border: '1px dashed var(--border)',
+          borderRadius: 10,
+          fontSize: 13, color: 'var(--muted)',
+          textAlign: 'center',
+        }}>
+          Aucune entreprise. Cliquez « Ajouter » pour configurer le premier destinataire.
+        </div>
       ) : (
-        <>
-          {clients.length === 0 && !showForm && (
-            <div style={{
-              padding: 18,
-              background: 'var(--surface)',
-              border: '1px dashed var(--border)',
-              borderRadius: 10,
-              fontSize: 13, color: 'var(--muted)',
-              textAlign: 'center',
-            }}>
-              Aucune entreprise configurée. Le candidat utilise les coords du lien (legacy).
-            </div>
-          )}
-
-          {clients.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {clients.map((c) => (
-                <div
-                  key={c.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 12,
-                    padding: 12,
-                    background: 'var(--card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 10,
-                  }}
-                >
-                  <div style={{
-                    flexShrink: 0,
-                    width: 36, height: 36, borderRadius: 8,
-                    background: 'var(--surface)',
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--muted)',
-                  }}>
-                    <Building2 size={16} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>
-                      {c.client_name}
-                    </div>
-                    <div style={{
-                      marginTop: 4,
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 10,
-                      fontSize: 12, color: 'var(--muted)',
-                    }}>
-                      {c.client_contact_name && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                          <User size={11} /> {c.client_contact_name}
-                        </span>
-                      )}
-                      {c.client_email && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                          <Mail size={11} /> {c.client_email}
-                        </span>
-                      )}
-                      {c.client_phone && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                          <Phone size={11} /> {c.client_phone}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(c.id, c.client_name)}
-                    title="Supprimer"
-                    style={{
-                      flexShrink: 0,
-                      width: 32, height: 32, borderRadius: 8,
-                      background: 'transparent',
-                      border: '1px solid var(--border)',
-                      color: '#DC2626',
-                      cursor: 'pointer',
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {showForm && (
-            <div style={{
-              marginTop: 10,
-              padding: 14,
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-            }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', marginBottom: 2 }}>
-                Ajouter une entreprise
+        <div style={{
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          overflow: 'hidden',
+          background: 'var(--card)',
+        }}>
+          {/* Header colonnes */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1.4fr 1.2fr 1.6fr 80px',
+            gap: 12,
+            padding: '10px 16px',
+            background: 'var(--surface)',
+            borderBottom: '1px solid var(--border)',
+            fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+            color: 'var(--muted)',
+          }}>
+            <span>Nom entreprise</span>
+            <span>Nom client</span>
+            <span>Email client</span>
+            <span style={{ textAlign: 'right' }}>Actions</span>
+          </div>
+          {clients.map((c, idx) => (
+            <div
+              key={c.id}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1.4fr 1.2fr 1.6fr 80px',
+                gap: 12,
+                padding: '12px 16px',
+                alignItems: 'center',
+                borderBottom: idx < clients.length - 1 ? '1px solid var(--border)' : 'none',
+                fontSize: 13,
+              }}
+            >
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <Building2 size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                <span style={{ color: 'var(--foreground)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {c.client_name}
+                </span>
               </div>
+              <span style={{ color: c.client_contact_name ? 'var(--foreground)' : 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {c.client_contact_name || '—'}
+              </span>
+              <span style={{ color: c.client_email ? 'var(--foreground)' : 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {c.client_email || '—'}
+              </span>
+              <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => openEdit(c)}
+                  title="Modifier"
+                  style={iconBtnStyle('var(--foreground)')}
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(c.id, c.client_name)}
+                  title="Supprimer"
+                  style={iconBtnStyle('#DC2626')}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal édition / création — centré */}
+      {modal !== null && typeof window !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={closeModal}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(480px, 95vw)',
+              maxHeight: '90vh', overflow: 'auto',
+              background: 'var(--card)',
+              borderRadius: 16, border: '1px solid var(--border)',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.30)',
+              padding: '22px 24px 20px',
+              display: 'flex', flexDirection: 'column', gap: 14,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{
+                  margin: 0,
+                  fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+                  fontSize: 22, fontWeight: 400, color: 'var(--foreground)',
+                  letterSpacing: '-0.01em', lineHeight: 1.15,
+                }}>
+                  {modal === 'create' ? 'Ajouter une entreprise' : 'Modifier l’entreprise'}
+                </h2>
+                <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--muted)' }}>
+                  Le client reçoit toujours par email. Le candidat peut aussi envoyer par WhatsApp depuis son téléphone.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeModal}
+                disabled={busy}
+                aria-label="Fermer"
+                style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--card)',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: busy ? 'not-allowed' : 'pointer', color: 'var(--foreground)',
+                  flexShrink: 0,
+                }}
+              >
+                <XIcon size={15} />
+              </button>
+            </div>
+
+            <FormField label="Nom de l'entreprise *">
               <input
                 type="text"
-                placeholder="Nom de l'entreprise *"
                 value={form.client_name}
                 onChange={(e) => setForm({ ...form, client_name: e.target.value })}
+                placeholder="Ex : Metabader SA"
                 style={inputStyle}
+                autoFocus
               />
+            </FormField>
+            <FormField label="Nom du contact">
               <input
                 type="text"
-                placeholder="Nom du contact (ex: Emilie Herren)"
                 value={form.client_contact_name}
                 onChange={(e) => setForm({ ...form, client_contact_name: e.target.value })}
+                placeholder="Ex : Sébastien D'Agostino"
                 style={inputStyle}
               />
+            </FormField>
+            <FormField label="Email du contact">
               <input
                 type="email"
-                placeholder="Email *"
                 value={form.client_email}
                 onChange={(e) => setForm({ ...form, client_email: e.target.value })}
+                placeholder="Ex : sd@metabader.ch"
                 style={inputStyle}
               />
-              <input
-                type="tel"
-                placeholder="Téléphone WhatsApp (+41 78...)"
-                value={form.client_phone}
-                onChange={(e) => setForm({ ...form, client_phone: e.target.value })}
-                style={inputStyle}
-              />
-              <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.45, marginTop: -4 }}>
-                Si <strong>Téléphone WhatsApp</strong> est renseigné, le candidat pourra envoyer le rapport
-                par WhatsApp directement depuis son lien.
+            </FormField>
+
+            {modal !== 'create' && (
+              <div style={{
+                padding: '8px 10px',
+                background: '#FEF3C7',
+                border: '1px solid #FDE68A',
+                borderRadius: 8,
+                fontSize: 11.5, color: '#92400E', lineHeight: 1.5,
+              }}>
+                💡 La modification s'applique aux <strong>futures soumissions</strong> seulement. Les rapports déjà envoyés ne sont pas affectés.
               </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => { setShowForm(false); setForm({ client_name: '', client_contact_name: '', client_email: '', client_phone: '' }) }}
-                  disabled={adding}
-                  className="neo-btn-ghost neo-btn-sm"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAdd}
-                  disabled={adding || !form.client_name.trim()}
-                  className="neo-btn neo-btn-sm"
-                  style={{ background: '#EAB308', color: '#1C1A14', border: '1px solid #1C1A14' }}
-                >
-                  {adding && <Loader2 size={12} className="animate-spin" style={{ marginRight: 4 }} />}
-                  Ajouter
-                </button>
-              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={closeModal}
+                disabled={busy}
+                className="neo-btn-ghost neo-btn-sm"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={busy || !form.client_name.trim()}
+                className="neo-btn neo-btn-sm"
+                style={{
+                  background: '#EAB308', color: '#1C1A14', border: '1px solid #1C1A14',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                {busy && <Loader2 size={12} className="animate-spin" />}
+                {!busy && <Check size={12} />}
+                {modal === 'create' ? 'Ajouter' : 'Sauvegarder'}
+              </button>
             </div>
-          )}
-        </>
+          </div>
+        </div>,
+        document.body,
       )}
     </section>
   )
 }
 
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{
+        fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
+        textTransform: 'uppercase', color: 'var(--muted)',
+      }}>
+        {label}
+      </span>
+      {children}
+    </label>
+  )
+}
+
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '8px 10px',
-  fontSize: 13,
+  padding: '10px 12px',
+  fontSize: 13.5,
   fontFamily: 'inherit',
   border: '1px solid var(--border)',
   borderRadius: 8,
   background: 'var(--card)',
   color: 'var(--foreground)',
   boxSizing: 'border-box',
+}
+
+function iconBtnStyle(color: string): React.CSSProperties {
+  return {
+    width: 32, height: 32, borderRadius: 8,
+    background: 'transparent',
+    border: '1px solid var(--border)',
+    color,
+    cursor: 'pointer',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  }
 }

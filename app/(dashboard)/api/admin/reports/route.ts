@@ -153,6 +153,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Erreur création' }, { status: 500 })
     }
 
+    // v2.4.3 — Crée automatiquement la 1ʳᵉ entreprise destinataire dans
+    // report_link_clients à partir des coords client saisies. Plus de "lien orphelin".
+    if (data && insertPayload.client_name) {
+      const linkRow = data as unknown as { id: string }
+      try {
+        await supabase
+          .from('report_link_clients' as any)
+          .insert({
+            link_id: linkRow.id,
+            client_id: null,
+            client_name: insertPayload.client_name,
+            client_email: insertPayload.client_email,
+            client_contact_name: insertPayload.client_contact_name,
+            client_phone: insertPayload.client_phone,
+            display_order: 0,
+          })
+      } catch (e) {
+        // Non-bloquant : la section "Entreprises autorisées" auto-create au mount sinon
+        console.warn('[reports] POST report_link_clients seed failed (non-blocking)', e)
+      }
+    }
+
     return NextResponse.json({ link: data })
   } catch (e) {
     console.error('[reports] POST exception', e)
