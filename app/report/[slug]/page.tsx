@@ -36,6 +36,7 @@ import LogoLAgence from '@/components/report/LogoLAgence'
 import {
   getCurrentWeekStart, isoDate, getWeekDates, parseIsoDate,
 } from '@/lib/report/week-helpers'
+import { formatDateChDot } from '@/lib/report/text-format'
 import {
   getDayOffsetFromSection, dateForDayOfWeek,
 } from '@/lib/sign/field-helpers'
@@ -516,6 +517,27 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     setViewerOpen(true)
   }
 
+  // v2.6.0 — Supprimer un brouillon (uniquement status='draft')
+  const handleDeleteDraft = async (m: MissionItem) => {
+    if (m.status !== 'draft') return
+    const wk = m.week_number ? `S${m.week_number}` : `${formatDateChDot(m.week_start).slice(0, 5)} → ${formatDateChDot(m.week_end).slice(0, 5)}`
+    const entreprise = m.client_name ? ` (${m.client_name})` : ''
+    if (!window.confirm(`Supprimer le brouillon ${wk}${entreprise} ?\n\nCette action est définitive.`)) return
+    try {
+      const r = await fetch(`/api/reports/${slug}/submissions/${m.id}`, { method: 'DELETE' })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error || 'Erreur suppression')
+      toast.success('Brouillon supprimé')
+      // Refresh liste des submissions
+      fetch(`/api/reports/${slug}`)
+        .then(r => r.json())
+        .then((nd: VerifyResponse) => { if (nd.valid) setData(nd) })
+        .catch(() => {})
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur')
+    }
+  }
+
   // v2.4.0 — Page accueil (landing) mobile-first
   if (phase === 'landing') {
     return (
@@ -563,7 +585,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             Mes derniers rapports
           </div>
         </div>
-        <MissionList items={recentMissions} onSelect={handleSelectMission} emptyText="Aucun rapport pour le moment. Commencez par créer le premier !" />
+        <MissionList items={recentMissions} onSelect={handleSelectMission} onDeleteDraft={handleDeleteDraft} emptyText="Aucun rapport pour le moment. Commencez par créer le premier !" />
 
         {/* v2.4.1 — Bouton "Voir tout l'historique" (accordion expand) */}
         {hasMoreHistory && (
@@ -592,7 +614,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         )}
         {showFullHistory && (
           <div style={{ marginTop: 14 }}>
-            <HistoryAccordion items={allMissions} defaultOpenIndex={0} onSelect={handleSelectMission} />
+            <HistoryAccordion items={allMissions} defaultOpenIndex={0} onSelect={handleSelectMission} onDeleteDraft={handleDeleteDraft} />
           </div>
         )}
 

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.5.3'
+export const APP_VERSION = '2.6.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.0 — Rapports candidat : contraste mobile lisible + suppression brouillons
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.0',
+    date: '2026-05-11',
+    label: 'Récap candidat lisible mobile + bouton supprimer brouillon',
+    features: [
+      'CONTRASTE RECAP MOBILE — Composant RecapPeriode (partagé page candidat publique + dashboard) utilisait des tokens CSS `var(--surface/--border/--muted/--foreground/--card)` non définis sur la page candidat publique → texte invisible (même couleur que fond) sur mobile. Fix : fallback `var(--token, #couleur)` partout (FAFAF7/E5E7EB/6B7280/1C1A14/#fff) → lisible dans les 2 contextes sans toucher au dark mode dashboard.',
+      'BOUTON SUPPRIMER BROUILLON — Cards "Mes derniers rapports" + historique accordion : bouton 🗑 rouge soft pâle (#FEF2F2 / #FECACA / #B91C1C) à droite, visible UNIQUEMENT pour status=`draft`. Tap → window.confirm() avec semaine + entreprise, puis DELETE /api/reports/{slug}/submissions/{id} → refresh data. Les rapports envoyés/signés/validés NE peuvent PAS être supprimés (sécurité).',
+      'NOUVELLE ROUTE DELETE — `/api/reports/{slug}/submissions/{id}` méthode DELETE : vérifie le slug + status=`draft` strict + scope link_id, log audit `draft_deleted`. Refuse 409 si statut ≠ draft.',
+      'TYPE ReportAuditAction étendu — Ajout `draft_deleted` pour tracer les suppressions.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.5.3 — Logo vraie transparence (2 nouveaux PNGs alpha) — retrait des hacks
   // ─────────────────────────────────────────────────────────────────────

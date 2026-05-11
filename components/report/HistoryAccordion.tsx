@@ -18,9 +18,11 @@ interface Props {
   monthSubtitleFn?: (items: MissionItem[]) => string | null
   /** v2.4.2 — Callback de tap sur une mission (propagé à MissionList). */
   onSelect?: (m: MissionItem) => void
+  /** v2.6.0 — Callback de suppression d'un brouillon (propagé à MissionList). */
+  onDeleteDraft?: (m: MissionItem) => void
 }
 
-export default function HistoryAccordion({ items, defaultOpenIndex = 0, monthSubtitleFn, onSelect }: Props) {
+export default function HistoryAccordion({ items, defaultOpenIndex = 0, monthSubtitleFn, onSelect, onDeleteDraft }: Props) {
   const groups = useMemo(() => groupByMonth(items), [items])
   const [openSet, setOpenSet] = useState<Set<string>>(() => {
     if (defaultOpenIndex < 0 || !groups[defaultOpenIndex]) return new Set()
@@ -91,7 +93,7 @@ export default function HistoryAccordion({ items, defaultOpenIndex = 0, monthSub
                   </div>
                 )}
                 <div style={{ paddingBottom: 10 }}>
-                  <MissionList items={g.items} onSelect={onSelect} />
+                  <MissionList items={g.items} onSelect={onSelect} onDeleteDraft={onDeleteDraft} />
                 </div>
               </>
             )}

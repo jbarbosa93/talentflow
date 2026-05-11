@@ -95,14 +95,14 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
         flexDirection: 'column',
         gap: 8,
         padding: '12px 14px',
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
+        background: 'var(--surface, #FAFAF7)',
+        border: '1px solid var(--border, #E5E7EB)',
         borderRadius: 12,
       }}>
         <div style={{
           fontSize: 11, fontWeight: 700,
           textTransform: 'uppercase', letterSpacing: '0.06em',
-          color: 'var(--muted)',
+          color: 'var(--muted, #6B7280)',
         }}>
           Période
         </div>
@@ -157,11 +157,11 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
         <>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            fontSize: 13, color: 'var(--muted)',
+            fontSize: 13, color: 'var(--muted, #6B7280)',
           }}>
             <Calendar size={14} />
             <span>
-              <strong style={{ color: 'var(--foreground)' }}>{data.count}</strong> rapport{data.count > 1 ? 's' : ''} entre <strong style={{ color: 'var(--foreground)' }}>{formatDateChDot(data.from)}</strong> et <strong style={{ color: 'var(--foreground)' }}>{formatDateChDot(data.to)}</strong>
+              <strong style={{ color: 'var(--foreground, #1C1A14)' }}>{data.count}</strong> rapport{data.count > 1 ? 's' : ''} entre <strong style={{ color: 'var(--foreground, #1C1A14)' }}>{formatDateChDot(data.from)}</strong> et <strong style={{ color: 'var(--foreground, #1C1A14)' }}>{formatDateChDot(data.to)}</strong>
             </span>
           </div>
 
@@ -175,8 +175,8 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
                     key={(m.client_id || 'legacy') + idx}
                     style={{
                       padding: '12px 14px',
-                      background: 'var(--card)',
-                      border: '1px solid var(--border)',
+                      background: 'var(--card, #fff)',
+                      border: '1px solid var(--border, #E5E7EB)',
                       borderRadius: 12,
                       display: 'flex', alignItems: 'flex-start', gap: 12,
                     }}
@@ -191,11 +191,11 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
                       <Building2 size={17} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--foreground)' }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--foreground, #1C1A14)' }}>
                         {m.client_name}
                       </div>
-                      <div style={{ marginTop: 4, fontSize: 12.5, color: 'var(--muted)', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        <span><strong style={{ color: 'var(--foreground)' }}>{m.count}</strong> sem.</span>
+                      <div style={{ marginTop: 4, fontSize: 12.5, color: 'var(--muted, #6B7280)', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        <span><strong style={{ color: 'var(--foreground, #1C1A14)' }}>{m.count}</strong> sem.</span>
                         {m.totals.heures_normales > 0 && <span>{formatHours(m.totals.heures_normales)}h</span>}
                         {m.totals.heures_sup > 0 && <span>{formatHours(m.totals.heures_sup)}h sup</span>}
                         {m.totals.repas > 0 && <span>{m.totals.repas} repas</span>}
@@ -253,10 +253,10 @@ export default function RecapPeriode({ slug, scope = 'candidate', initialFrom, i
           {data.count === 0 && (
             <div style={{
               padding: 18,
-              background: 'var(--card)',
-              border: '1px dashed var(--border)',
+              background: 'var(--card, #fff)',
+              border: '1px dashed var(--border, #E5E7EB)',
               borderRadius: 12,
-              textAlign: 'center', fontSize: 13, color: 'var(--muted)',
+              textAlign: 'center', fontSize: 13, color: 'var(--muted, #6B7280)',
             }}>
               Aucun rapport sur cette période.
             </div>
@@ -282,7 +282,7 @@ const inputLabelStyle: React.CSSProperties = {
   fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
-  color: 'var(--muted)',
+  color: 'var(--muted, #6B7280)',
   marginBottom: 4,
 }
 
@@ -291,16 +291,16 @@ const inputStyle: React.CSSProperties = {
   padding: '10px 12px',
   fontSize: 14,
   fontFamily: 'inherit',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border, #E5E7EB)',
   borderRadius: 8,
-  background: 'var(--card)',
-  color: 'var(--foreground)',
+  background: 'var(--card, #fff)',
+  color: 'var(--foreground, #1C1A14)',
   boxSizing: 'border-box',
 }
 
 const sectionLabelStyle: React.CSSProperties = {
   fontSize: 10.5, fontWeight: 700,
   textTransform: 'uppercase', letterSpacing: '0.06em',
-  color: 'var(--muted)',
+  color: 'var(--muted, #6B7280)',
   marginBottom: 8,
 }

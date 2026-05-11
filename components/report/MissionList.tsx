@@ -1,11 +1,11 @@
 // TalentFlow Rapports — Liste compacte rapports candidat (Phase 1)
-// v2.4.0
+// v2.6.0 — Bouton supprimer pour les brouillons
 //
-// Cards verticales mobile. Tap → lecture seule du rapport (TODO Phase 2).
-// Affiche statut, semaine, entreprise.
+// Cards verticales mobile. Tap → lecture seule du rapport (ou reprise brouillon).
+// Affiche statut, semaine, entreprise. Brouillons : bouton 🗑 supprimer avec confirm.
 'use client'
 
-import { CheckCircle2, Clock, FileEdit, ChevronRight } from 'lucide-react'
+import { CheckCircle2, Clock, FileEdit, ChevronRight, Trash2 } from 'lucide-react'
 import { formatDateChDot } from '@/lib/report/text-format'
 import type { ReportSubmission } from '@/lib/report/types'
 
@@ -25,6 +25,8 @@ export interface MissionItem {
 interface Props {
   items: MissionItem[]
   onSelect?: (m: MissionItem) => void
+  /** v2.6.0 — Callback de suppression d'un brouillon (status='draft' uniquement) */
+  onDeleteDraft?: (m: MissionItem) => void
   emptyText?: string
 }
 
@@ -41,7 +43,7 @@ function statusBadge(status: ReportSubmission['status']) {
   return { label: 'Annulé', bg: '#FEE2E2', color: '#B91C1C', icon: null }
 }
 
-export default function MissionList({ items, onSelect, emptyText = 'Aucun rapport pour le moment.' }: Props) {
+export default function MissionList({ items, onSelect, onDeleteDraft, emptyText = 'Aucun rapport pour le moment.' }: Props) {
   if (!items.length) {
     return (
       <div style={{
@@ -62,11 +64,10 @@ export default function MissionList({ items, onSelect, emptyText = 'Aucun rappor
         const b = statusBadge(m.status)
         const dateRange = `${formatDateChDot(m.week_start).slice(0, 5)} → ${formatDateChDot(m.week_end).slice(0, 5)}`
         const wkLabel = m.week_number ? `S${m.week_number}` : ''
+        const isDraft = m.status === 'draft'
         return (
-          <button
+          <div
             key={m.id}
-            type="button"
-            onClick={() => onSelect?.(m)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -75,38 +76,75 @@ export default function MissionList({ items, onSelect, emptyText = 'Aucun rappor
               background: '#fff',
               border: '1px solid #E5E7EB',
               borderRadius: 12,
-              cursor: onSelect ? 'pointer' : 'default',
-              textAlign: 'left',
               width: '100%',
-              fontFamily: 'inherit',
             }}
           >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1A14' }}>
-                {wkLabel ? `${wkLabel} · ${dateRange}` : dateRange}
-              </div>
-              {m.client_name && (
-                <div style={{ marginTop: 3, fontSize: 12.5, color: '#6B7280', lineHeight: 1.4 }}>
-                  {m.client_name}{m.client_contact_name ? ` · ${m.client_contact_name}` : ''}
+            <button
+              type="button"
+              onClick={() => onSelect?.(m)}
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                cursor: onSelect ? 'pointer' : 'default',
+                textAlign: 'left',
+                fontFamily: 'inherit',
+                minWidth: 0,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1A14' }}>
+                  {wkLabel ? `${wkLabel} · ${dateRange}` : dateRange}
                 </div>
-              )}
-            </div>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '4px 9px',
-              borderRadius: 999,
-              fontSize: 11,
-              fontWeight: 600,
-              background: b.bg,
-              color: b.color,
-              flexShrink: 0,
-            }}>
-              {b.icon} {b.label}
-            </span>
-            {onSelect && <ChevronRight size={16} color="#9CA3AF" style={{ flexShrink: 0 }} />}
-          </button>
+                {m.client_name && (
+                  <div style={{ marginTop: 3, fontSize: 12.5, color: '#6B7280', lineHeight: 1.4 }}>
+                    {m.client_name}{m.client_contact_name ? ` · ${m.client_contact_name}` : ''}
+                  </div>
+                )}
+              </div>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 9px',
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 600,
+                background: b.bg,
+                color: b.color,
+                flexShrink: 0,
+              }}>
+                {b.icon} {b.label}
+              </span>
+              {onSelect && !isDraft && <ChevronRight size={16} color="#9CA3AF" style={{ flexShrink: 0 }} />}
+            </button>
+            {isDraft && onDeleteDraft && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onDeleteDraft(m) }}
+                aria-label="Supprimer le brouillon"
+                title="Supprimer le brouillon"
+                style={{
+                  flexShrink: 0,
+                  width: 36, height: 36,
+                  display: 'inline-flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  background: '#FEF2F2',
+                  color: '#B91C1C',
+                  border: '1px solid #FECACA',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
+          </div>
         )
       })}
     </div>
