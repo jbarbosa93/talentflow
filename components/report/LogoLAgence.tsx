@@ -24,6 +24,11 @@ export default function LogoLAgence({ height = 36, color = 'dark', className }: 
     : '/logo-agence-officiel.png'
   const ratio = color === 'light' ? (250 / 60) : (550 / 170)
   const width = Math.round(height * ratio)
+  // v2.4.5 — mix-blend-mode: multiply masque visuellement le fond blanc opaque
+  // du PNG (les pixels blancs deviennent invisibles, le texte noir reste visible).
+  // Évite d'avoir à régénérer le PNG avec un vrai canal alpha. Marche partout
+  // (Safari iOS 12+, Chrome 41+, Firefox 32+). Sur color='light' (fond foncé),
+  // le mode reste 'multiply' aussi — sans effet visible car le texte est blanc.
   return (
     <Image
       src={src}
@@ -32,7 +37,10 @@ export default function LogoLAgence({ height = 36, color = 'dark', className }: 
       height={height}
       priority
       className={className}
-      style={{ height, width: 'auto', objectFit: 'contain' }}
+      style={{
+        height, width: 'auto', objectFit: 'contain',
+        mixBlendMode: color === 'dark' ? 'multiply' : 'screen',
+      }}
     />
   )
 }

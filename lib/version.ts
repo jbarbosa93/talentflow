@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.4.4'
+export const APP_VERSION = '2.4.5'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.4.5 — Logo PNG fond blanc rendu transparent via mix-blend-mode
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.4.5',
+    date: '2026-05-11',
+    label: 'Fix logo — fond blanc du PNG officiel rendu transparent via mix-blend-mode: multiply',
+    features: [
+      'LOGO — Le PNG logo-agence-officiel.png a un fond blanc opaque qui faisait un rectangle visible sur les fonds crème (#FAFAF7) de l\'app candidat. Fix CSS non-destructif : LogoLAgence.tsx applique mixBlendMode="multiply" sur l\'Image → les pixels blancs (255,255,255) se multiplient avec le fond et deviennent invisibles, le texte noir reste visible. Marche sur Safari iOS 12+, Chrome 41+, Firefox 32+. Aucune régénération du PNG nécessaire. Pour color="light" (variant texte blanc fond foncé), mode "screen" appliqué (inverse).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.4.4 — Sécurité + Logo officiel
   // ─────────────────────────────────────────────────────────────────────
