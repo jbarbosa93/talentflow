@@ -1312,6 +1312,30 @@ function FieldEditor({
         >
           <GripVertical size={14} />
         </span>
+        {/* v2.6.7 — Badge "Section" devant l'input pour s'organiser sans
+            ouvrir les options. Affiche la wizardSection si présente (ex: Lundi). */}
+        {field.wizardSection && field.wizardSection.trim() && (
+          <span
+            title={`Section : ${field.wizardSection}`}
+            style={{
+              flexShrink: 0,
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+              padding: '2px 7px',
+              borderRadius: 999,
+              background: 'var(--primary-soft, #FEF3C7)',
+              color: 'var(--accent-foreground, #92400E)',
+              border: '1px solid var(--primary, #EAB308)',
+              whiteSpace: 'nowrap',
+              maxWidth: 100,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {field.wizardSection.trim()}
+          </span>
+        )}
         <input
           type="text"
           value={field.tooltip || ''}

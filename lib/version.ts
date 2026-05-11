@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.6'
+export const APP_VERSION = '2.6.7'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.7 — Badge "Section" devant le nom du field dans la liste Wizard
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.7',
+    date: '2026-05-11',
+    label: 'Badge section (Lundi/Mardi/...) devant chaque field dans la liste Wizard',
+    features: [
+      'BADGE SECTION DANS LA LISTE WIZARD — Chaque field d\'une étape affiche désormais sa wizardSection en badge jaune cliquable juste devant le nom (ex: [Lundi] Date · [Lundi] Heures normales · [Mardi] Date). Permet de s\'organiser visuellement sans ouvrir les options de chaque field.',
+      'Badge masqué si pas de wizardSection définie (fields sans groupage). Tooltip au survol affiche "Section : Lundi".',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.6 — Format date "Jour de la semaine" (EEEE) dans l'éditeur template
   // ─────────────────────────────────────────────────────────────────────
