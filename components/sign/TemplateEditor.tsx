@@ -13,7 +13,7 @@ import {
   PenLine, Type, CheckSquare, Calendar, List as ListIcon, Trash2, Files,
   StickyNote, Plus, Hash, Mail, Building2, Briefcase, User, IdCard,
   Sigma, Paperclip, Pencil, Check as CheckIcon, X as XIcon, Eye,
-  Sparkles, Search, FilePlus,
+  Sparkles, Search, FilePlus, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import PdfPreviewModal from '@/components/report/PdfPreviewModal'
 import { toast } from 'sonner'
@@ -776,6 +776,65 @@ export default function TemplateEditor({
                 }}
               >
                 <Trash2 size={13} />
+              </button>
+              {/* v2.7.4 — Réorganisation : flèches Up / Down pour déplacer le doc actif
+                  dans la liste. Affecte l'ordre dans le PDF final assemblé + l'ordre du
+                  wizard. Désactivé aux extrémités. */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeDocIdx <= 0) return
+                  setDocs(prev => {
+                    const next = [...prev]
+                    const tmp = next[activeDocIdx - 1]
+                    next[activeDocIdx - 1] = next[activeDocIdx]
+                    next[activeDocIdx] = tmp
+                    return next.map((d, i) => ({ ...d, order: i }))
+                  })
+                  setActiveDocIdx(idx => idx - 1)
+                  setDirty(true)
+                }}
+                disabled={activeDocIdx <= 0}
+                title={activeDocIdx <= 0 ? 'Déjà en première position' : 'Monter ce document dans la liste'}
+                style={{
+                  width: 30, height: 30,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1px solid var(--border)', borderRadius: 6,
+                  background: 'var(--card)', color: 'var(--foreground)',
+                  cursor: activeDocIdx <= 0 ? 'not-allowed' : 'pointer',
+                  opacity: activeDocIdx <= 0 ? 0.4 : 1,
+                  flexShrink: 0,
+                }}
+              >
+                <ArrowUp size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeDocIdx >= docs.length - 1) return
+                  setDocs(prev => {
+                    const next = [...prev]
+                    const tmp = next[activeDocIdx + 1]
+                    next[activeDocIdx + 1] = next[activeDocIdx]
+                    next[activeDocIdx] = tmp
+                    return next.map((d, i) => ({ ...d, order: i }))
+                  })
+                  setActiveDocIdx(idx => idx + 1)
+                  setDirty(true)
+                }}
+                disabled={activeDocIdx >= docs.length - 1}
+                title={activeDocIdx >= docs.length - 1 ? 'Déjà en dernière position' : 'Descendre ce document dans la liste'}
+                style={{
+                  width: 30, height: 30,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1px solid var(--border)', borderRadius: 6,
+                  background: 'var(--card)', color: 'var(--foreground)',
+                  cursor: activeDocIdx >= docs.length - 1 ? 'not-allowed' : 'pointer',
+                  opacity: activeDocIdx >= docs.length - 1 ? 0.4 : 1,
+                  flexShrink: 0,
+                }}
+              >
+                <ArrowDown size={13} />
               </button>
             </>
           )}
