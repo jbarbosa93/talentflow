@@ -396,8 +396,11 @@ export default function TemplateEditor({
         toast.warning(`"${file.name}" ignoré (pas un PDF)`)
         continue
       }
-      if (file.size > 50 * 1024 * 1024) {
-        toast.error(`"${file.name}" > 50 MB`)
+      // v2.7.4 — Limite réelle Vercel Functions Body Size = 4.5 MB (Route Handlers).
+      // Avant 50 MB (cohérent avec la check serveur), mais Vercel intercepte AVANT
+      // → erreur 413 HTML non-JSON. Mieux vaut bloquer côté client avec message clair.
+      if (file.size > 4 * 1024 * 1024) {
+        toast.error(`"${file.name}" : ${(file.size / 1024 / 1024).toFixed(1)} MB > 4 MB (limite Vercel). Compresse le PDF avant.`)
         continue
       }
       try {
@@ -406,13 +409,25 @@ export default function TemplateEditor({
         fd.append('folder', 'templates')
         fd.append('ownerId', templateId)
         const r = await fetch('/api/sign/upload', { method: 'POST', body: fd })
-        const data = await r.json()
-        if (!r.ok) throw new Error(data.error || 'Erreur upload')
+        // v2.7.4 — Vercel peut retourner du HTML/texte (ex: 413 "Request Entity Too Large")
+        // au lieu de JSON quand le body est trop gros AVANT d'atteindre notre route.
+        // On lit le texte d'abord, puis on tente JSON.parse pour avoir un message clair.
+        const rawText = await r.text()
+        let data: { path?: string; error?: string } = {}
+        try { data = JSON.parse(rawText) } catch { /* not JSON, e.g. Vercel 413 HTML */ }
+        if (!r.ok) {
+          const isTooLarge = r.status === 413 || /Request Entity Too Large|too large/i.test(rawText)
+          const msg = isTooLarge
+            ? `Fichier trop volumineux pour le serveur (${(file.size / 1024 / 1024).toFixed(1)} MB). Limite Vercel ~4.5 MB sur les routes API.`
+            : (data.error || `HTTP ${r.status}`)
+          throw new Error(msg)
+        }
+        if (!data.path) throw new Error('Réponse serveur invalide (pas de path)')
         setDocs(prev => [
           ...prev,
           {
             name: file.name,
-            storage_path: data.path,
+            storage_path: data.path!,
             order: prev.length,
             fields: [],
           } as SignDocument,
