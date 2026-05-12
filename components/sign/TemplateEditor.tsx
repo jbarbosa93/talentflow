@@ -357,7 +357,9 @@ export default function TemplateEditor({
   // Save — v2.2.2 : envoie aussi wizard_steps + wizard_enabled (atomic) pour
   // que les modifs faites dans Mode Wizard ne soient pas perdues si l'admin
   // sauve depuis Mode Document. Le state vient maintenant du parent partagé.
-  const handleSave = async () => {
+  // v2.7.4 — Accepte un flag silent (=true en auto-save) pour ne pas spammer de toasts.
+  const handleSave = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true
     setSaving(true)
     try {
       const r = await fetch(`/api/sign/templates/${templateId}`, {
@@ -372,16 +374,32 @@ export default function TemplateEditor({
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Erreur')
-      toast.success('Template enregistré')
+      if (!silent) toast.success('Template enregistré')
       setDirty(false)
       onSaved?.()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erreur'
-      toast.error(msg)
+      // En auto-save : toast d'erreur en warning discret pour signaler à l'user qu'il
+      // doit éventuellement cliquer Enregistrer manuellement.
+      if (silent) toast.warning(`Auto-save échouée : ${msg}`)
+      else toast.error(msg)
     } finally {
       setSaving(false)
     }
   }
+
+  // v2.7.4 — Auto-save debounced (800ms après le dernier changement)
+  // Déclenche silencieusement handleSave dès que `dirty` est true. Ne re-déclenche
+  // pas tant que la sauvegarde précédente n'est pas terminée. Cleanup du timer
+  // sur chaque nouveau changement → la dernière modif sera prise en compte.
+  useEffect(() => {
+    if (!dirty || saving) return
+    const handle = setTimeout(() => {
+      void handleSave({ silent: true })
+    }, 800)
+    return () => clearTimeout(handle)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, saving, docs, recipients, wizardSteps, wizardEnabled])
 
   // v2.7.4 — Ajout d'un PDF supplémentaire au template existant via UPLOAD DIRECT Supabase
   // Storage. Le navigateur PUT directement le fichier → bypass Vercel Functions 4.5 MB limit.
@@ -1055,12 +1073,15 @@ export default function TemplateEditor({
           <button
             type="button"
             className="neo-btn-yellow"
-            onClick={handleSave}
+            onClick={() => handleSave()}
             disabled={saving || !dirty}
             style={{ width: '100%', justifyContent: 'center', opacity: !dirty ? 0.55 : 1 }}
+            title={dirty ? 'Forcer un enregistrement immédiat (sinon auto-save dans 800ms)' : 'Aucun changement à enregistrer'}
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {saving ? 'Enregistrement...' : dirty ? 'Enregistrer' : 'Enregistré'}
+            {/* v2.7.4 — Indique "Auto-save…" pendant la sauvegarde automatique pour
+                que l'utilisateur sache que ses changements sont en cours de persistance. */}
+            {saving ? 'Auto-save…' : dirty ? 'Enregistrement auto dans 1s…' : 'Enregistré ✓'}
           </button>
           {/* v2.3.16 — Aperçu PDF stampé avec données de test (sans sauvegarder).
               Permet à l'admin de visualiser le rendu final EXACT avant de partager
