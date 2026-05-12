@@ -383,9 +383,14 @@ export default function TemplateEditor({
     }
   }
 
-  // v2.7.4 — Ajout d'un PDF supplémentaire au template existant
-  // Upload via /api/sign/upload (folder=templates) puis ajoute au state docs.
-  // Limite : 50MB par fichier, max 10 fichiers à la fois (sécurité UX).
+  // v2.7.4 — Ajout d'un PDF supplémentaire au template existant via UPLOAD DIRECT Supabase
+  // Storage. Le navigateur PUT directement le fichier → bypass Vercel Functions 4.5 MB limit.
+  // Limite : 50 MB par fichier (sanity check), max 10 fichiers à la fois (sécurité UX).
+  //
+  // Workflow :
+  //   1. POST /api/sign/upload-url (light JSON) → renvoie signed uploadUrl + path
+  //   2. PUT uploadUrl avec body=File, Content-Type=application/pdf (direct Supabase)
+  //   3. Ajoute le doc avec le path retourné
   const handleAddPdf = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     const arr = Array.from(files).slice(0, 10)
@@ -396,38 +401,41 @@ export default function TemplateEditor({
         toast.warning(`"${file.name}" ignoré (pas un PDF)`)
         continue
       }
-      // v2.7.4 — Limite réelle Vercel Functions Body Size = 4.5 MB (Route Handlers).
-      // Avant 50 MB (cohérent avec la check serveur), mais Vercel intercepte AVANT
-      // → erreur 413 HTML non-JSON. Mieux vaut bloquer côté client avec message clair.
-      if (file.size > 4 * 1024 * 1024) {
-        toast.error(`"${file.name}" : ${(file.size / 1024 / 1024).toFixed(1)} MB > 4 MB (limite Vercel). Compresse le PDF avant.`)
+      // v2.7.4 — Sanity check 50 MB côté client. Supabase Storage accepte plus mais on
+      // garde une limite raisonnable pour éviter les uploads accidentels énormes.
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error(`"${file.name}" : ${(file.size / 1024 / 1024).toFixed(1)} MB > 50 MB`)
         continue
       }
       try {
-        const fd = new FormData()
-        fd.append('file', file)
-        fd.append('folder', 'templates')
-        fd.append('ownerId', templateId)
-        const r = await fetch('/api/sign/upload', { method: 'POST', body: fd })
-        // v2.7.4 — Vercel peut retourner du HTML/texte (ex: 413 "Request Entity Too Large")
-        // au lieu de JSON quand le body est trop gros AVANT d'atteindre notre route.
-        // On lit le texte d'abord, puis on tente JSON.parse pour avoir un message clair.
-        const rawText = await r.text()
-        let data: { path?: string; error?: string } = {}
-        try { data = JSON.parse(rawText) } catch { /* not JSON, e.g. Vercel 413 HTML */ }
-        if (!r.ok) {
-          const isTooLarge = r.status === 413 || /Request Entity Too Large|too large/i.test(rawText)
-          const msg = isTooLarge
-            ? `Fichier trop volumineux pour le serveur (${(file.size / 1024 / 1024).toFixed(1)} MB). Limite Vercel ~4.5 MB sur les routes API.`
-            : (data.error || `HTTP ${r.status}`)
-          throw new Error(msg)
+        // 1) Demande une signed upload URL (petit JSON, pas de problème de body size)
+        const r1 = await fetch('/api/sign/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder: 'templates', ownerId: templateId, filename: file.name }),
+        })
+        const d1 = await r1.json().catch(() => ({}))
+        if (!r1.ok || !d1.uploadUrl || !d1.path) {
+          throw new Error(d1.error || 'Erreur création URL signée')
         }
-        if (!data.path) throw new Error('Réponse serveur invalide (pas de path)')
+
+        // 2) PUT direct vers Supabase Storage (bypass Vercel)
+        const r2 = await fetch(d1.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/pdf' },
+          body: file,
+        })
+        if (!r2.ok) {
+          const errText = await r2.text().catch(() => `HTTP ${r2.status}`)
+          throw new Error(`Upload direct Supabase: ${errText.slice(0, 120)}`)
+        }
+
+        // 3) Ajoute au state docs (le file est déjà dans Storage, pas besoin de re-POST)
         setDocs(prev => [
           ...prev,
           {
             name: file.name,
-            storage_path: data.path!,
+            storage_path: d1.path,
             order: prev.length,
             fields: [],
           } as SignDocument,
