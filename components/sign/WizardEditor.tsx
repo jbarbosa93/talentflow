@@ -177,14 +177,18 @@ export default function WizardEditor({
 
   // Champs orphelins : présents pour le rôle actif mais dans AUCUN step du wizard.
   // Calcul ici (niveau WizardEditor) pour alimenter le bouton toolbar + modal.
-  const ORPHAN_AUTO_FILL = new Set(['firstname', 'lastname', 'fullname', 'email', 'signature', 'initial'])
+  // v2.7.4 — Avant : on excluait firstname/lastname/fullname/email/signature/initial du
+  // compteur (supposés auto-fill et donc pas pertinents en wizard). MAIS dans nos templates
+  // importés DocuSign (fiche d'inscription L-Agence), le candidat saisit son Nom et Prénom
+  // manuellement → ils doivent apparaître comme orphelins quand pas dans un step. Filtre retiré.
+  // Le signature pad est intégré au wizard sans souci (case 'signature' dans SignWizard).
   const allUsedInWizard = useMemo(() => {
     const s = new Set<string>()
     for (const step of steps) for (const fid of step.fieldIds) s.add(fid)
     return s
   }, [steps])
   const orphanFields = useMemo(() => {
-    return allRecipientFields.filter(f => !allUsedInWizard.has(f.id) && !ORPHAN_AUTO_FILL.has(f.type))
+    return allRecipientFields.filter(f => !allUsedInWizard.has(f.id))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allRecipientFields, allUsedInWizard])
 
