@@ -5,11 +5,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Award, Download, Eye, FileText, Loader2 } from 'lucide-react'
+import { Award, Download, Eye, FileText, Loader2, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { getWeekDates } from '@/lib/report/week-helpers'
 import { REPORT_STATUS_LABELS, type ReportSubmission } from '@/lib/report/types'
 import PdfPreviewModal from './PdfPreviewModal'
+import CorrectWeekModal from './CorrectWeekModal'
 
 interface Props {
   submissions: ReportSubmission[]
@@ -27,10 +28,12 @@ interface Props {
     candidat_id?: string | null
     client_name?: string | null
   }>
+  /** v2.6.17 — Callback après une correction de semaine réussie (re-fetch parent). */
+  onCorrected?: () => void
 }
 
 export default function SubmissionHistoryTable({
-  submissions, onViewPdf, slug, showLinkColumn, linksMeta,
+  submissions, onViewPdf, slug, showLinkColumn, linksMeta, onCorrected,
 }: Props) {
   // v2.3.8 Bug 9b — État loading par submission pour les boutons Télécharger
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
@@ -39,6 +42,8 @@ export default function SubmissionHistoryTable({
     | { url: string; filename: string; title: string }
     | null
   >(null)
+  // v2.6.17 — Modal correction semaine
+  const [correctingSubmission, setCorrectingSubmission] = useState<ReportSubmission | null>(null)
 
   // v2.3.8 Bug 9b — Construit l'URL download (rapport) pour une submission.
   // v2.3.9 Bug 11c — Ajoute aussi certificateUrl (route dédiée).
@@ -278,6 +283,19 @@ export default function SubmissionHistoryTable({
                           Certificat
                         </button>
                       )}
+                      {/* v2.6.17 — Corriger la semaine (admin/consultant). Visible uniquement
+                          si signée par le candidat (status candidate_signed/client_signed/completed). */}
+                      {(s.status === 'completed' || s.status === 'client_signed' || s.status === 'candidate_signed') && (
+                        <button
+                          type="button"
+                          onClick={() => setCorrectingSubmission(s)}
+                          title="Corriger la semaine (régénère le PDF + email aux 3 destinataires)"
+                          style={actionBtnStyle('#F97316')}
+                        >
+                          <RotateCcw size={11} />
+                          Corriger semaine
+                        </button>
+                      )}
                     </div>
                   )}
                   {/* Fallback : ancien callback onViewPdf si parent l'utilise */}
@@ -304,6 +322,13 @@ export default function SubmissionHistoryTable({
         filename={previewState.filename}
         title={previewState.title}
         onClose={() => setPreviewState(null)}
+      />
+    )}
+    {correctingSubmission && (
+      <CorrectWeekModal
+        submission={correctingSubmission}
+        onClose={() => setCorrectingSubmission(null)}
+        onCorrected={() => { onCorrected?.() }}
       />
     )}
     </>

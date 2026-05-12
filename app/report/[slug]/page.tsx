@@ -1287,6 +1287,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       {confirmOpen && (
         <ConfirmDialog
           weekLabel={weekDates.label}
+          weekNumber={weekDates.weekNumber}
           clientName={selectedClient?.client_name || data.link.client_name || ''}
           submitting={submitting}
           onCancel={() => setConfirmOpen(false)}
@@ -1332,9 +1333,10 @@ function bannerBtnStyle(color: string): React.CSSProperties {
 // dans report_link_clients reçoit le lien automatiquement.
 
 function ConfirmDialog({
-  weekLabel, clientName, submitting, onCancel, onConfirm,
+  weekLabel, weekNumber, clientName, submitting, onCancel, onConfirm,
 }: {
   weekLabel: string
+  weekNumber: number
   clientName: string
   submitting: boolean
   onCancel: () => void
@@ -1356,13 +1358,13 @@ function ConfirmDialog({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          maxWidth: 460, width: '100%',
+          maxWidth: 480, width: '100%',
           maxHeight: '92vh', overflow: 'auto',
           background: '#fff',
           borderRadius: 16, border: '1px solid #E5E7EB',
           boxShadow: '0 24px 64px rgba(0,0,0,0.30)',
           padding: '24px 22px',
-          display: 'flex', flexDirection: 'column', gap: 12,
+          display: 'flex', flexDirection: 'column', gap: 14,
         }}
       >
         <h2 style={{
@@ -1371,22 +1373,41 @@ function ConfirmDialog({
           fontSize: 22, fontWeight: 400, color: '#1C1A14',
           letterSpacing: '-0.01em',
         }}>
-          Envoyer le rapport&nbsp;?
+          Vérifie la semaine avant d'envoyer
         </h2>
-        <p style={{ fontSize: 13.5, color: '#374151', lineHeight: 1.55, margin: 0 }}>
-          Le rapport <strong>{weekLabel}</strong>{clientName ? <> sera envoyé à <strong>{clientName}</strong></> : null} pour validation et signature.
+
+        {/* v2.6.17 — Semaine mise en avant pour contrôle visuel obligatoire */}
+        <div style={{
+          padding: '16px 18px',
+          background: '#FEF3C7',
+          border: '2px solid #FCD34D',
+          borderRadius: 12,
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#78350F', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+            Tu déclares les heures de
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#1C1A14', fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif', lineHeight: 1.15 }}>
+            Semaine {weekNumber}
+          </div>
+          <div style={{ fontSize: 14, color: '#78350F', fontWeight: 600, marginTop: 4 }}>
+            {weekLabel}
+          </div>
+        </div>
+
+        <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.55, margin: 0 }}>
+          Si c'est la <strong>bonne semaine</strong>, clique sur <strong>Confirmer</strong> ci-dessous.
+          {clientName ? <><br />Le rapport sera envoyé à <strong>{clientName}</strong> pour signature.</> : null}
         </p>
 
-        {/* v2.4.7 — Email du destinataire MASQUÉ pour protection des données candidat */}
         <div style={{
           padding: '10px 12px',
-          background: '#F0FDF4',
-          border: '1px solid #BBF7D0',
+          background: '#FEF2F2',
+          border: '1px solid #FECACA',
           borderRadius: 10,
-          fontSize: 12.5, color: '#065F46',
-          display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600,
+          fontSize: 12, color: '#991B1B', lineHeight: 1.5,
         }}>
-          <CheckCircle2 size={14} /> Rapport signé prêt à envoyer
+          <strong>⚠️ Important :</strong> une fois signé, seul un administrateur peut corriger la semaine. Vérifie maintenant.
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>

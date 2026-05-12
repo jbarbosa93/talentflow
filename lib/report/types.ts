@@ -23,6 +23,7 @@ export type ReportAuditAction =
   | 'completed'
   | 'cancelled'
   | 'draft_deleted'
+  | 'week_corrected'
 
 export type ReportDeliveryChannel = 'email' | 'whatsapp' | 'both'
 

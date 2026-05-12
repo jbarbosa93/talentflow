@@ -72,6 +72,8 @@ export default function PublicClientReportPage({
   const [signaturePadOpen, setSignaturePadOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [completed, setCompleted] = useState(false)
+  // v2.6.17 — Dialog confirmation semaine avant signature finale (préventif)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [viewMode, setViewMode] = useState<'wizard' | 'document'>('document')
   const [values, setValues] = useState<Record<string, unknown>>({})
@@ -177,14 +179,20 @@ export default function PublicClientReportPage({
     toast.success('Signature adoptée — cliquez sur Valider')
   }
 
-  const handleFinalize = async () => {
+  const handleFinalize = () => {
     if (!signatureDataUrl) {
-      toast.error('Signe le rapport avant de finaliser (clique sur le champ Signature dans le document)')
+      toast.error('Signez le rapport avant de finaliser (cliquez sur le champ Signature dans le document)')
       setSignaturePadOpen(true)
       return
     }
-    if (!confirm('Valider et signer ce rapport ? Cette action est définitive.')) return
+    // v2.6.17 — Ouvre dialog de confirmation semaine au lieu du confirm() natif
+    setConfirmOpen(true)
+  }
+
+  const doFinalize = async () => {
+    if (!signatureDataUrl) return
     setSubmitting(true)
+    setConfirmOpen(false)
     try {
       // v2.4.0 — Persiste notes_client juste avant signature si renseignée
       if (notesClient.trim()) {
@@ -662,12 +670,24 @@ export default function PublicClientReportPage({
                 <div style={{
                   fontSize: 11, color: '#A16207', textAlign: 'center', marginTop: 2,
                 }}>
-                  ⚠️ Signe le rapport (clique sur le champ Signature dans le document)
+                  ⚠️ Signez le rapport (cliquez sur le champ Signature dans le document)
                 </div>
               )}
             </>
           )}
         </div>
+      )}
+
+      {/* v2.6.17 — Dialog confirmation semaine (préventif) avant signature finale */}
+      {confirmOpen && data?.submission && (
+        <ClientConfirmDialog
+          weekLabel={data.weekLabel || ''}
+          weekNumber={data.weekNumber || 0}
+          candidateName={data.candidat ? [data.candidat.prenom, data.candidat.nom].filter(Boolean).join(' ') : ''}
+          submitting={submitting}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={doFinalize}
+        />
       )}
     </div>
   )
@@ -715,4 +735,125 @@ const titleStyle: React.CSSProperties = {
 
 const textStyle: React.CSSProperties = {
   fontSize: 13.5, color: '#6B7280', lineHeight: 1.55, margin: 0,
+}
+
+// ─── v2.6.17 Dialog confirmation semaine client (vouvoiement) ───────────
+
+function ClientConfirmDialog({
+  weekLabel, weekNumber, candidateName, submitting, onCancel, onConfirm,
+}: {
+  weekLabel: string
+  weekNumber: number
+  candidateName: string
+  submitting: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onCancel}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 16,
+        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: 480, width: '100%',
+          maxHeight: '92vh', overflow: 'auto',
+          background: '#fff',
+          borderRadius: 16, border: '1px solid #E5E7EB',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.30)',
+          padding: '24px 22px',
+          display: 'flex', flexDirection: 'column', gap: 14,
+        }}
+      >
+        <h2 style={{
+          margin: 0,
+          fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+          fontSize: 22, fontWeight: 400, color: '#1C1A14',
+          letterSpacing: '-0.01em',
+        }}>
+          Vérifiez la semaine avant de signer
+        </h2>
+
+        <div style={{
+          padding: '16px 18px',
+          background: '#FEF3C7',
+          border: '2px solid #FCD34D',
+          borderRadius: 12,
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#78350F', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+            Vous validez le rapport de
+          </div>
+          {candidateName && (
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1A14', marginBottom: 6 }}>
+              {candidateName}
+            </div>
+          )}
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#1C1A14', fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif', lineHeight: 1.15 }}>
+            Semaine {weekNumber}
+          </div>
+          <div style={{ fontSize: 14, color: '#78350F', fontWeight: 600, marginTop: 4 }}>
+            {weekLabel}
+          </div>
+        </div>
+
+        <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.55, margin: 0 }}>
+          Vérifiez que les heures déclarées correspondent bien à <strong>cette semaine</strong>. Si tout est correct, cliquez sur <strong>Confirmer et signer</strong>.
+        </p>
+
+        <div style={{
+          padding: '10px 12px',
+          background: '#FEF2F2',
+          border: '1px solid #FECACA',
+          borderRadius: 10,
+          fontSize: 12, color: '#991B1B', lineHeight: 1.5,
+        }}>
+          <strong>⚠️ Important :</strong> votre signature est définitive. En cas de doute, refusez et contactez L-Agence.
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            style={{
+              padding: '10px 16px',
+              fontSize: 13, fontWeight: 600,
+              border: '1px solid #E5E7EB', borderRadius: 10,
+              background: '#fff', color: '#6B7280',
+              cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={submitting}
+            style={{
+              padding: '10px 18px',
+              fontSize: 13.5, fontWeight: 700,
+              border: '1px solid #1C1A14', borderRadius: 10,
+              background: '#EAB308', color: '#1C1A14',
+              cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              opacity: submitting ? 0.5 : 1,
+            }}
+          >
+            {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+            Confirmer et signer
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }

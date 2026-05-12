@@ -375,7 +375,11 @@ export default function ReportLinkDetailPage({
             </button>
           )}
         </div>
-        <SubmissionHistoryTable submissions={submissions} slug={link.slug} />
+        <SubmissionHistoryTable
+          submissions={submissions}
+          slug={link.slug}
+          onCorrected={fetchData}
+        />
       </div>
 
       {/* v2.4.1 — Modal récap dashboard (scope=dashboard : inclut candidate_signed) */}

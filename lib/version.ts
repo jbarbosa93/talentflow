@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.16'
+export const APP_VERSION = '2.6.17'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,23 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.17 — Rapports : correction semaine admin + préventif candidat/client
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.17',
+    date: '2026-05-12',
+    label: 'Rapports : corriger la semaine d\'un rapport signé + alerte préventive',
+    features: [
+      'CURATIF — Nouveau bouton "🔄 Corriger semaine" dans /sign/rapports/[id] (colonne Actions). Visible sur toute submission signée (candidat_signed/client_signed/completed). Au clic, modal avec sélecteur des 16 dernières semaines + textarea raison obligatoire (10-500 chars) + récap visuel "S20 → S19". Permet à admin ET consultants de corriger.',
+      'PIPELINE CORRECTION — La lib correct-week.ts (1) check conflit (refuse si une autre submission existe déjà pour la semaine cible, 409), (2) UPDATE week_start + week_end + recalcul des field_values auto-fill (dates par jour + numéro de semaine), (3) régénère le PDF stampé avec les bonnes dates (signatures préservées), (4) append metadata.corrections (audit historique), (5) INSERT report_audit_log action="week_corrected".',
+      'EMAIL DÉDIÉ — Nouveau template sendCorrectionEmail (3 audiences : admin/créateur + candidat + client). Logo L-Agence, pavé "S{ancien} → S{nouveau}", bandeau raison de la correction, PDF corrigé en PJ. Le candidat reçoit en plus une note "la semaine X est de nouveau disponible dans ton portail". Aucune mention "corrigé" sur le PDF lui-même (juste les nouvelles dates).',
+      'PRÉVENTIF CANDIDAT — Le ConfirmDialog avant l\'envoi au client est enrichi : titre "Vérifie la semaine avant d\'envoyer", pavé jaune "Tu déclares les heures de Semaine {N} — Semaine du X au Y", bandeau rouge "⚠️ Une fois signé, seul un administrateur peut corriger la semaine."',
+      'PRÉVENTIF CLIENT — Remplacement du confirm() natif par un dialog stylé vouvoiement : "Vérifiez la semaine avant de signer", pavé jaune avec nom candidat + semaine en gros, bandeau rouge "⚠️ Votre signature est définitive. En cas de doute, refusez et contactez L-Agence."',
+      'DB — Mini-migration : étend le CHECK constraint report_audit_log.action avec la valeur "week_corrected". Aucune nouvelle table.',
+      'CONTEXTE — Cas réel Ismael Jarmoun (12/05/2026) : a déclaré ses heures sur la mauvaise semaine (S20 au lieu de S19), client a signé sans rien remarquer. Correction effectuée en prod via script one-shot. Cette release outille la correction pour que João + Seb puissent le faire eux-mêmes depuis le dashboard, et évite la récidive grâce aux alertes préventives candidat + client.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.16 — Libellé bouton "Uniformiser" : clarifie "N autres champs"
   // ─────────────────────────────────────────────────────────────────────

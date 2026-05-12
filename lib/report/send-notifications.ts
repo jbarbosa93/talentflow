@@ -510,3 +510,133 @@ function getFirstName(s: string): string {
 function escapeHtml(s: string): string {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
+
+// ─── 5. Email correction administrative (v2.6.17) ────────────────────
+//
+// Envoyé après qu'un admin/consultant corrige la semaine d'une submission signée.
+// 3 audiences : admin (créateur du lien), candidat, client.
+// La mention "correction" apparaît UNIQUEMENT dans l'email — pas sur le PDF.
+
+export type CorrectionAudience = 'admin' | 'candidat' | 'client'
+
+export async function sendCorrectionEmail(args: {
+  to: string
+  audience: CorrectionAudience
+  candidateName: string
+  clientName: string
+  /** Nom du contact client (priorité salutation client) */
+  clientContactName?: string | null
+  fromWeekLabel: string
+  fromWeekNumber: number
+  toWeekLabel: string
+  toWeekNumber: number
+  reason: string
+  /** Email de l'admin/consultant qui a corrigé */
+  correctedBy: string
+  attachments: { filename: string; content: string }[]
+}): Promise<NotifResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
+  if (!args.to) return { ok: false, error: 'destinataire vide' }
+
+  const subject = `🔄 Correction rapport d'heures — ${args.candidateName} · ${args.toWeekLabel}`
+
+  // Salutation adaptée à l'audience
+  let greeting = ''
+  if (args.audience === 'candidat') {
+    const first = getFirstName(args.candidateName)
+    greeting = first ? `Bonjour ${escapeHtml(first)},` : 'Bonjour,'
+  } else if (args.audience === 'client') {
+    const first = getFirstName(args.clientContactName || args.clientName || '')
+    greeting = first ? `Bonjour ${escapeHtml(first)},` : 'Bonjour,'
+  } else {
+    greeting = 'Bonjour,'
+  }
+
+  // Intro adaptée
+  const introBody = args.audience === 'admin'
+    ? `Le rapport d'heures de <strong>${escapeHtml(args.candidateName)}</strong> chez <strong>${escapeHtml(args.clientName)}</strong> a été corrigé.`
+    : args.audience === 'candidat'
+      ? `Une correction administrative a été effectuée sur votre rapport d'heures signé.`
+      : `Le rapport d'heures de <strong>${escapeHtml(args.candidateName)}</strong> a été corrigé. Le PDF mis à jour ci-joint <strong>remplace le précédent</strong>.`
+
+  // Note candidat — invite à remplir la semaine libérée
+  const candidatHint = args.audience === 'candidat' ? `
+      <div style="background:#DBEAFE;border-left:3px solid #2563EB;border-radius:0 8px 8px 0;padding:12px 14px;margin:16px 0;font-size:13px;color:#1E40AF;line-height:1.55;">
+        <strong style="color:#1E3A8A;">ℹ️ Bon à savoir</strong><br>
+        La <strong>${escapeHtml(args.fromWeekLabel)}</strong> est désormais à nouveau disponible dans votre portail.
+        Si vous avez travaillé cette semaine-là, vous pouvez la déclarer normalement.
+      </div>` : ''
+
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence" width="200" style="height:42px;width:auto;display:inline-block;border:0;" />
+      <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Correction rapport d'heures</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;box-shadow:0 4px 16px rgba(0,0,0,0.04);">
+      <div style="display:inline-block;background:#FED7AA;color:#9A3412;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px;">
+        🔄 Rapport corrigé
+      </div>
+      <h1 style="font-family:Georgia,serif;font-size:22px;font-weight:400;color:#1C1A14;margin:0 0 14px;line-height:1.25;">
+        ${greeting}
+      </h1>
+      <p style="font-size:14.5px;color:#374151;line-height:1.6;margin:0 0 18px;">
+        ${introBody}
+      </p>
+      <div style="background:#FAFAF7;border:1px solid #E5E7EB;border-radius:10px;padding:14px 16px;margin:16px 0;font-size:13px;color:#1C1A14;line-height:1.7;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="color:#9CA3AF;text-decoration:line-through;font-size:12px;">Semaine ${args.fromWeekNumber} · ${escapeHtml(args.fromWeekLabel)}</span>
+        </div>
+        <div style="font-size:14px;">
+          <span style="color:#059669;font-weight:700;">→ Semaine ${args.toWeekNumber}</span>
+          <span style="color:#1C1A14;"> · ${escapeHtml(args.toWeekLabel)}</span>
+        </div>
+      </div>
+      <div style="background:#FEF3C7;border-left:3px solid #EAB308;border-radius:0 8px 8px 0;padding:12px 14px;margin:16px 0;font-size:13px;color:#92400E;line-height:1.55;">
+        <strong style="color:#78350F;display:block;margin-bottom:4px;">Raison de la correction</strong>
+        ${escapeHtml(args.reason)}
+      </div>
+      ${candidatHint}
+      <p style="font-size:13px;color:#374151;line-height:1.6;margin:18px 0 6px;">
+        Le rapport corrigé est joint à cet email.
+      </p>
+      <p style="font-size:11.5px;color:#6B7280;line-height:1.5;margin:14px 0 0;font-style:italic;">
+        Correction effectuée par ${escapeHtml(args.correctedBy)} via TalentFlow.
+      </p>
+    </div>
+    <p style="text-align:center;font-size:11px;color:#9CA3AF;margin-top:18px;">
+      L-Agence SA · Notification TalentFlow Rapports
+    </p>
+  </div>
+</body></html>`
+
+  const text = [
+    greeting.replace(/<[^>]+>/g, ''),
+    '',
+    args.audience === 'candidat'
+      ? 'Une correction administrative a été effectuée sur votre rapport d\'heures.'
+      : `Le rapport d'heures de ${args.candidateName} chez ${args.clientName} a été corrigé.`,
+    '',
+    `Ancienne semaine : S${args.fromWeekNumber} (${args.fromWeekLabel})`,
+    `Nouvelle semaine : S${args.toWeekNumber} (${args.toWeekLabel})`,
+    '',
+    `Raison : ${args.reason}`,
+    '',
+    args.audience === 'candidat'
+      ? `La ${args.fromWeekLabel} est à nouveau disponible dans votre portail.`
+      : 'Le PDF corrigé est joint à cet email.',
+    '',
+    `Correction effectuée par ${args.correctedBy} via TalentFlow.`,
+  ].join('\n')
+
+  return await sendResend({
+    to: args.to,
+    subject,
+    html,
+    text,
+    attachments: args.attachments,
+  })
+}
