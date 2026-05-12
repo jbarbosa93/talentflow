@@ -26,10 +26,17 @@ export async function GET(
       return NextResponse.json({ error: 'path requis' }, { status: 400 })
     }
 
-    // Sécurité : seulement vérifier que le path est bien présent dans documents[]
-    // du template demandé. Pas de check préfixé `templates/{id}/` car les uploads
-    // depuis CreateTemplateModal utilisent `templates/draft/...` (template pas
-    // encore créé au moment de l'upload), et c'est légitime.
+    // Sécurité : on accepte 2 cas légitimes (l'un OU l'autre).
+    // v2.7.4 — Avant on n'autorisait QUE le path déjà persisté dans documents[].
+    // Bug : avec le nouveau workflow upload direct Supabase, le PDF est uploadé
+    // AVANT que l'utilisateur clique "Enregistrer" → le preview demandait le PDF
+    // mais le path n'était pas encore en DB → 403.
+    //
+    // Cas A (legacy) : le path est déjà dans documents[] du template DB.
+    // Cas B (édition en cours) : le path commence par `templates/{id}/` — par
+    //   définition scopé à ce template car l'upload-url l'a préfixé avec ownerId=templateId.
+    //   Pour les uploads depuis CreateTemplateModal on a `templates/draft/...` qui ne
+    //   matche aucun cas → reste interdit (déjà persisté à ce stade).
     const supabase = createAdminClient()
     const { data: tpl } = await supabase
       .from('sign_templates' as any)
@@ -38,14 +45,13 @@ export async function GET(
       .maybeSingle()
     const t = tpl as unknown as Pick<SignTemplate, 'documents'> | null
     const docs = (t?.documents || []) as SignDocument[]
-    const allowed = docs.some(d => d.storage_path === path)
-    if (!allowed) {
+    const inTemplate = docs.some(d => d.storage_path === path)
+    const scopedToTemplate = path.startsWith(`templates/${id}/`)
+    if (!inTemplate && !scopedToTemplate) {
       return NextResponse.json({ error: 'Document hors template' }, { status: 403 })
     }
     // Garde un préfixe `templates/` minimum pour éviter qu'un attaquant injecte
-    // un path arbitraire (ex: `signed/...` d'une autre enveloppe). Le bucket
-    // talentflow-sign contient `templates/`, `envelopes/`, `signed/` — on limite
-    // l'accès aux PDFs sources.
+    // un path arbitraire (ex: `signed/...` d'une autre enveloppe).
     if (!path.startsWith('templates/')) {
       return NextResponse.json({ error: 'Path non autorisé' }, { status: 403 })
     }
