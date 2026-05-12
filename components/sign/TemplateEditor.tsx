@@ -13,6 +13,7 @@ import {
   PenLine, Type, CheckSquare, Calendar, List as ListIcon, Trash2, Files,
   StickyNote, Plus, Hash, Mail, Building2, Briefcase, User, IdCard,
   Sigma, Paperclip, Pencil, Check as CheckIcon, X as XIcon, Eye,
+  Sparkles, Search, FilePlus,
 } from 'lucide-react'
 import PdfPreviewModal from '@/components/report/PdfPreviewModal'
 import { toast } from 'sonner'
@@ -101,6 +102,13 @@ export default function TemplateEditor({
   )
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  // v2.7.4 — Détection auto IA des champs (Claude Vision PDF natif)
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiStatus, setAiStatus] = useState<string>('')
+  const [aiBanner, setAiBanner] = useState<{ fields: number; pages: number } | null>(null)
+  // v2.7.4 — Upload PDF supplémentaire au template existant
+  const [uploadingPdf, setUploadingPdf] = useState(false)
+  const addPdfInputRef = useRef<HTMLInputElement | null>(null)
   const [renamingDocIdx, setRenamingDocIdx] = useState<number | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [dirty, setDirty] = useState(false)
@@ -372,6 +380,114 @@ export default function TemplateEditor({
       toast.error(msg)
     } finally {
       setSaving(false)
+    }
+  }
+
+  // v2.7.4 — Ajout d'un PDF supplémentaire au template existant
+  // Upload via /api/sign/upload (folder=templates) puis ajoute au state docs.
+  // Limite : 50MB par fichier, max 10 fichiers à la fois (sécurité UX).
+  const handleAddPdf = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    const arr = Array.from(files).slice(0, 10)
+    setUploadingPdf(true)
+    let added = 0
+    for (const file of arr) {
+      if (!/\.pdf$/i.test(file.name)) {
+        toast.warning(`"${file.name}" ignoré (pas un PDF)`)
+        continue
+      }
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error(`"${file.name}" > 50 MB`)
+        continue
+      }
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('folder', 'templates')
+        fd.append('ownerId', templateId)
+        const r = await fetch('/api/sign/upload', { method: 'POST', body: fd })
+        const data = await r.json()
+        if (!r.ok) throw new Error(data.error || 'Erreur upload')
+        setDocs(prev => [
+          ...prev,
+          {
+            name: file.name,
+            storage_path: data.path,
+            order: prev.length,
+            fields: [],
+          } as SignDocument,
+        ])
+        added++
+      } catch (e: any) {
+        toast.error(`${file.name}: ${e.message || 'Erreur upload'}`)
+      }
+    }
+    setUploadingPdf(false)
+    if (addPdfInputRef.current) addPdfInputRef.current.value = ''
+    if (added > 0) {
+      setDirty(true)
+      toast.success(`${added} PDF${added > 1 ? 's' : ''} ajouté${added > 1 ? 's' : ''} au template (n'oublie pas d'enregistrer)`)
+      // Bascule sur le 1er PDF nouvellement ajouté
+      setActiveDocIdx(docs.length)
+    }
+  }
+
+  // v2.7.4 — Détection auto via Claude Vision PDF (mode B = template vide)
+  //   OU enrichissement (mode A = template avec fields existants).
+  // Bouton selon contexte :
+  //   - 0 champs → "🔍 Détecter automatiquement" (amber)
+  //   - sinon → "✨ Améliorer avec l'IA" (outline)
+  const handleAiDetect = async () => {
+    const totalFields = fieldsTotalCount(docs)
+    const isEmpty = totalFields === 0
+
+    // Si fields existants : confirme avant d'écraser la structure wizard
+    if (!isEmpty) {
+      const ok = window.confirm(
+        `✨ Améliorer avec l'IA\n\nL'IA va analyser les ${totalFields} champ${totalFields > 1 ? 's' : ''} existants et reconstruire la structure du wizard (étapes, groupes, tooltips, conditions). Les champs eux-mêmes restent intacts (positions, types).\n\nLancer l'analyse ?`,
+      )
+      if (!ok) return
+    } else {
+      const ok = window.confirm(
+        '🔍 Détecter les champs automatiquement\n\nClaude Vision va analyser le PDF et placer les champs détectés (nom, prénom, dates, signatures, checkboxes...). L\'opération prend 20-30 secondes par document.\n\nLancer la détection ?',
+      )
+      if (!ok) return
+    }
+
+    setAiBusy(true)
+    setAiStatus(isEmpty ? '📄 Téléchargement du PDF…' : '🤖 Analyse IA en cours…')
+    setAiBanner(null)
+    try {
+      // Petit délai cosmétique avant de changer le texte (effet "étapes")
+      setTimeout(() => setAiStatus(isEmpty ? '🤖 Claude analyse votre document…' : '🤖 Restructuration des étapes…'), 1200)
+      const r = await fetch(`/api/sign/templates/${templateId}/enrich-with-ai`, { method: 'POST' })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Erreur détection')
+
+      const newFields: number = d.newFieldsCount ?? 0
+      const updated: number = d.fieldUpdatesCount ?? 0
+      const steps: number = d.stepsCount ?? 0
+
+      if (isEmpty && newFields > 0) {
+        const pages = docs.reduce((acc, doc) => acc + (doc.page_count || 1), 0)
+        setAiBanner({ fields: newFields, pages })
+        toast.success(`✅ ${newFields} champ${newFields > 1 ? 's' : ''} détecté${newFields > 1 ? 's' : ''} et placé${newFields > 1 ? 's' : ''} !`)
+      } else if (!isEmpty) {
+        const parts: string[] = [`${steps} étape${steps > 1 ? 's' : ''}`]
+        if (newFields > 0) parts.push(`${newFields} champs créés`)
+        if (updated > 0) parts.push(`${updated} enrichis`)
+        toast.success(`✨ IA : ${parts.join(' · ')}`)
+      } else {
+        toast.warning('Aucun champ détecté. Le PDF est peut-être un scan de mauvaise qualité.')
+      }
+
+      // Rafraîchit le template (les fields ont été persistés côté serveur)
+      onSaved?.()
+    } catch (e: any) {
+      toast.error(e?.message || 'Erreur détection. Réessaye ou place les champs manuellement.')
+    } finally {
+      setAiBusy(false)
+      setAiStatus('')
     }
   }
 
@@ -849,6 +965,115 @@ export default function TemplateEditor({
             <Eye size={14} />
             Aperçu PDF
           </button>
+
+          {/* v2.7.4 — Bouton IA contextuel : Détection si 0 champs / Amélioration sinon */}
+          {(() => {
+            const isEmpty = fieldsTotalCount(docs) === 0
+            if (isEmpty) {
+              return (
+                <button
+                  type="button"
+                  onClick={handleAiDetect}
+                  disabled={aiBusy || !docs[0]?.storage_path}
+                  style={{
+                    width: '100%', justifyContent: 'center',
+                    padding: '12px 16px',
+                    fontSize: 13.5, fontWeight: 700,
+                    border: '1.5px solid #EAB308',
+                    borderRadius: 10,
+                    background: aiBusy ? '#FEF3C7' : '#FDE68A',
+                    color: '#78350F',
+                    cursor: aiBusy ? 'wait' : 'pointer',
+                    opacity: !docs[0]?.storage_path ? 0.5 : 1,
+                    fontFamily: 'inherit',
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    flexDirection: 'column',
+                  }}
+                  title="Claude Vision analyse votre PDF et place les champs détectés (~20-30s)"
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {aiBusy ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+                    {aiBusy ? (aiStatus || 'Analyse en cours…') : 'Détecter les champs automatiquement'}
+                  </span>
+                  {!aiBusy && (
+                    <span style={{ fontSize: 10.5, color: '#78350F', opacity: 0.75, fontWeight: 500 }}>
+                      L'IA analyse votre PDF et place les champs en ~30s
+                    </span>
+                  )}
+                </button>
+              )
+            }
+            // Mode "Améliorer" : bouton outline plus discret
+            return (
+              <button
+                type="button"
+                onClick={handleAiDetect}
+                disabled={aiBusy}
+                style={{
+                  width: '100%', justifyContent: 'center',
+                  padding: '8px 14px',
+                  fontSize: 13, fontWeight: 600,
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  background: 'var(--card)',
+                  color: 'var(--foreground)',
+                  cursor: aiBusy ? 'wait' : 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}
+                title="L'IA restructure les étapes du wizard et enrichit les tooltips/conditions"
+              >
+                {aiBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {aiBusy ? (aiStatus || 'Analyse…') : 'Améliorer avec l\'IA'}
+              </button>
+            )
+          })()}
+
+          {/* v2.7.4 — Banner de succès post-détection (réinitialisé après save/reload) */}
+          {aiBanner && (
+            <div style={{
+              padding: '10px 12px',
+              background: 'rgba(34,197,94,0.08)',
+              border: '1px solid rgba(34,197,94,0.35)',
+              borderRadius: 8,
+              fontSize: 12, color: '#166534', lineHeight: 1.5,
+            }}>
+              ✅ <strong>{aiBanner.fields} champ{aiBanner.fields > 1 ? 's' : ''}</strong> placé{aiBanner.fields > 1 ? 's' : ''} automatiquement sur <strong>{aiBanner.pages} page{aiBanner.pages > 1 ? 's' : ''}</strong>. Vérifie et ajuste si nécessaire.
+            </div>
+          )}
+
+          {/* v2.7.4 — Bouton "Ajouter un PDF" : upload un PDF supplémentaire dans le template
+              existant. Fix bug "impossible d'ajouter d'autres documents après création". */}
+          <button
+            type="button"
+            onClick={() => addPdfInputRef.current?.click()}
+            disabled={uploadingPdf}
+            style={{
+              width: '100%', justifyContent: 'center',
+              padding: '8px 14px',
+              fontSize: 12.5, fontWeight: 600,
+              border: '1px dashed var(--border)',
+              borderRadius: 8,
+              background: uploadingPdf ? 'var(--secondary)' : 'transparent',
+              color: 'var(--muted-foreground)',
+              cursor: uploadingPdf ? 'wait' : 'pointer',
+              fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+            title="Ajouter un PDF supplémentaire au template (50 MB max, max 10 à la fois)"
+          >
+            {uploadingPdf ? <Loader2 size={13} className="animate-spin" /> : <FilePlus size={13} />}
+            {uploadingPdf ? 'Upload en cours…' : 'Ajouter un PDF'}
+          </button>
+          <input
+            ref={addPdfInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple
+            style={{ display: 'none' }}
+            onChange={e => handleAddPdf(e.target.files)}
+          />
+
           <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
             {fieldsTotalCount(docs)} champ{fieldsTotalCount(docs) > 1 ? 's' : ''} · {docs.length} PDF{docs.length > 1 ? 's' : ''}
           </div>

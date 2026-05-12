@@ -1,12 +1,21 @@
 // TalentFlow Sign — Enrichissement IA d'un template (Claude vision sur PDF)
-// v2.2.0 — Phase 4a-bis-4
+// v2.7.4 — Prompt enrichi spécifique L-Agence SA + bump modèle Sonnet 4.6
 //
 // Pour chaque doc du template, télécharge le PDF + envoie à Claude vision avec
 // la liste des fields (id + position normalisée + tooltip actuel). Claude retourne
 // une structure wizard_steps optimisée + des field_updates (tooltip, required,
 // conditions, listItems). On applique tout en DB.
 //
-// Modèle utilisé : claude-sonnet-4-5 (vision PDF natif).
+// v2.7.4 — System prompt enrichi avec les conventions L-Agence SA :
+//   - Signature collaborateur GAUCHE / L-Agence DROITE
+//   - Format date suisse jj.mm.aaaa
+//   - Vocabulaire CH (NPA, AVS, CCT, Helsana, SUVA, etc.)
+//   - Pattern "Oui/Non" séparé en 2 checkboxes
+//   - recipientOrder=1 candidat vs recipientOrder=2 consultant
+//   - Champs conditionnels (Si oui → required=false + helpText)
+//   - NE PAS halluciner sur les pages de texte légal SECO
+//
+// Modèle utilisé : claude-sonnet-4-6 (vision PDF natif, plus précis que 4-5).
 // Prompt cache : système prompt cachable pour réduire coûts si appelé plusieurs fois.
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -20,7 +29,49 @@ import { randomUUID } from 'crypto'
 export const runtime = 'nodejs'
 export const maxDuration = 120  // Claude vision peut prendre 30-60s
 
-const SYSTEM_PROMPT = `Tu es un expert en UX de formulaires administratifs. Tu analyses un PDF de formulaire et tu génères / structures les champs en un wizard step-by-step parfait pour mobile.
+const SYSTEM_PROMPT = `Tu es un expert en UX de formulaires administratifs ET en documents RH suisses (agences de placement). Tu analyses un PDF de formulaire et tu génères / structures les champs en un wizard step-by-step parfait pour mobile.
+
+━━━ CONTEXTE L-AGENCE SA (Monthey, Valais, Suisse) ━━━
+Tu analyses typiquement des documents de l'agence de placement L-Agence SA :
+- Fiche d'inscription candidat (~85 champs sur 2 pages dense en colonnes)
+- Contrat cadre de travail (8 pages dont 7 de texte légal SECO et 1 page de signature à la fin)
+- Information perte de gains / sécurité au travail (1 page chacun, lettre + checkboxes + signature)
+
+CONVENTIONS L-AGENCE (très important) :
+1. SIGNATURES en bas de page :
+   - Signature COLLABORATEUR/EMPLOYÉ/CANDIDAT = bas à GAUCHE → recipientOrder=1
+   - Signature L-AGENCE SA / Conseiller(ère) = bas à DROITE → recipientOrder=2
+   - Sur les documents purement informatifs (perte de gain, sécurité), SEULE la signature collaborateur est présente
+   - Toujours précédé de "Lieu, le ___" (souvent pré-imprimé "Monthey, le ___")
+2. NOM + PRÉNOM = TOUJOURS DEUX CHAMPS SÉPARÉS (lastname + firstname). JAMAIS de type='fullname'.
+3. DATES format suisse strict : dateFormat='dd.MM.yyyy' (et pas 'yyyy-MM-dd' ni 'MM/dd/yyyy').
+4. VOCABULAIRE SUISSE :
+   - NPA (= code postal CH 4 chiffres) jamais "CP" ni "ZIP"
+   - N° AVS (756.xxxx.xxxx.xx)
+   - Permis de séjour : B/C/G/L/Ci/F/N
+   - Permis de conduire : B/BE/C/CE/D/D1/etc.
+   - Monnaie : CHF uniquement
+   - Assureurs : Helsana (maladie), SUVA (accidents)
+   - Lois : LSE, CO, LTr, LPGA, LAA, LAPG, LAFam, CCT LS
+
+5. PATTERN "Oui / Non" (extrêmement fréquent dans les docs L-Agence) :
+   - Toujours 2 checkboxes séparées côte à côte
+   - Labels descriptifs : "Permis conduire - Oui" et "Permis conduire - Non" (pour faciliter le wizard)
+6. RECIPIENT ORDER :
+   - recipientOrder=1 → fields à remplir par le CANDIDAT/COLLABORATEUR (la majorité)
+   - recipientOrder=2 → fields à remplir par L-AGENCE/CONSULTANT(E) :
+     * Section "à compléter par le consultant/e" (fiche d'inscription page 2)
+     * Section "Documents" avec 8 checkboxes "OK" (= vérif consultant)
+     * Signature L-Agence à droite
+7. CHAMPS CONDITIONNELS ("Si oui → ___") :
+   - required=false
+   - helpText="Remplir uniquement si la case précédente est Oui"
+8. NE PAS HALLUCINER sur les pages de texte légal :
+   - Le contrat cadre a 7 pages de texte SECO + 1 page de signature (la dernière). N'invente pas de fields sur les pages 1-7 si tu vois juste du texte juridique continu sans zone vide.
+   - Si une page contient surtout du texte sans ligne "___" / case ☐ / espace blanc après label → renvoie 0 field pour cette page.
+9. AUTO-FILL pour 'firstname','lastname','email','company','title' → autoFill=true
+
+━━━ FIN CONTEXTE L-AGENCE ━━━
 
 DEUX MODES selon l'input :
 
@@ -215,35 +266,43 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   if (tplErr || !tpl) return NextResponse.json({ error: 'Template introuvable' }, { status: 404 })
   const template = tpl as unknown as { documents: SignDocument[]; wizard_steps: WizardStep[] }
 
-  // 2. Pour chaque doc, télécharger le PDF
+  // 2. Pour chaque doc, télécharger le PDF + appeler Claude
   const anthropic = new Anthropic({ apiKey })
 
-  // On enrichit document par document pour ne pas dépasser les limites de contexte.
-  // Aggrégation finale : steps fusionnés dans l'ordre des docs.
-  const allSteps: WizardStep[] = []
-  const allUpdates: FieldUpdate[] = []
-  // Pour les fields créés par Claude (mode B) : map docIdx → list of new fields with real UUIDs
-  const newFieldsByDocIdx = new Map<number, SignField[]>()
-  // Map placeholder ("new_1") → vrai UUID pour résoudre les fieldIds dans wizard_steps
-  const placeholderToUuid = new Map<string, string>()
-  const errors: string[] = []
+  // v2.7.4 — Traitement EN PARALLÈLE des documents (Promise.allSettled).
+  // Avant : séquentiel → 5 docs × 25s = 125s (risque timeout Vercel 120s).
+  // Après : parallèle → max(25s) = ~30s indépendamment du nombre de docs.
+  // allSettled : si 1 doc plante, les autres continuent + on agrège les erreurs.
 
-  for (const [docIdx, doc] of template.documents.entries()) {
-    if (!doc.storage_path) continue
+  interface DocResult {
+    docIdx: number
+    docName: string
+    newFields: SignField[]
+    stepsWithIds: WizardStep[]
+    fieldUpdates: FieldUpdate[]
+    error?: string
+  }
+
+  const processDoc = async (doc: SignDocument, docIdx: number): Promise<DocResult> => {
+    const result: DocResult = {
+      docIdx,
+      docName: doc.name,
+      newFields: [],
+      stepsWithIds: [],
+      fieldUpdates: [],
+    }
+    if (!doc.storage_path) return result
+
     // v2.2.1 — On envoie TOUS les fields (tous rôles) à Claude, pas juste le rôle 1.
-    // Sinon dans un template multi-rôles (Candidat + Client), les fields du Client
-    // sont ignorés et l'IA n'a pas le contexte pour structurer son wizard.
     const recipientFields = (doc.fields || [])
-    // ⚠️ On ne SKIP plus si recipientFields.length === 0 — Claude doit pouvoir
-    // générer les fields depuis zéro (mode B).
 
     // Download PDF
     const { data: blob, error: dlErr } = await supabase.storage
       .from('talentflow-sign')
       .download(doc.storage_path)
     if (dlErr || !blob) {
-      errors.push(`${doc.name}: download failed (${dlErr?.message})`)
-      continue
+      result.error = `download failed (${dlErr?.message})`
+      return result
     }
     const buf = Buffer.from(await blob.arrayBuffer())
     const pdfBase64 = buf.toString('base64')
@@ -279,9 +338,10 @@ ${JSON.stringify(fieldsList, null, 2)}
 
 Le PDF est joint. MODE A : préserve les fieldIds existants, regroupe-les en wizard_steps + enrichis tooltips/conditions/listItems via field_updates.`
 
+    let parsed: AIResult
     try {
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-4-6',
         max_tokens: 16000,
         system: [
           { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
@@ -302,98 +362,112 @@ Le PDF est joint. MODE A : préserve les fieldIds existants, regroupe-les en wiz
         }],
       })
 
-      // Récup le texte
       const textBlock = response.content.find(c => c.type === 'text')
       if (!textBlock || textBlock.type !== 'text') {
-        errors.push(`${doc.name}: pas de réponse text`)
-        continue
+        result.error = 'pas de réponse text'
+        return result
       }
       let raw = textBlock.text.trim()
-      // Strip ```json wrapping si présent
       raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
-
-      let parsed: AIResult
       try {
         parsed = JSON.parse(raw)
       } catch (e) {
-        errors.push(`${doc.name}: JSON parse failed (${(e as Error).message})`)
-        continue
+        result.error = `JSON parse failed (${(e as Error).message})`
+        return result
       }
-
-      // 1. Traite les new_fields : génère UUIDs réels + map placeholder → uuid
-      const newFieldsForDoc: SignField[] = []
-      for (const nf of (parsed.new_fields || [])) {
-        const realId = randomUUID()
-        if (nf._id) placeholderToUuid.set(nf._id, realId)
-        const field: SignField = {
-          id: realId,
-          type: nf.type,
-          page: Math.max(1, Math.round(nf.page || 1)),
-          x: clamp01(nf.x), y: clamp01(nf.y),
-          width: clamp01(nf.width), height: clamp01(nf.height),
-          recipientOrder: nf.recipientOrder || 1,
-          label: nf.tooltip || nf.type,
-          tooltip: nf.tooltip || undefined,
-          required: !!nf.required,
-          source: 'manual',
-          wizardSection: nf.wizardSection || undefined,
-          conditions: Array.isArray(nf.conditions) && nf.conditions.length > 0
-            ? (nf.conditions as SignField['conditions'])
-            : undefined,
-          metadata: Array.isArray(nf.metadata_listItems) && nf.metadata_listItems.length > 0
-            ? { listItems: nf.metadata_listItems }
-            : undefined,
-        }
-        newFieldsForDoc.push(field)
-      }
-      if (newFieldsForDoc.length > 0) newFieldsByDocIdx.set(docIdx, newFieldsForDoc)
-
-      // 2. Steps : remplace les placeholders par UUIDs + assigne recipientOrder
-      // (déduit depuis les fields référencés par le step).
-      // Map fieldId → recipientOrder pour résoudre vite (existing + new fields)
-      const fieldRecipientOrderMap = new Map<string, number>()
-      for (const f of doc.fields || []) {
-        fieldRecipientOrderMap.set(f.id, f.recipientOrder || 1)
-      }
-      for (const nf of newFieldsForDoc) {
-        fieldRecipientOrderMap.set(nf.id, nf.recipientOrder || 1)
-      }
-
-      const stepsWithIds = (parsed.wizard_steps || []).map(s => {
-        const resolvedFieldIds = (s.fieldIds || []).map(fid =>
-          placeholderToUuid.get(fid) || fid,
-        )
-        // v2.2.1 — Déduit recipientOrder du step depuis le 1er field qu'il référence.
-        // Si Claude a fourni s.recipientOrder explicitement, on le respecte.
-        // Sinon majoritaire des fields, fallback 1.
-        let recipientOrder = (s as { recipientOrder?: number }).recipientOrder
-        if (!recipientOrder) {
-          const orders = resolvedFieldIds
-            .map(fid => fieldRecipientOrderMap.get(fid))
-            .filter((o): o is number => typeof o === 'number')
-          if (orders.length > 0) {
-            // Majoritaire (mode statistique)
-            const counts = new Map<number, number>()
-            for (const o of orders) counts.set(o, (counts.get(o) || 0) + 1)
-            recipientOrder = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0][0]
-          } else {
-            recipientOrder = 1
-          }
-        }
-        return {
-          ...s,
-          id: 'wstep_' + Math.random().toString(36).slice(2, 11),
-          docOrder: s.docOrder || (doc.order ?? docIdx + 1),
-          recipientOrder,
-          fieldIds: resolvedFieldIds,
-        }
-      })
-
-      allSteps.push(...stepsWithIds)
-      allUpdates.push(...(parsed.field_updates || []))
     } catch (e) {
-      errors.push(`${doc.name}: API error (${(e as Error).message})`)
+      result.error = `API error (${(e as Error).message})`
+      return result
     }
+
+    // 1. Traite les new_fields : génère UUIDs réels + map placeholder → uuid (LOCAL au doc)
+    // Avant on partageait placeholderToUuid entre docs (risque de collision new_1 du doc A
+    // qui matche new_1 du doc B). Maintenant : 1 map par doc, sûr en parallèle.
+    const placeholderToUuid = new Map<string, string>()
+    for (const nf of (parsed.new_fields || [])) {
+      const realId = randomUUID()
+      if (nf._id) placeholderToUuid.set(nf._id, realId)
+      const field: SignField = {
+        id: realId,
+        type: nf.type,
+        page: Math.max(1, Math.round(nf.page || 1)),
+        x: clamp01(nf.x), y: clamp01(nf.y),
+        width: clamp01(nf.width), height: clamp01(nf.height),
+        recipientOrder: nf.recipientOrder || 1,
+        label: nf.tooltip || nf.type,
+        tooltip: nf.tooltip || undefined,
+        required: !!nf.required,
+        source: 'manual',
+        wizardSection: nf.wizardSection || undefined,
+        conditions: Array.isArray(nf.conditions) && nf.conditions.length > 0
+          ? (nf.conditions as SignField['conditions'])
+          : undefined,
+        metadata: Array.isArray(nf.metadata_listItems) && nf.metadata_listItems.length > 0
+          ? { listItems: nf.metadata_listItems }
+          : undefined,
+      }
+      result.newFields.push(field)
+    }
+
+    // 2. Steps : remplace les placeholders par UUIDs + assigne recipientOrder
+    const fieldRecipientOrderMap = new Map<string, number>()
+    for (const f of doc.fields || []) {
+      fieldRecipientOrderMap.set(f.id, f.recipientOrder || 1)
+    }
+    for (const nf of result.newFields) {
+      fieldRecipientOrderMap.set(nf.id, nf.recipientOrder || 1)
+    }
+
+    result.stepsWithIds = (parsed.wizard_steps || []).map(s => {
+      const resolvedFieldIds = (s.fieldIds || []).map(fid =>
+        placeholderToUuid.get(fid) || fid,
+      )
+      let recipientOrder = (s as { recipientOrder?: number }).recipientOrder
+      if (!recipientOrder) {
+        const orders = resolvedFieldIds
+          .map(fid => fieldRecipientOrderMap.get(fid))
+          .filter((o): o is number => typeof o === 'number')
+        if (orders.length > 0) {
+          const counts = new Map<number, number>()
+          for (const o of orders) counts.set(o, (counts.get(o) || 0) + 1)
+          recipientOrder = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0][0]
+        } else {
+          recipientOrder = 1
+        }
+      }
+      return {
+        ...s,
+        id: 'wstep_' + Math.random().toString(36).slice(2, 11),
+        docOrder: s.docOrder || (doc.order ?? docIdx + 1),
+        recipientOrder,
+        fieldIds: resolvedFieldIds,
+      }
+    })
+    result.fieldUpdates = parsed.field_updates || []
+    return result
+  }
+
+  // Lance TOUS les docs en parallèle. allSettled garantit qu'un échec n'interrompt pas les autres.
+  const settled = await Promise.allSettled(
+    template.documents.map((doc, idx) => processDoc(doc, idx)),
+  )
+
+  // Agrégation des résultats — ordre préservé via docIdx pour reconstruire updatedDocs
+  const allSteps: WizardStep[] = []
+  const allUpdates: FieldUpdate[] = []
+  const newFieldsByDocIdx = new Map<number, SignField[]>()
+  const errors: string[] = []
+
+  for (const r of settled) {
+    if (r.status === 'rejected') {
+      errors.push(`Doc inconnu: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`)
+      continue
+    }
+    const v = r.value
+    if (v.error) errors.push(`${v.docName}: ${v.error}`)
+    if (v.newFields.length > 0) newFieldsByDocIdx.set(v.docIdx, v.newFields)
+    allSteps.push(...v.stepsWithIds)
+    allUpdates.push(...v.fieldUpdates)
   }
 
   if (allSteps.length === 0) {

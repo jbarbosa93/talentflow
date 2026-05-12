@@ -115,7 +115,17 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.7.3 prod (Mode portail rapports + onglet Rapports portail client + lien mission ↔ rapport + UX polish)** — 12/05/2026
+**v2.7.4 (Détection auto IA des champs template via Claude Vision PDF) + v2.7.3 prod (Mode portail rapports + lien mission)** — 12/05/2026
+
+### v2.7.4 (nuit) — Détection automatique des champs template via Claude Vision
+- **Bouton "🔍 Détecter les champs automatiquement"** apparaît dans l'éditeur de template (TemplateEditor) quand 0 champ défini. Lance Claude Vision (Sonnet 4.6) sur le PDF natif et place les champs en ~20-30s. Wizard steps construits auto par sections logiques.
+- **Bouton "✨ Améliorer avec l'IA"** (outline discret) sur templates avec fields existants → restructure les étapes wizard + enrichit tooltips/conditions sans toucher aux positions.
+- **SYSTEM_PROMPT enrichi L-Agence SA** : 10 conventions spécifiques injectées dans le prompt (signatures GAUCHE collaborateur / DROITE L-Agence, format date jj.mm.aaaa, vocabulaire CH NPA/AVS/CCT/Helsana/SUVA, pattern Oui/Non en 2 checkboxes, recipientOrder=1 candidat vs 2 consultant, champs conditionnels required=false + helpText, ne pas halluciner sur les pages de texte SECO, autoFill pour firstname/lastname/email, CHF only).
+- **Bump modèle** : `claude-sonnet-4-5` → `claude-sonnet-4-6` (plus précis sur les formulaires denses comme la fiche d'inscription ~85 champs/page).
+- **États progressifs** : Spinner + texte "📄 Téléchargement…" puis "🤖 Claude analyse…". Banner vert post-détection avec compteur fields + pages.
+- **Sécurité** : confirmation modale avant "Améliorer" sur template existant (l'opération restructure les étapes wizard ; les champs eux-mêmes restent intacts).
+- **Parallélisation** : `Promise.allSettled` sur les N documents → 5 docs ~125s → ~35s (-72%). Évite timeout Vercel 120s. `placeholderToUuid` local à chaque doc.
+- **Bug fix Ajout PDF template existant** : nouveau bouton dashed "📄 Ajouter un PDF" dans bandeau actions TemplateEditor. Avant : UI manquante, impossible d'ajouter un PDF après création. File picker multi-fichiers (max 10, 50MB chacun) via /api/sign/upload existant.
 
 ### v2.7.3 (soir) — Mode portail rapports + lien mission + alertes routing unifié
 - **Mode portail rapports** : toggle "🪟 Utiliser portail rapports" sur `/sign/rapports/new` et `[id]`. Quand activé → email signature candidat envoyé à `clients.email` (mail principal entreprise) avec lien vers `/client-portal/{slug}?tab=rapports` (slug permanent, pas TTL). Auto-création portail si absent. Nouvelle colonne `report_links.use_client_portal`.

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.7.3'
+export const APP_VERSION = '2.7.4'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.7.4 — Détection auto IA des champs depuis le PDF (Claude Sonnet 4.6)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.7.4',
+    date: '2026-05-12',
+    label: 'Détection automatique des champs template via Claude Vision PDF',
+    features: [
+      'BOUTON "🔍 Détecter les champs automatiquement" — apparaît dans l\'éditeur de template (TemplateEditor) quand 0 champ est défini. Lance une analyse Claude Vision (Sonnet 4.6) du PDF natif et place automatiquement les champs détectés (nom/prénom, dates, signatures, checkboxes, etc.) en ~20-30s. Wizard steps construits automatiquement par sections logiques. Bouton amber large + sous-titre explicatif "L\'IA analyse votre PDF et place les champs en ~30s".',
+      'BOUTON "✨ Améliorer avec l\'IA" — apparaît quand des champs existent déjà. Outline discret. Restructure les étapes du wizard et enrichit tooltips/conditions/listItems sans toucher aux positions/types des champs.',
+      'SYSTEM_PROMPT ENRICHI L-AGENCE SA — Le prompt système intègre 10 conventions spécifiques de L-Agence : (1) signatures collaborateur GAUCHE / L-Agence DROITE, (2) Nom + Prénom toujours 2 fields séparés (jamais fullname), (3) format date suisse jj.mm.aaaa (dd.MM.yyyy), (4) vocabulaire CH (NPA, AVS, CCT, Helsana, SUVA, permis B/C/G/L), (5) pattern "Oui/Non" en 2 checkboxes adjacentes, (6) recipientOrder=1 candidat vs 2 consultant, (7) champs conditionnels avec required=false + helpText, (8) ne pas halluciner sur les pages de texte légal SECO du contrat cadre (7 pages CGV + 1 page signature), (9) autoFill=true pour firstname/lastname/email/company/title, (10) CHF uniquement pour monnaie.',
+      'BUMP MODÈLE — Claude Sonnet 4-5 → 4-6 (plus précis sur la détection visuelle de champs denses comme la fiche d\'inscription L-Agence ~85 champs/page).',
+      'BANNER SUCCÈS POST-DÉTECTION — Après détection, banner vert "✅ N champs placés automatiquement sur P page(s)". Le compteur de fields en bas du bandeau actions reflète le nouveau total.',
+      'ÉTATS PROGRESSIFS — Spinner + texte "📄 Téléchargement du PDF…" puis "🤖 Claude analyse votre document…" pour feedback utilisateur pendant l\'attente (PDF natif Claude peut prendre 20-30s).',
+      'CONFIRMATION AVANT RÉENRICHISSEMENT — Si des champs existent déjà, modal de confirmation avant de lancer l\'analyse (l\'opération restructure les étapes wizard, les champs eux-mêmes restent intacts).',
+      'PARALLÉLISATION — Traitement des N documents en parallèle via Promise.allSettled (au lieu de séquentiel). Gain : 5 docs ~125s → ~35s (-72%). Évite le timeout Vercel 120s sur templates multi-PDF. placeholderToUuid rendu local à chaque doc (évite collision entre docs en parallèle).',
+      'AJOUT PDF AU TEMPLATE EXISTANT (bug fix) — Nouveau bouton dashed "📄 Ajouter un PDF" dans le bandeau actions de TemplateEditor. Avant : UI manquante, impossible d\'ajouter un nouveau PDF après création du template. Maintenant : file picker (multi-fichiers, max 10, 50MB chacun), upload via /api/sign/upload, ajout au state docs, setDirty(true). Bascule auto sur le 1er PDF nouvellement ajouté.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.7.3 — Bouton mission → /sign/rapports/new pré-rempli (validation manuelle)
   // ─────────────────────────────────────────────────────────────────────
