@@ -737,6 +737,46 @@ export default function TemplateEditor({
               >
                 <Pencil size={13} />
               </button>
+              {/* v2.7.4 — Bouton supprimer le document actuellement affiché.
+                  Désactivé si c'est le SEUL doc du template (on ne peut pas tout supprimer). */}
+              <button
+                type="button"
+                onClick={() => {
+                  const currentDoc = docs[activeDocIdx]
+                  if (!currentDoc) return
+                  const fieldCount = (currentDoc.fields || []).length
+                  const detail = fieldCount > 0 ? ` et ses ${fieldCount} champ${fieldCount > 1 ? 's' : ''}` : ''
+                  const ok = window.confirm(
+                    `Supprimer le document "${currentDoc.name}"${detail} du template ?\n\nCette action sera effective au prochain enregistrement.`,
+                  )
+                  if (!ok) return
+                  // Retire le doc + recale les order
+                  setDocs(prev => prev
+                    .filter((_, i) => i !== activeDocIdx)
+                    .map((d, i) => ({ ...d, order: i }))
+                  )
+                  // Recale l'index actif (revient sur le précédent si on supprime le dernier)
+                  setActiveDocIdx(idx => Math.max(0, Math.min(idx, docs.length - 2)))
+                  setActivePage(1)
+                  setDirty(true)
+                  toast.success(`"${currentDoc.name}" retiré du template (enregistre pour confirmer)`)
+                }}
+                disabled={docs.length <= 1}
+                title={docs.length <= 1 ? 'Impossible de supprimer le dernier document du template' : 'Supprimer ce document du template'}
+                style={{
+                  width: 30, height: 30,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1px solid ' + (docs.length <= 1 ? 'var(--border)' : 'rgba(239,68,68,0.4)'),
+                  borderRadius: 6,
+                  background: docs.length <= 1 ? 'var(--card)' : 'rgba(239,68,68,0.08)',
+                  color: docs.length <= 1 ? 'var(--muted)' : 'var(--destructive, #DC2626)',
+                  cursor: docs.length <= 1 ? 'not-allowed' : 'pointer',
+                  opacity: docs.length <= 1 ? 0.5 : 1,
+                  flexShrink: 0,
+                }}
+              >
+                <Trash2 size={13} />
+              </button>
             </>
           )}
 
