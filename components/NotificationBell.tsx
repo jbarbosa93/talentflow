@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { Bell, X, Check, ChevronRight, GitBranch, Calendar } from 'lucide-react'
+import { Bell, X, Check, ChevronRight, GitBranch, Calendar, IdCard } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 type PipelineRappel = {
@@ -30,6 +30,16 @@ type EntretienRappel = {
   date_heure: string
   rappel_date: string
   candidats: { nom: string; prenom: string | null } | null
+}
+
+// v2.7.0 — Alerte document conformité (cloche)
+type DocumentAlertLite = {
+  document: { id: string; label: string; expiry_date: string | null }
+  document_type: { name: string } | null
+  candidat: { id: string; prenom: string | null; nom: string | null }
+  days_until_expiry: number
+  severity: 'expired' | 'urgent_14' | 'warning_30'
+  has_active_mission: boolean
 }
 
 export function NotificationBell() {
@@ -60,9 +70,22 @@ export function NotificationBell() {
     refetchOnWindowFocus: true,
   })
 
+  // v2.7.0 — Alertes documents conformité (expirés + <30 jours)
+  const { data: documentData } = useQuery({
+    queryKey: ['notif-bell-documents'],
+    queryFn: async () => {
+      const r = await fetch('/api/document-alerts?mode=bell')
+      if (!r.ok) return { alerts: [], total: 0 }
+      return r.json()
+    },
+    refetchInterval: 5 * 60_000, // 5 min (moins fréquent que rappels)
+    refetchOnWindowFocus: true,
+  })
+
   const pipelineRappels: PipelineRappel[] = pipelineData?.rappels ?? []
   const entretienRappels: EntretienRappel[] = entretienData?.rappels ?? []
-  const total = pipelineRappels.length + entretienRappels.length
+  const documentAlerts: DocumentAlertLite[] = documentData?.alerts ?? []
+  const total = pipelineRappels.length + entretienRappels.length + documentAlerts.length
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['notif-bell-pipeline'] })
@@ -155,6 +178,7 @@ export function NotificationBell() {
           bellRect={bellRect}
           pipelineRappels={pipelineRappels}
           entretienRappels={entretienRappels}
+          documentAlerts={documentAlerts}
           onClose={() => setOpen(false)}
           onDismissPipeline={dismissPipeline}
           onValidatePipeline={validatePipeline}
@@ -168,12 +192,13 @@ export function NotificationBell() {
 }
 
 function NotifPopover({
-  bellRect, pipelineRappels, entretienRappels, onClose,
+  bellRect, pipelineRappels, entretienRappels, documentAlerts, onClose,
   onDismissPipeline, onValidatePipeline, onDismissEntretien, onValidateEntretien,
 }: {
   bellRect: DOMRect
   pipelineRappels: PipelineRappel[]
   entretienRappels: EntretienRappel[]
+  documentAlerts: DocumentAlertLite[]
   onClose: () => void
   onDismissPipeline: (id: string) => void
   onValidatePipeline: (id: string) => void
@@ -186,7 +211,7 @@ function NotifPopover({
   const x = Math.max(12, Math.min(window.innerWidth - W - 12, bellRect.right - W))
   const y = bellRect.bottom + 8
 
-  const total = pipelineRappels.length + entretienRappels.length
+  const total = pipelineRappels.length + entretienRappels.length + documentAlerts.length
 
   return (
     <>
@@ -241,6 +266,22 @@ function NotifPopover({
                   ))}
                 </div>
               )}
+              {documentAlerts.length > 0 && (
+                <div>
+                  <SectionHeader icon={IdCard} label="Documents conformité" count={documentAlerts.length} />
+                  {documentAlerts.map(a => (
+                    <DocumentAlertRow key={a.document.id} alert={a} />
+                  ))}
+                  <div style={{ padding: '8px 14px', textAlign: 'center', fontSize: 11 }}>
+                    <Link
+                      href="/alertes"
+                      style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 700 }}
+                    >
+                      Voir toutes les alertes →
+                    </Link>
+                  </div>
+                </div>
+              )}
               {entretienRappels.length > 0 && (
                 <div>
                   <SectionHeader icon={Calendar} label="Entretiens / Suivi" count={entretienRappels.length} />
@@ -273,6 +314,50 @@ function NotifPopover({
         </div>
       </div>
     </>
+  )
+}
+
+function DocumentAlertRow({ alert }: { alert: DocumentAlertLite }) {
+  const candName = `${alert.candidat.prenom || ''} ${alert.candidat.nom || ''}`.trim() || 'Candidat'
+  const docLabel = alert.document.label || alert.document_type?.name || 'Document'
+  const days = alert.days_until_expiry
+  let statusText = ''
+  let statusColor = 'var(--muted-foreground)'
+  if (alert.severity === 'expired') {
+    statusText = `Expiré depuis ${Math.abs(days)}j`
+    statusColor = 'var(--destructive)'
+  } else if (alert.severity === 'urgent_14') {
+    statusText = days === 0 ? 'Expire aujourd\'hui' : `Expire dans ${days}j`
+    statusColor = '#F97316'
+  } else {
+    statusText = `Expire dans ${days}j`
+    statusColor = '#A16207'
+  }
+  return (
+    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <Link
+        href={`/candidats/${alert.candidat.id}?from=alertes`}
+        style={{ flex: 1, display: 'flex', alignItems: 'flex-start', textDecoration: 'none', gap: 6, minWidth: 0 }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {candName}
+            {alert.has_active_mission && (
+              <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(34,197,94,0.15)', color: '#22C55E' }}>
+                EN MISSION
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted-foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
+            {docLabel}
+          </div>
+          <div style={{ fontSize: 10, color: statusColor, fontWeight: 700, marginTop: 2 }}>
+            🪪 {statusText}
+          </div>
+        </div>
+        <ChevronRight size={12} color="var(--muted-foreground)" style={{ marginTop: 4, flexShrink: 0 }} />
+      </Link>
+    </div>
   )
 }
 

@@ -8,10 +8,13 @@ import {
   TrendingUp, Plus, Pencil, Trash2, X,
   Loader2, CheckCircle2, Clock, XCircle,
   Building2, User, Calendar, Search, AlertTriangle,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, ShieldCheck,
 } from 'lucide-react'
+import Link from 'next/link'
 import { getJoursFeries, feriesSet, countFeriesOuvrables, feriesOuvrablesLabels } from '@/lib/jours-feries'
 import { computeEtpSemaine } from '@/lib/missions-etp'
+import { useMetiers } from '@/hooks/useMetiers'
+import { useMetierCategories } from '@/hooks/useMetierCategories'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -22,6 +25,7 @@ interface Mission {
   candidat_nom: string | null
   client_nom: string | null
   metier: string | null
+  metier_display: string | null
   date_debut: string
   date_fin: string | null
   marge_brute: number
@@ -52,6 +56,7 @@ const EMPTY_FORM = {
   client_id: null as string | null,
   client_nom: '',
   metier: '',
+  metier_display: '',
   date_debut: '',
   date_fin: '',
   indeterminee: false,
@@ -168,14 +173,16 @@ function MissionBadge({ mission }: { mission: Mission & { _expired?: boolean } }
 
 // ─── Autocomplete ─────────────────────────────────────────────────────────────
 
+type AutocompleteItem = { id: string; label: string; sub?: string; extra?: Record<string, unknown> }
+
 function Autocomplete({ value, onChange, placeholder, searchFn }: {
   value: string
-  onChange: (nom: string, id: string | null) => void
+  onChange: (nom: string, id: string | null, extra?: Record<string, unknown>) => void
   placeholder: string
-  searchFn: (q: string) => Promise<{ id: string; label: string; sub?: string }[]>
+  searchFn: (q: string) => Promise<AutocompleteItem[]>
 }) {
   const [query, setQuery] = useState(value)
-  const [results, setResults] = useState<{ id: string; label: string; sub?: string }[]>([])
+  const [results, setResults] = useState<AutocompleteItem[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -194,8 +201,8 @@ function Autocomplete({ value, onChange, placeholder, searchFn }: {
     }, 280)
   }
 
-  const select = (item: { id: string; label: string }) => {
-    setQuery(item.label); onChange(item.label, item.id); setResults([]); setOpen(false)
+  const select = (item: AutocompleteItem) => {
+    setQuery(item.label); onChange(item.label, item.id, item.extra); setResults([]); setOpen(false)
   }
 
   useEffect(() => {
@@ -232,7 +239,18 @@ function Autocomplete({ value, onChange, placeholder, searchFn }: {
 async function searchCandidats(q: string) {
   const res = await fetch(`/api/candidats?search=${encodeURIComponent(q)}&per_page=8`)
   const d = await res.json()
-  return (d.candidats || []).map((c: any) => ({ id: c.id, label: [c.prenom, c.nom].filter(Boolean).join(' '), sub: [c.titre, c.localisation].filter(Boolean).join(' · ') }))
+  return (d.candidats || []).map((c: any) => {
+    // v2.7.1 — Source du métier = UNIQUEMENT pipeline_metier (la liste paramétrée).
+    // titre_poste (extrait par l'IA depuis le CV) est ignoré ici pour éviter
+    // les valeurs hors liste. Le titre_poste reste affiché en sub-label pour info.
+    const pipelineMetier = (c.pipeline_metier || '').trim()
+    return {
+      id: c.id,
+      label: [c.prenom, c.nom].filter(Boolean).join(' '),
+      sub: [pipelineMetier || (c.titre_poste ? `(CV: ${c.titre_poste})` : ''), c.localisation].filter(Boolean).join(' · '),
+      extra: { pipeline_metier: pipelineMetier, titre_poste: c.titre_poste || '' },
+    }
+  })
 }
 
 async function searchClients(q: string) {
@@ -244,10 +262,14 @@ async function searchClients(q: string) {
 // ─── Modal Mission ────────────────────────────────────────────────────────────
 
 function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null; onClose: () => void; onSaved: () => void }) {
+  // v2.7.1 — Liste des métiers paramétrés (app_settings.metiers) — source unique pour le dropdown
+  const { metiers: agenceMetiers, isLoading: metiersLoading } = useMetiers()
+  const { getCategoryForMetier } = useMetierCategories()
   const [form, setForm] = useState(() => mission ? {
     candidat_id: mission.candidat_id, candidat_nom: mission.candidat_nom || '',
     client_id: mission.client_id, client_nom: mission.client_nom || '',
-    metier: mission.metier || '', date_debut: mission.date_debut || '', date_fin: mission.date_fin || '',
+    metier: mission.metier || '', metier_display: mission.metier_display || '',
+    date_debut: mission.date_debut || '', date_fin: mission.date_fin || '',
     indeterminee: !mission.date_fin,
     marge_brute: String(mission.marge_brute ?? ''),
     marge_avec_lpp: mission.marge_avec_lpp != null ? String(mission.marge_avec_lpp) : '',
@@ -259,11 +281,11 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
     arrets: mission.arrets || [],
   } : { ...EMPTY_FORM })
   const [saving, setSaving] = useState(false)
+  // v2.7.0 — Soft block conformité chauffeur
+  const [complianceBlock, setComplianceBlock] = useState<{ blocking: any[]; candidatId: string | null } | null>(null)
   const set = (k: keyof typeof form, v: any) => setForm(f => ({ ...f, [k]: v }))
 
-  const handleSave = async () => {
-    if (!form.date_debut) { toast.error('Date de début requise'); return }
-    if (form.marge_brute === '') { toast.error('Marge brute requise'); return }
+  const submitMission = async (forceBypass: boolean) => {
     setSaving(true)
     try {
       const res = await fetch(mission ? `/api/missions/${mission.id}` : '/api/missions', {
@@ -272,7 +294,9 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
         body: JSON.stringify({
           candidat_id: form.candidat_id || null, candidat_nom: form.candidat_nom || null,
           client_id: form.client_id || null, client_nom: form.client_nom || null,
-          metier: form.metier || null, date_debut: form.date_debut, date_fin: form.indeterminee ? null : (form.date_fin || null),
+          metier: form.metier || null,
+          metier_display: form.metier_display.trim() ? form.metier_display.trim() : null,
+          date_debut: form.date_debut, date_fin: form.indeterminee ? null : (form.date_fin || null),
           marge_brute: Number(form.marge_brute),
           marge_avec_lpp: form.marge_avec_lpp !== '' ? Number(form.marge_avec_lpp) : null,
           coefficient: Number(form.coefficient || 1),
@@ -280,14 +304,26 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
           absences: form.absences,
           vacances: form.vacances,
           arrets: form.arrets,
+          force_compliance_bypass: forceBypass || undefined,
         }),
       })
       const data = await res.json()
+      if (res.status === 422 && data.code === 'COMPLIANCE_BLOCKED' && !forceBypass) {
+        setComplianceBlock({ blocking: data.blocking || [], candidatId: form.candidat_id })
+        return
+      }
       if (!res.ok) throw new Error(data.error || 'Erreur')
-      toast.success(mission ? 'Mission modifiée' : 'Mission créée')
+      toast.success(mission ? 'Mission modifiée' : (forceBypass ? 'Mission créée (docs incomplets — note ajoutée)' : 'Mission créée'))
+      setComplianceBlock(null)
       onSaved(); onClose()
     } catch (e: any) { toast.error(e.message) }
     finally { setSaving(false) }
+  }
+
+  const handleSave = async () => {
+    if (!form.date_debut) { toast.error('Date de début requise'); return }
+    if (form.marge_brute === '') { toast.error('Marge brute requise'); return }
+    await submitMission(false)
   }
 
   if (typeof window === 'undefined') return null
@@ -316,7 +352,20 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label style={S.label}>Candidat</label>
-              <Autocomplete value={form.candidat_nom} onChange={(nom, id) => setForm(f => ({ ...f, candidat_nom: nom, candidat_id: id }))} placeholder="Rechercher…" searchFn={searchCandidats} />
+              <Autocomplete
+                value={form.candidat_nom}
+                onChange={(nom, id, extra) => setForm(f => {
+                  const pipelineMetier = (extra?.pipeline_metier as string) || ''
+                  // v2.7.1 — Pre-fill UNIQUEMENT depuis pipeline_metier (jamais titre_poste IA).
+                  // Si vide, le user doit choisir dans le dropdown.
+                  const next = { ...f, candidat_nom: nom, candidat_id: id }
+                  if (id) next.metier = pipelineMetier
+                  if (!id) next.metier = ''
+                  return next
+                })}
+                placeholder="Rechercher…"
+                searchFn={searchCandidats}
+              />
               {form.candidat_id && <div style={{ fontSize: 10, color: 'var(--success)', marginTop: 2 }}>✓ Lié</div>}
             </div>
             <div>
@@ -327,8 +376,58 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
           </div>
 
           <div>
-            <label style={S.label}>Métier / Poste</label>
-            <input value={form.metier} onChange={e => set('metier', e.target.value)} placeholder="Ex: Électricien, Monteur CVC…" style={S.input} />
+            <label style={S.label}>Métier (liste paramétrée)</label>
+            {(() => {
+              const hasInList = form.metier && agenceMetiers.includes(form.metier)
+              const sortedMetiers = [...agenceMetiers].sort((a, b) => a.localeCompare(b, 'fr'))
+              return (
+                <>
+                  <select
+                    value={hasInList ? form.metier : ''}
+                    onChange={e => set('metier', e.target.value)}
+                    style={{
+                      ...S.input,
+                      cursor: metiersLoading ? 'wait' : 'pointer',
+                      appearance: 'none',
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' fill=\'%2364748b\' viewBox=\'0 0 16 16\'%3E%3Cpath d=\'M3.204 5h9.592L8 10.481 3.204 5zm-.753.659 4.796 5.48a1 1 0 0 0 1.506 0l4.796-5.48c.566-.647.106-1.659-.753-1.659H3.204a1 1 0 0 0-.753 1.659z\'/%3E%3C/svg%3E")',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 12px center',
+                      paddingRight: 36,
+                    }}
+                    disabled={metiersLoading}
+                  >
+                    <option value="">— Choisir un métier —</option>
+                    {sortedMetiers.map(m => {
+                      const cat = getCategoryForMetier(m)
+                      return <option key={m} value={m}>{m}{cat ? ` · ${cat.name}` : ''}</option>
+                    })}
+                  </select>
+                  {form.metier && !hasInList && (
+                    <div style={{ fontSize: 10, color: 'var(--destructive)', marginTop: 4, lineHeight: 1.4 }}>
+                      ⚠️ Le métier <strong>"{form.metier}"</strong> n&apos;est pas dans la liste paramétrée. Choisis-en un autre ou ajoute-le dans <a href="/parametres/metiers" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>Paramètres → Métiers</a>.
+                    </div>
+                  )}
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4, lineHeight: 1.4 }}>
+                    Source : <strong>app_settings.metiers</strong> (gérée depuis <a href="/parametres/metiers" target="_blank" style={{ color: 'var(--primary)' }}>Paramètres → Métiers</a>).
+                    Pré-rempli depuis <strong>pipeline_metier</strong> du candidat sélectionné (vide si non défini sur sa fiche).
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+
+          <div>
+            <label style={S.label}>Intitulé affiché (optionnel)</label>
+            <input
+              value={form.metier_display}
+              onChange={e => set('metier_display', e.target.value.slice(0, 100))}
+              placeholder="Laisser vide pour utiliser le métier de la fiche candidat"
+              maxLength={100}
+              style={S.input}
+            />
+            <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4, lineHeight: 1.4 }}>
+              Affiché côté <strong>portail client</strong> et <strong>rapports</strong>. {form.metier_display.length}/100
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -519,6 +618,125 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
           </button>
         </div>
       </div>
+
+      {/* v2.7.0 — Soft block modal conformité chauffeur */}
+      {complianceBlock && (
+        <div
+          onClick={e => { e.stopPropagation(); setComplianceBlock(null) }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 10000,
+            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 'min(560px, 95vw)', maxHeight: '90vh', overflow: 'auto',
+              background: 'var(--card)', borderRadius: 16,
+              boxShadow: '0 24px 64px rgba(0,0,0,0.30)',
+              border: '1px solid var(--border)',
+              padding: 24,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 10,
+                background: 'rgba(245,166,35,0.15)', color: '#F5A623',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <AlertTriangle size={20} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{
+                  margin: 0, fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+                  fontSize: 22, fontWeight: 400, color: 'var(--foreground)',
+                }}>
+                  Documents de conformité incomplets
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted-foreground)' }}>
+                  Ce candidat est chauffeur. Les documents suivants sont manquants ou expirés :
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+              {complianceBlock.blocking.map((item: any, idx: number) => {
+                const isMissing = item.status === 'missing'
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '8px 12px', borderRadius: 8,
+                      background: isMissing ? 'rgba(239,68,68,0.08)' : 'rgba(249,115,22,0.08)',
+                      border: `1px solid ${isMissing ? 'rgba(239,68,68,0.35)' : 'rgba(249,115,22,0.35)'}`,
+                      fontSize: 13,
+                    }}
+                  >
+                    <span style={{ color: isMissing ? 'var(--destructive)' : '#F97316', fontSize: 14 }}>
+                      {isMissing ? '❌' : '🔴'}
+                    </span>
+                    <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>
+                      {item.document_type?.name || 'Document'}
+                    </span>
+                    <span style={{ marginLeft: 'auto', color: isMissing ? 'var(--destructive)' : '#F97316', fontSize: 12, fontWeight: 600 }}>
+                      {isMissing ? 'Manquant' : 'Expiré'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
+              <strong>Tu peux quand même créer cette mission</strong>, mais une note sera ajoutée automatiquement
+              avec ton email et la liste des documents manquants — visible dans l&apos;historique de la mission.
+            </p>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setComplianceBlock(null)}
+                style={{
+                  padding: '9px 14px', borderRadius: 8,
+                  background: 'transparent', border: '1px solid var(--border)',
+                  color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Annuler
+              </button>
+              {complianceBlock.candidatId && (
+                <a
+                  href={`/candidats/${complianceBlock.candidatId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: '9px 14px', borderRadius: 8,
+                    background: 'var(--primary)', border: '1.5px solid var(--primary)',
+                    color: '#1C1A14', fontSize: 13, fontWeight: 700, textDecoration: 'none',
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  Compléter les docs →
+                </a>
+              )}
+              <button
+                onClick={() => submitMission(true)}
+                disabled={saving}
+                style={{
+                  padding: '9px 14px', borderRadius: 8,
+                  background: '#F97316', border: '1.5px solid #F97316',
+                  color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
+                  opacity: saving ? 0.7 : 1, fontFamily: 'inherit',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                {saving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                Ignorer et créer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   )
@@ -626,7 +844,7 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
             </span>
           )}
         </div>
-        {mission.metier && <div style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, marginTop: 2, marginLeft: 17 }}>{mission.metier}</div>}
+        {(mission.metier_display || mission.metier) && <div style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, marginTop: 2, marginLeft: 17 }}>{mission.metier_display || mission.metier}</div>}
       </div>
 
       {/* Client */}
@@ -1009,9 +1227,14 @@ export default function MissionsPage() {
           </h1>
           <p className="d-page-sub">Suivi des placements</p>
         </div>
-        <button onClick={() => setEditMission(null)} className="neo-btn-yellow">
-          <Plus size={15} /> Nouvelle mission
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link href="/missions/portails" className="neo-btn-ghost">
+            <ShieldCheck size={14} /> Portails clients
+          </Link>
+          <button onClick={() => setEditMission(null)} className="neo-btn-yellow">
+            <Plus size={15} /> Nouvelle mission
+          </button>
+        </div>
       </div>
 
       {/* KPIs — 3 cartes V2 */}
@@ -1180,7 +1403,7 @@ export default function MissionsPage() {
                             : <span>{m.candidat_nom || '—'}</span>
                           }
                         </td>
-                        <td style={{ padding: '7px 12px', color: 'var(--muted)' }}>{m.metier || '—'}</td>
+                        <td style={{ padding: '7px 12px', color: 'var(--muted)' }}>{m.metier_display || m.metier || '—'}</td>
                         <td style={{ padding: '7px 12px', color: 'var(--muted)', fontSize: 11 }}>{m.client_nom || '—'}</td>
                         <td style={{ padding: '7px 12px', textAlign: 'right', color: 'var(--foreground)', fontWeight: 700 }}>×{Number(m.coefficient).toFixed(2)}</td>
                         <td style={{ padding: '7px 12px', textAlign: 'right', color: 'var(--muted)' }}>

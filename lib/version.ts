@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.17'
+export const APP_VERSION = '2.7.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.7.0 — Compliance Documents : permis, CQC, identité + alertes + portail client
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.7.0',
+    date: '2026-05-12',
+    label: 'Compliance Documents — permis, CQC, identité + alertes + portail client',
+    features: [
+      'CONTEXTE — Un chauffeur PL a été arrêté à cause d\'un permis C échu (ni L-Agence ni le client ne l\'avaient vu venir). Cette release outille la gestion des documents de conformité pour éviter la récidive.',
+      'FICHE CANDIDAT — Nouveau bouton 🛡 Conformité dans le header (à côté de Documents). Ouvre un panel CRUD complet : ajout/édition/suppression de documents (permis, CQC, identité, formations), upload recto/verso vers bucket privé, viewer plein écran, badges statut couleur (vert/jaune/orange/rouge). Si le candidat est détecté chauffeur (métier "Chauffeur PL" ou regex /chauffeur/i sur pipeline_metier||titre_poste, ou override manuel), affichage automatique d\'une banner amber + checklist des 3 documents obligatoires (Permis, CQC, Carte conducteur tachygraphe).',
+      'MODAL MISSION — Champ métier auto-rempli (lecture seule) depuis la fiche candidat. Nouveau champ "Intitulé affiché (optionnel)" max 100 chars stocké dans missions.metier_display. Priorité d\'affichage liste/table : metier_display || metier.',
+      'BLOCAGE CRÉATION MISSION CHAUFFEUR — Au POST /api/missions, si le candidat est chauffeur ET qu\'un document obligatoire est manquant ou expiré, l\'API renvoie 422 avec la liste des documents bloquants. L\'UI affiche un modal "Documents incomplets" avec liste + 2 boutons "Compléter docs" (redirect fiche candidat) / "Ignorer et créer quand même" (orange). Si l\'utilisateur ignore, une note auto est ajoutée à missions.notes avec son email et la liste des docs manquants.',
+      'CLOCHE HEADER — Fusion dans NotificationBell existant : nouvelle section "🪪 Documents conformité" qui agrège pipeline_rappels + entretiens + alertes documents. Lien "Voir toutes les alertes →" dirige vers /alertes.',
+      'PAGE /alertes — Liste filtrable (Tous / Expirés / <14j / 15-30j) + toggle "Mes candidats uniquement" (filtre par pipeline_consultant). KPI cards (Total/Expirés/Urgents/Attention). Badge "EN MISSION" si candidat actuellement déployé chez un client. Click row → fiche candidat.',
+      'CRON QUOTIDIEN — Nouvelle route /api/cron/document-alerts (Bearer CRON_SECRET, 0 8 * * * via vercel.json). Email agrégé HTML envoyé chaque matin à 8h00 à ADMIN_EMAIL (récap global) + 1 email par consultant assigné avec ses propres candidats. Logo L-Agence, KPI row, tableau alertes coloré, bouton "Voir toutes les alertes →".',
+      'PORTAIL CLIENT PUBLIC — Nouvelle page /client-portal/{slug} accessible sans auth (slug imprévisible 16 chars random). Le client voit la liste des candidats en mission active chez lui + leurs documents conformité (avec statut) + leurs documents legacy (CV, attestations). Photo, nom, métier, âge affichés. Bandeau "🚛 Chauffeur" si applicable. Aucune donnée sensible (marge, tarif) ne fuite. Footer avec contact L-Agence (tel + WhatsApp).',
+      'GESTION PORTAILS — Nouvelle page /sign/portails (accessible via bouton "Portails" dans /sign). Liste des portails avec copy lien, ouvrir, désactiver/réactiver, supprimer. Modal de création avec autocomplete client + nom auto-rempli. Bandeau d\'info "URL imprévisible 16 caractères".',
+      'DB — 3 nouvelles tables : document_types (catalogue seedé avec 8 types : Permis, CQC, Carte conducteur, ADR, FCO, Identité, Visa, Attestation), candidat_documents (instances par candidat + view candidat_documents_with_status calculée), client_portals (slug unique permanent, is_active toggle). 2 colonnes ajoutées : missions.metier_display, candidats.is_driver_override (NULL=auto / TRUE=forcé chauffeur / FALSE=forcé non-chauffeur).',
+      'STORAGE — Nouveau bucket privé candidat-documents (service role only, 10 MB max par fichier, MIME limité à PDF/JPG/PNG/WebP). Path : {candidat_id}/{document_id}/{recto|verso}.{ext}.',
+      'SÉCURITÉ — Toutes les routes API protégées par requireAuth() (sauf /api/client-portal/{slug} qui valide via slug imprévisible + is_active). Aucune donnée sensible candidat (marge, notes internes, téléphone) ne fuite côté portail public.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.17 — Rapports : correction semaine admin + préventif candidat/client
   // ─────────────────────────────────────────────────────────────────────

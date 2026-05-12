@@ -24,12 +24,17 @@ export async function PATCH(
     const allowed = [
       'candidat_id', 'client_id',
       'candidat_nom', 'client_nom',
-      'metier', 'date_debut', 'date_fin',
+      'metier', 'metier_display', 'date_debut', 'date_fin',
       'marge_brute', 'marge_avec_lpp', 'coefficient', 'statut', 'notes', 'absences', 'vacances', 'arrets',
     ]
     const filtered: Record<string, any> = { updated_at: new Date().toISOString() }
     for (const k of allowed) {
       if (k in body) filtered[k] = body[k]
+    }
+    // Normalisation metier_display (max 100, null si vide)
+    if ('metier_display' in filtered) {
+      const v = filtered.metier_display
+      filtered.metier_display = (v && String(v).trim()) ? String(v).trim().slice(0, 100) : null
     }
 
     const { data, error } = await (supabase as any)

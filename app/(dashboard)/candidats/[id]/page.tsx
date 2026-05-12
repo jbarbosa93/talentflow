@@ -10,7 +10,7 @@ import {
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
   Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles, FolderOpen, Activity,
-  Cake, GitBranch,
+  Cake, GitBranch, ShieldCheck,
 } from 'lucide-react'
 import CVCustomizerModal from '@/components/CVCustomizer'
 import ActivityHistory from '@/components/ActivityHistory'
@@ -28,6 +28,7 @@ import { markCandidatVu, markCandidatNonVu, getViewedSet, dispatchBadgesChanged 
 import { toWaPhone } from '@/lib/phone-format'
 import PhotoCropModal from '@/components/PhotoCropModal'
 import DocumentsPanel from '@/components/DocumentsSection'
+import CompliancePanel from '@/components/compliance/CompliancePanel'
 import DeleteConfirmModal from '@/components/DeleteConfirmModal'
 import { MetierPopover } from '@/components/CandidatsList'
 
@@ -216,6 +217,7 @@ export default function CandidatDetailPage() {
   const [bannerMetierPickerRect, setBannerMetierPickerRect] = useState<{ top: number; left: number; bottom: number; right: number } | null>(null)
   const [showMenu, setShowMenu]           = useState(false)
   const [showDocuments, setShowDocuments] = useState(false)
+  const [showCompliance, setShowCompliance] = useState(false)
   const [showCvCustomizer, setShowCvCustomizer] = useState(false)
   const [showMergeSearch, setShowMergeSearch] = useState(false)
   const [showActivityHistory, setShowActivityHistory] = useState(false)
@@ -937,6 +939,15 @@ export default function CandidatDetailPage() {
                 {((candidat as any).documents?.length || 0) + (candidat.cv_url ? 1 : 0)}
               </span>
             )}
+          </button>
+          {/* v2.5.0 — Bouton Conformité (permis, CQC, identité, formations) */}
+          <button
+            onClick={() => setShowCompliance(true)}
+            className="neo-btn-ghost neo-btn-sm"
+            title="Permis, CQC, identité — gérer les documents de conformité"
+          >
+            <ShieldCheck size={13} />
+            Conformité
           </button>
           {!isEditing ? (
             <button onClick={startEdit} className="neo-btn-ghost neo-btn-sm">
@@ -3155,6 +3166,14 @@ export default function CandidatDetailPage() {
             {' '}ainsi que ses notes, son historique pipeline, ses documents liés et son CV.
           </>
         }
+      />
+
+      {/* ── Panneau Conformité (v2.5.0) ── */}
+      <CompliancePanel
+        open={showCompliance}
+        onClose={() => setShowCompliance(false)}
+        candidatId={candidat.id}
+        candidatName={formatFullName(candidat.prenom, candidat.nom)}
       />
 
       {/* ── Panneau Documents (slide-in) ── */}
