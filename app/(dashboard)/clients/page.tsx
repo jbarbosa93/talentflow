@@ -35,6 +35,7 @@ const ClientsMap = dynamic(() => import('@/components/ClientsMap'), {
 import { SECTEURS_ACTIVITE, SECTEUR_REPRESENTATIVE_METIER } from '@/lib/secteurs-extractor'
 import { useSecteursActiviteConfig } from '@/hooks/useSecteursActiviteConfig'
 import { getClientsSeenIds } from '@/lib/clients-seen'
+import { toast } from 'sonner'
 
 // v1.9.114 — Couleur d'un secteur depuis les catégories métiers définies
 // dans /parametres/metiers (mapping secteur → métier représentatif → catégorie).
@@ -235,7 +236,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                 onClose()
                 router.push(`/clients/${json.client.id}`)
               } catch (e: any) {
-                alert(e?.message || 'Erreur lors de l\'import')
+                toast.error(e?.message || 'Erreur lors de l\'import')
               }
             }}
           />

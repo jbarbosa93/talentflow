@@ -5,6 +5,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { AlertTriangle, X, ChevronDown, ChevronUp, FileWarning, CloudOff, FileX, Check, Wrench, ExternalLink, History } from 'lucide-react'
+import { toast } from 'sonner'
 
 type AnomalyType = 'texte_mismatch' | 'onedrive_mismatch' | 'cv_orphan'
 
@@ -160,7 +161,7 @@ export default function AlertsBanner() {
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        alert('Erreur : ' + (j.error || res.status))
+        toast.error('Erreur : ' + (j.error || res.status))
         return
       }
       // Optimistic : retirer de la liste

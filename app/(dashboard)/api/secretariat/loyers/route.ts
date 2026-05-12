@@ -3,11 +3,15 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requireSecretariatAccess } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
 // GET /api/secretariat/loyers — liste avec filtre optionnel ?annee=2026
 export async function GET(request: NextRequest) {
+  const accessError = await requireSecretariatAccess()
+  if (accessError) return accessError
+
   try {
     const supabase = await createClient()
 
@@ -42,6 +46,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/secretariat/loyers — créer une entrée
 export async function POST(request: NextRequest) {
+  const accessError = await requireSecretariatAccess()
+  if (accessError) return accessError
+
   try {
     const supabase = await createClient()
 

@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requireSecretariatAccess } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
@@ -11,6 +12,9 @@ export const runtime = 'nodejs'
 // toute année >= annee de création. Un candidat terminé s'affiche pour son
 // annee initiale ET l'année où la mission s'est terminée (date_fin_mission).
 export async function GET(request: NextRequest) {
+  const accessError = await requireSecretariatAccess()
+  if (accessError) return accessError
+
   try {
     const supabase = await createClient()
 
@@ -59,6 +63,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/secretariat/candidats — créer une entrée
 export async function POST(request: NextRequest) {
+  const accessError = await requireSecretariatAccess()
+  if (accessError) return accessError
+
   try {
     const supabase = await createClient()
 

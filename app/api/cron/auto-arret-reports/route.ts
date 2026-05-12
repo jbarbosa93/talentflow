@@ -14,7 +14,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300
 
 const FROM_DEFAULT = 'TalentFlow Rapports <noreply@talent-flow.ch>'
 const MIN_ARRET_DAYS = 14  // arrêt ≥ 2 semaines
@@ -52,7 +52,7 @@ function frDate(iso: string): string {
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
 

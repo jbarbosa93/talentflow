@@ -59,6 +59,10 @@ export async function POST(
   if (!signatureDataUrl || !signatureDataUrl.startsWith('data:image/')) {
     return NextResponse.json({ error: 'signature_data_url manquante ou invalide' }, { status: 400 })
   }
+  // Anti-DoS data URL — aligné sur sign-field (1.5 MB)
+  if (signatureDataUrl.length > 1_500_000) {
+    return NextResponse.json({ error: 'signature trop volumineuse (max 1.5 MB)' }, { status: 413 })
+  }
 
   const link = await getReportLinkBySlug(slug)
   if (!link) return NextResponse.json({ error: 'Lien introuvable' }, { status: 404 })

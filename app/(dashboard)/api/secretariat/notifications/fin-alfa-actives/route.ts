@@ -3,10 +3,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requireSecretariatAccess } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
 export async function GET(_request: NextRequest) {
+  const accessError = await requireSecretariatAccess()
+  if (accessError) return accessError
+
   try {
     const supabase = await createClient()
 

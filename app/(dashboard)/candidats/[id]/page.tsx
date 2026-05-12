@@ -1,6 +1,7 @@
 'use client'
 import Image from 'next/image'
 import { formatFullName, formatInitials, formatEmail, formatCity, formatCountry } from '@/lib/format-candidat'
+import { safeContentType } from '@/lib/utils/mime'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
@@ -545,7 +546,8 @@ export default function CandidatDetailPage() {
       const uploadRes = await fetch(signedUrl, {
         method: 'PUT',
         body: cvBlob,
-        headers: { 'Content-Type': cvBlob.type || 'application/octet-stream' },
+        // v2.7.5 — fallback inféré depuis l'extension (sinon octet-stream bloqué par whitelist bucket cvs)
+        headers: { 'Content-Type': safeContentType(cvBlob.type, fileName) },
       })
       if (!uploadRes.ok) throw new Error('Erreur upload Supabase')
 
@@ -672,7 +674,7 @@ export default function CandidatDetailPage() {
       }
     } catch (err: any) {
       console.error('Photo upload error:', err)
-      alert('Erreur upload photo: ' + err.message)
+      toast.error('Erreur upload photo : ' + err.message)
     } finally {
       setPhotoUploading(false)
       if (photoInputRef.current) photoInputRef.current.value = ''
@@ -754,7 +756,7 @@ export default function CandidatDetailPage() {
       }
     } catch (err: any) {
       console.error('Photo rotate error:', err)
-      alert('Erreur rotation photo: ' + err.message)
+      toast.error('Erreur rotation photo : ' + err.message)
     } finally {
       setPhotoUploading(false)
     }
@@ -775,11 +777,11 @@ export default function CandidatDetailPage() {
         // Update local state via mutate
         updateCandidat.mutate({ id, data: { photo_url: data.photo_url } })
       } else {
-        alert(data.message || 'Aucune photo de visage détectée dans ce CV')
+        toast.info(data.message || 'Aucune photo de visage détectée dans ce CV')
       }
     } catch (err: any) {
       console.error('Extract photo error:', err)
-      alert('Erreur lors de l\'extraction de la photo')
+      toast.error('Erreur lors de l\'extraction de la photo')
     } finally {
       setPhotoUploading(false)
     }
@@ -800,7 +802,7 @@ export default function CandidatDetailPage() {
       if (!signed?.signedUrl) throw new Error('Signed URL failed')
       updateCandidat.mutate({ id, data: { photo_url: signed.signedUrl } })
     } catch (err: any) {
-      alert('Erreur lors de l\'enregistrement de la photo : ' + err.message)
+      toast.error('Erreur lors de l\'enregistrement de la photo : ' + err.message)
     } finally {
       setPhotoUploading(false)
     }

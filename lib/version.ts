@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.7.4'
+export const APP_VERSION = '2.7.5'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,33 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.7.5 — Durcissement sécurité + dette technique (17 fixes audit global)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.7.5',
+    date: '2026-05-12',
+    label: 'Durcissement sécurité (17 fixes audit global)',
+    features: [
+      'SÉCURITÉ — requireAuth() + whitelist Supabase sur /api/cv/print, /api/cv/rotate, /api/cv/docx-images (anti-SSRF).',
+      'SÉCURITÉ — requireAuth() sur /api/rapport-heures/send-email, send-whatsapp, /api/bug-report (anti-spam).',
+      'SÉCURITÉ — Bump Next.js 16.1.7 → 16.2.6 (CVE middleware bypass, SSRF WS, cache poisoning).',
+      'SÉCURITÉ — Headers HSTS + X-Frame-Options + nosniff + Referrer-Policy + Permissions-Policy.',
+      'SÉCURITÉ — Helper requireSecretariatAccess() sur 19 routes /api/secretariat/* (consultants bloqués, secrétaires + admin OK).',
+      'SÉCURITÉ — Webhook WhatsApp : vérification signature Meta X-Hub-Signature-256 (HMAC-SHA256, mode dégradé si WHATSAPP_APP_SECRET absent).',
+      'SÉCURITÉ — CRON_SECRET strict sur 8 crons : route bloquée (401) si secret absent (avant : route ouverte).',
+      'PERF — maxDuration crons document-alerts et auto-arret-reports : 60s → 300s (anti-timeout).',
+      'UX — 12 alert() natifs remplacés par toasts Sonner (cohérence design V2).',
+      'NETTOYAGE — 4 composants morts supprimés (ReminderPopup, ClientSearch, CvPdfViewer, usePipeline).',
+      'NETTOYAGE — 4 routes API orphelines supprimées (sharepoint/files, onedrive/reset-orphans, ml/insights, candidats/init-import-status).',
+      'CODE — lib/utils/date.ts créé (source canonique formatDate/formatDateShort/formatDateTime/formatDateLongFr — migration progressive).',
+      'UX — Bandeau erreur dashboard + page erreur /alertes (isError React Query, plus de page blanche si Supabase KO).',
+      'DARK MODE — Couleurs erreur/neutres hardcodées migrées vers tokens CSS (FranceTravailComposer, BetaBadge).',
+      'DB — 22 index FK manquants créés (migration add_missing_fk_indexes_v2_7_5) : missions.client_id, pipeline_rappels.*, historique_pipeline.*, emails_recus.*, etc.',
+      'DB — Cleanup Storage one-shot : 3 842 fichiers (4.15 GB) supprimés du bucket cvs (temp_import vidé + doublons par candidat).',
+      'DOC — CLAUDE.md : patterns #57-69 documentés (compliance, portail, sign détection IA, auto-save invisible, mode portail rapports, durcissements sécurité). Tableau pages mis à jour. Routes spéciales enrichies.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.7.4 — Détection auto IA des champs depuis le PDF (Claude Sonnet 4.6)
   // ─────────────────────────────────────────────────────────────────────

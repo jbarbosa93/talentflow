@@ -1042,7 +1042,7 @@ export default function ClientDetailPage() {
               router.push('/offres')
             } catch (e) {
               console.error(e)
-              alert('Erreur lors de la création de la commande')
+              toast.error('Erreur lors de la création de la commande')
             }
           }}
           onClose={() => setEditingCard(null)}

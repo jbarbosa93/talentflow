@@ -12,6 +12,7 @@ import dynamic from 'next/dynamic'
 import { Smartphone, Monitor, X as XIcon, RefreshCw } from 'lucide-react'
 import type { SignDocument } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
+import { toast } from 'sonner'
 
 const SignWizard = dynamic(() => import('./SignWizard'), { ssr: false })
 const SignaturePad = dynamic(() => import('./SignaturePad'), { ssr: false })
@@ -203,7 +204,7 @@ export default function WizardPreview({ steps, documents, onClose, syncStepIdx, 
               forceStepIdx={localSyncStepIdx}
               onFinalize={() => {
                 // Mode preview : pas de vraie finalisation
-                alert('Aperçu : aucune signature envoyée. Termine la configuration puis envoie l\'enveloppe au candidat.')
+                toast.info('Aperçu : aucune signature envoyée. Termine la configuration puis envoie l\'enveloppe au candidat.')
               }}
             />
           </DeviceFrame>

@@ -533,15 +533,16 @@ export async function POST(request: Request) {
           let buffer = Buffer.from(await dlRes.arrayBuffer())
           const filename = fichier.name
           const ext = filename.toLowerCase().split('.').pop() || ''
-          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)
+          const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) // v2.7.5 — gif retiré (pas dans whitelist bucket cvs)
           const isPDF = ext === 'pdf'
           const isDocx = ext === 'docx'
           const isDoc  = ext === 'doc'
+          // v2.7.5 — Fallback PDF (pas octet-stream) : bloqué par whitelist MIME du bucket cvs
           const mimeType = isPDF ? 'application/pdf'
             : isDocx ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             : isDoc   ? 'application/msword'
             : isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}`
-            : 'application/octet-stream'
+            : 'application/pdf'
 
           // d. Analyse avec Claude
           let analyse: any
@@ -1513,7 +1514,14 @@ export async function POST(request: Request) {
           const ext = fichier.name.split('.').pop()?.toLowerCase()
           const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext || '')
           const isPDF = ext === 'pdf'
-          const mimeType = isPDF ? 'application/pdf' : isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : 'application/octet-stream'
+          const isDocx = ext === 'docx'
+          const isDoc  = ext === 'doc'
+          // v2.7.5 — Inclure DOCX/DOC + fallback PDF (whitelist MIME bucket cvs)
+          const mimeType = isPDF ? 'application/pdf'
+            : isDocx ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            : isDoc   ? 'application/msword'
+            : isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}`
+            : 'application/pdf'
 
           // Re-matching avec la même logique que la 1re passe (identité-first)
           const matchInput = {

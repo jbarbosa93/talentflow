@@ -115,9 +115,13 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.7.4 (Détection auto IA des champs template via Claude Vision PDF) + v2.7.3 prod (Mode portail rapports + lien mission)** — 12/05/2026
+**v2.7.5 (Durcissement sécurité — 17 fixes audit global) + v2.7.4 prod (Détection auto IA champs template) + v2.7.3 prod (Mode portail rapports + lien mission)** — 12/05/2026
 
-### v2.7.4 (nuit) — Détection automatique des champs template via Claude Vision
+### v2.7.5 — Durcissement sécurité (audit global)
+Bloc de 17 corrections issues de l'audit du 12/05 : (1) `requireAuth()` + whitelist anti-SSRF sur 3 routes proxy CV ; (2) `requireAuth()` sur rapport-heures/send-email + send-whatsapp + bug-report ; (3) bump Next.js 16.1.7 → 16.2.6 (CVE middleware bypass) ; (4) headers HSTS + X-Frame-Options + nosniff + Referrer-Policy + Permissions-Policy ; (5) helper `requireSecretariatAccess()` sur 19 routes secrétariat (Sébastien bloqué côté API, secrétaires + João OK) ; (6) signature Meta `X-Hub-Signature-256` sur webhook WhatsApp ; (7) `CRON_SECRET` strict (route bloquée si absent, plus ouverte) ; (8) maxDuration 60→300s sur document-alerts + auto-arret-reports ; (9) 12 `alert()` → toasts Sonner ; (10) 4 composants morts supprimés (ReminderPopup/ClientSearch/CvPdfViewer/usePipeline) ; (11) 4 routes API orphelines supprimées ; (12) `lib/utils/date.ts` source canonique formatDate (migration progressive) ; (13) dashboard counts déjà parallélisés (audit incorrect) ; (14) bandeau erreur dashboard + fallback /alertes via `isError` React Query ; (15) couleurs erreur/neutres hardcodées → tokens CSS (FranceTravailComposer + BetaBadge) ; (16) 22 index FK créés (`add_missing_fk_indexes_v2_7_5`) ; (17) patterns #57-69 documentés. + One-shot cleanup Storage `cvs` (3 842 fichiers / 4.15 GB récupérés).
+
+### v2.7.4 (nuit) — Détection automatique des champs template via Claude Vision + auto-save invisible
+- **Auto-save invisible TemplateEditor** : avant ça "clignotait" à chaque frappe (label bouton mutait + `onSaved={fetchTemplate}` provoquait un re-render complet de la page). Fix : (a) `handleSave({silent:true})` n'appelle plus `onSaved` (le state local est déjà cohérent avec la DB, refetch inutile) — le clic manuel garde le refetch (utile après ajout/suppression PDF) ; (b) label bouton STABLE "Enregistrer" en permanence (disabled si !dirty) ; (c) flush PATCH au switch d'onglet Wizard ↔ Document (`handleTabSwitch` dans la page parent avant `setActiveTab`) ; (d) flush PATCH avec `keepalive:true` sur `beforeunload` + `pagehide` + `visibilitychange='hidden'` (survit à la fermeture d'onglet). Auto-save 800ms debounce conservée mais désormais 100% silencieuse.
 - **Bouton "🔍 Détecter les champs automatiquement"** apparaît dans l'éditeur de template (TemplateEditor) quand 0 champ défini. Lance Claude Vision (Sonnet 4.6) sur le PDF natif et place les champs en ~20-30s. Wizard steps construits auto par sections logiques.
 - **Bouton "✨ Améliorer avec l'IA"** (outline discret) sur templates avec fields existants → restructure les étapes wizard + enrichit tooltips/conditions sans toucher aux positions.
 - **SYSTEM_PROMPT enrichi L-Agence SA** : 10 conventions spécifiques injectées dans le prompt (signatures GAUCHE collaborateur / DROITE L-Agence, format date jj.mm.aaaa, vocabulaire CH NPA/AVS/CCT/Helsana/SUVA, pattern Oui/Non en 2 checkboxes, recipientOrder=1 candidat vs 2 consultant, champs conditionnels required=false + helpText, ne pas halluciner sur les pages de texte SECO, autoFill pour firstname/lastname/email, CHF only).
@@ -425,6 +429,9 @@ supabase/migrations/  — SQL migrations versionnées
 | Corriger photos | `/parametres/corriger-photos` | Admin, Consultant | Extraction photos CV |
 | Demandes accès | `/parametres/demandes-acces` | **Admin uniquement** | Gestion demandes landing page |
 | Import masse (params) | `/parametres/import-masse` | Admin | Import Excel secrétariat |
+| Alertes conformité | `/alertes` | Admin, Consultant | Documents expirés/à expirer + filtres + KPIs |
+| Missions portails | `/missions/portails` | Admin, Consultant | Gestion portails clients actifs |
+| Portail client public | `/client-portal/[slug]` | **PUBLIC (slug 16c)** | Liste collaborateurs + onglet rapports |
 
 ---
 
@@ -435,9 +442,12 @@ supabase/migrations/  — SQL migrations versionnées
 → **Liste exhaustive + détails par catégorie** : `docs/CLAUDE-detailed-rules.md` (section Routes API).
 
 ### Routes spéciales à connaître
-- **`/api/cv/print`** — Proxy PDF (force `Content-Disposition: inline`)
+- **`/api/cv/print`** — Proxy PDF (force `Content-Disposition: inline`, requireAuth + whitelist Supabase v2.7.5)
 - **`/api/cron/onedrive-sync`** — Cron Vercel 10min
 - **`/api/cron/offres-sync`** — Cron Vercel 6h (scraping offres externes)
+- **`/api/cron/document-alerts`** — Cron quotidien 8h UTC, récap → `info@l-agence.ch` + rappels candidat J-30/J-14 (dedup `metadata.notif_30d_sent_at`). maxDuration 300s.
+- **`/api/cron/auto-arret-reports`** — Cron dimanche 20h UTC, rapports auto si arrêt ≥14j. maxDuration 300s.
+- **`/api/cron/sign-reminders`** — Cron quotidien 9h UTC, relances enveloppes Sign non signées.
 - **`/api/auth/*`** — Auth flows (OTP, MDP, OAuth callback)
 
 ---
@@ -617,11 +627,37 @@ Service role only (RLS bloque l'accès public direct). Accès via routes proxy :
 
 **37. Géolocalisation par rayon** (v1.9.110) — Colonnes `candidats.latitude/longitude` FLOAT + index partiel `idx_candidats_geo`. RPC PostgreSQL `haversine_km` IMMUTABLE + `candidats_dans_rayon(p_lat, p_lng, p_rayon_km, p_ids[])` STABLE retourne `(id, distance_km)` ASC NULLS LAST. Pipeline import géocode auto via `lib/geocode-localisation.ts` (lookup local CP `scripts/data/cp_geo.json` 23780 entrées CH+FR ~95% des cas, fallback Nominatim async timeout 3s). UPDATE coords dans `merge-candidat.ts` recalcule lat/lng dès que localisation change. API `/api/candidats?lat=...&lng=...&rayon_km=...` branche RPC après pré-filtre (search + colonnes). Endpoint `/api/villes/suggestions?q=...` autocomplete instantané (pas de DB, pas de réseau). UI : champ VILLE & RAYON dans filtres avancés + presets 10/25/50/100 km + valeur libre 1-500. Badge orange "12 km" sur card si filtre actif. Validation Europe (35-72°N, -10 à +40°E) rejette FP géographiques. Candidats sans coords toujours affichés en queue.
 
+**57. COMPLIANCE — Métier mission = `pipeline_metier` uniquement** (v2.7.0) — La modal mission lit `pipeline_metier` du candidat comme source unique. JAMAIS `titre_poste` (extrait IA du CV, peu fiable). Liste `<select>` sur `app_settings.metiers` (64 valeurs paramétrées). Champ secondaire "Intitulé affiché (optionnel)" → `missions.metier_display` (priorité d'affichage `metier_display || metier` côté portail/rapports).
+
+**58. COMPLIANCE — Status calculé dynamique (vue SQL)** (v2.7.0) — `candidat_documents_with_status` calcule le statut (valide / expire_30d / expire_14d / expire / sans_date) à la lecture. **Impossible** de faire colonne STORED car `CURRENT_DATE` n'est pas IMMUTABLE en PostgreSQL. Lire via la vue, jamais la table directement pour les listes filtrées par statut.
+
+**59. COMPLIANCE — DELETE document safe (count refs avant remove Storage)** (v2.7.0) — Avant `storage.remove([path])`, compter `WHERE file_recto_path = path OR file_verso_path = path`. Si count > 1 (cas multi-permis batch B+C+CE partage 1 fichier) → DELETE row uniquement, garder le fichier Storage. Sinon, double DELETE row + Storage.
+
+**60. PORTAIL — 3-checks sécurité ownership** (v2.7.0) — Toute route `/api/client-portal/[slug]/**` vérifie : (1) `client_portals.is_active=true` + slug existe, (2) candidat demandé en mission active chez ce client (jointure `missions` statut actif), (3) doc/rapport demandé appartient bien au candidat ET au client (jointure `report_link_clients.client_id`). Slug 16c `crypto.getRandomValues` permet circulation publique (par design) — la sécurité repose entièrement sur ces 3 checks serveur, jamais sur le slug lui-même.
+
+**61. COMPLIANCE — Dedup rappels candidat metadata jsonb** (v2.7.0) — `candidat_documents.metadata.notif_30d_sent_at` + `notif_14d_sent_at` (timestamptz). Cron `document-alerts` checke ces champs avant d'envoyer un rappel J-30/J-14, et les écrit après envoi. Pas de table séparée. Permet re-trigger manuel en clearant le champ (`UPDATE ... SET metadata = metadata - 'notif_30d_sent_at'`).
+
+**62. PORTAIL — Fallback photo via state imgError** (v2.7.0) — Pas `onError={() => setSrc(fallback)}` (boucle infinie possible) mais `useState(false)` `imgError` + render conditionnel : `{photo && !imgError ? <img onError={()=>setImgError(true)} /> : <Initials />}`. Réinitialiser sur `useEffect([photo])` si l'URL change.
+
+**63. SIGN — Détection auto IA champs template via Claude Vision** (v2.7.4) — Route `POST /api/sign/templates/[id]/enrich-with-ai`. 2 modes : (a) 0 champ → détection from scratch (bouton amber "🔍 Détecter automatiquement"), (b) champs existants → restructure wizard + enrichit tooltips sans toucher positions (bouton outline "✨ Améliorer"). Modèle `claude-sonnet-4-6` (plus précis sur formulaires denses). SYSTEM_PROMPT enrichi avec 10 conventions L-Agence (signatures GAUCHE candidat / DROITE consultant, format `jj.mm.aaaa`, NPA/AVS/CCT, Oui/Non en 2 checkboxes, `recipientOrder=1` candidat vs `2` consultant, autoFill firstname/lastname/email, CHF only, Nom+Prénom toujours séparés JAMAIS fullname). `Promise.allSettled` sur N docs en parallèle (5 docs : 125s→35s, évite timeout Vercel 120s). `placeholderToUuid` local à chaque doc (évite collision).
+
+**64. SIGN — Auto-save invisible 3 règles d'or** (v2.7.4) — Pour qu'un auto-save debounced ne "clignote" pas : (1) **pas de re-render observable** en mode silent (jamais `onSaved={refetch}` qui setLoading(true) parent — le state local après PATCH 200 est déjà cohérent), le refetch reste pour le clic manuel ; (2) **label bouton STABLE** "Enregistrer" en permanence (disabled si !dirty) — ne JAMAIS muter en "Enregistrement…"/"Enregistré ✓" toutes les 800ms ; (3) **flush aux frontières** : switch d'onglet via callback parent, et `flushSave` avec `fetch(..., {keepalive:true})` sur `beforeunload` + `pagehide` + `visibilitychange='hidden'` (survit à la fermeture d'onglet). `stateRef` sync à chaque render permet de lire la dernière valeur sans deps changeantes dans le useEffect.
+
+**65. PORTAIL RAPPORTS — Mode portail vs mode direct** (v2.7.3) — `report_links.use_client_portal boolean DEFAULT false`. Quand `true` au moment signature candidat : (a) email signature → `clients.email` (mail principal entreprise) au lieu du contact saisi sur le lien, (b) lien `/client-portal/{slug}?tab=rapports` (slug permanent) au lieu de `/report/client/{token}` (TTL 7j). `client_token` reste généré defensivement (fallback). Helper `getOrCreateClientPortal(client_id)` auto-crée le portail si absent. **Exige `client_id` lié en DB** (le portail est indexé par client_id, sinon erreur 400).
+
+**66. SÉCURITÉ — requireSecretariatAccess() sur /api/secretariat/*** (v2.7.5) — Helper dans `lib/auth-guard.ts` qui complète `requireAuth()` : 403 si l'utilisateur n'a pas le rôle `Secrétaire`, `Admin` ou `Administrateur` (ou email == ADMIN_EMAIL). Appliqué aux 19 routes `/api/secretariat/**/route.ts`. La Sidebar cachait déjà l'onglet pour les consultants — ce helper bloque aussi l'appel API direct (Sébastien ne peut plus forger un POST). Convention alignée sur `components/layout/Sidebar.tsx` (`isAdminUser` + `isSecretaire`).
+
+**67. SÉCURITÉ — Whitelist anti-SSRF sur routes proxy CV** (v2.7.5) — Toute route serveur qui fait `fetch(searchParams.get('url'))` doit (a) `requireAuth()` et (b) whitelister le host : `new URL(url).hostname === new URL(NEXT_PUBLIC_SUPABASE_URL).hostname`. Sans ça, n'importe qui pouvait faire `?url=http://169.254.169.254/...` (AWS IMDS) ou cibler des services internes. Appliqué à `/api/cv/print`, `/api/cv/rotate`, `/api/cv/docx-images`.
+
+**68. SÉCURITÉ — CRON_SECRET strict (route bloquée si absent)** (v2.7.5) — L'ancien pattern `if (cronSecret && authHeader !== ...)` laissait la route ouverte si `CRON_SECRET` jamais défini (typo env, oubli sur preview). Le nouveau pattern : `if (!cronSecret || authHeader !== ...) return 401`. Appliqué aux 8 crons de production. Vercel injecte `CRON_SECRET` automatiquement quand configuré dans les env vars du projet.
+
+**69. SÉCURITÉ — Webhook WhatsApp signature Meta** (v2.7.5) — POST `/api/whatsapp/webhook` lit le `rawBody` AVANT JSON.parse pour calculer `HMAC-SHA256(rawBody, WHATSAPP_APP_SECRET)` et comparer à `x-hub-signature-256` via `timingSafeEqual`. Mode dégradé non-bloquant si `WHATSAPP_APP_SECRET` absent (log warning + accept). Une fois la variable configurée côté Meta + Vercel, le webhook devient infalsifiable.
+
 ---
 
 ## Points d'attention techniques
 
-- **Tables sensibles RLS** : `app_settings`, `email_otps`, `onedrive_fichiers`, `secretariat_*`, `logs_secretariat` — toujours utiliser `createServiceRoleClient`, jamais le client public
+- **Tables sensibles RLS** : `app_settings`, `email_otps`, `onedrive_fichiers`, `secretariat_*`, `logs_secretariat`, `candidat_documents`, `client_portals`, `report_link_clients`, `report_submissions`, `sign_envelopes`, `sign_tokens` — toujours utiliser `createServiceRoleClient`, jamais le client public
 - **Vercel bodySizeLimit** : configuré à `100mb` pour les imports ZIP volumineux (`serverActions.bodySizeLimit`)
 - **Détection extension CV** : utiliser `cv_nom_fichier` en priorité (plus fiable), l'URL Supabase peut être un UUID sans extension visible
 - **Login bypass dev** : `localhost:3001/admin` → magic link sans mot de passe via `supabase.auth.admin.generateLink` — bloqué en production

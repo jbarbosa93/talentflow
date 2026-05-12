@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, PenLine, Trash2, Check } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface Props {
   open: boolean
@@ -129,7 +130,7 @@ export default function SignaturePad({ open, onClose, onAdopt }: Props) {
   const handleAdopt = () => {
     if (submitting) return
     if (!hasDrawn) {
-      alert('Tracez votre signature avant de valider.')
+      toast.warning('Tracez votre signature avant de valider.')
       return
     }
     setSubmitting(true)

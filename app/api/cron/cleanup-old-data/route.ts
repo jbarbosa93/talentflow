@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   // Auth Vercel Cron
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
 
@@ -29,6 +29,8 @@ export async function GET(request: Request) {
   const supabase = createAdminClient() as any
   const tStart = Date.now()
   const cutoffIso = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  // v2.7.5 — Rétention plus longue pour logs_activite (90j audit), 30j pour recheck_results
+  const cutoffIso90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
 
   const results: Record<string, { deleted: number; error?: string }> = {}
 
@@ -70,16 +72,53 @@ export async function GET(request: Request) {
     results.activites = { deleted: 0, error: e?.message || 'unknown' }
   }
 
+  // 3. logs_activite — rétention 90j (audit longue durée, pas trace user)
+  try {
+    const { error, count } = await supabase
+      .from('logs_activite')
+      .delete({ count: 'exact' })
+      .lt('created_at', cutoffIso90)
+    if (error) {
+      results.logs_activite = { deleted: 0, error: error.message }
+      console.error('[cron/cleanup-old-data] logs_activite error:', error.message)
+    } else {
+      results.logs_activite = { deleted: count ?? 0 }
+    }
+  } catch (e: any) {
+    results.logs_activite = { deleted: 0, error: e?.message || 'unknown' }
+  }
+
+  // 4. recheck_results — rétention 30j (résultats batch recheck, plus pertinents au-delà)
+  try {
+    const { error, count } = await supabase
+      .from('recheck_results')
+      .delete({ count: 'exact' })
+      .lt('created_at', cutoffIso)
+    if (error) {
+      results.recheck_results = { deleted: 0, error: error.message }
+      console.error('[cron/cleanup-old-data] recheck_results error:', error.message)
+    } else {
+      results.recheck_results = { deleted: count ?? 0 }
+    }
+  } catch (e: any) {
+    results.recheck_results = { deleted: 0, error: e?.message || 'unknown' }
+  }
+
   const durationMs = Date.now() - tStart
-  const totalDeleted = (results.emails_envoyes?.deleted ?? 0) + (results.activites?.deleted ?? 0)
+  const totalDeleted =
+    (results.emails_envoyes?.deleted ?? 0) +
+    (results.activites?.deleted ?? 0) +
+    (results.logs_activite?.deleted ?? 0) +
+    (results.recheck_results?.deleted ?? 0)
 
   console.log(
-    `[cron/cleanup-old-data] Retention ${RETENTION_DAYS}j — emails_envoyes: ${results.emails_envoyes?.deleted ?? 0}, activites: ${results.activites?.deleted ?? 0} (total ${totalDeleted}) en ${durationMs}ms`
+    `[cron/cleanup-old-data] emails_envoyes: ${results.emails_envoyes?.deleted ?? 0}, activites: ${results.activites?.deleted ?? 0}, logs_activite: ${results.logs_activite?.deleted ?? 0}, recheck_results: ${results.recheck_results?.deleted ?? 0} (total ${totalDeleted}) en ${durationMs}ms`
   )
 
   return NextResponse.json({
     ok: true,
     retention_days: RETENTION_DAYS,
+    retention_logs_activite_days: 90,
     cutoff: cutoffIso,
     results,
     total_deleted: totalDeleted,

@@ -12,6 +12,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { AlertTriangle, Eye, UserCircle2, Check, X, Archive, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { toast } from 'sonner'
 
 type PendingFichier = {
   id: string
@@ -82,7 +83,7 @@ export default function PendingValidationPanel() {
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        window.alert(`Erreur : ${err.error || res.statusText}`)
+        toast.error(`Erreur : ${err.error || res.statusText}`)
       } else {
         await fetchList()
       }

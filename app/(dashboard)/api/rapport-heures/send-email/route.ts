@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth-guard'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
@@ -12,6 +13,9 @@ interface SendEmailPayload {
 }
 
 export async function POST(req: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   try {
     if (!RESEND_API_KEY) {
       return NextResponse.json({ error: 'RESEND_API_KEY non configuré' }, { status: 500 })

@@ -41,6 +41,23 @@ const nextConfig: NextConfig = {
     }
     return config
   },
+  // Headers de sécurité (anti clickjacking, XSS, MIME sniffing, etc.)
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          // v2.7.5 — SAMEORIGIN (pas DENY) : autorise iframes internes (preview PDF CV,
+          // documents compliance, portail rapports) tout en bloquant les iframes externes.
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+        ],
+      },
+    ]
+  },
 };
 
 export default withSentryConfig(nextConfig, {

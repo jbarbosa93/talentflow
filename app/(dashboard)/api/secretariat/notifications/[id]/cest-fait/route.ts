@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requireSecretariatAccess } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
@@ -11,6 +12,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const accessError = await requireSecretariatAccess()
+  if (accessError) return accessError
+
   try {
     const supabase = await createClient()
 

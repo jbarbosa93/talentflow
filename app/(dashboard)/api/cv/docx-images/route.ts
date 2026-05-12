@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
@@ -7,9 +8,23 @@ export const runtime = 'nodejs'
 // Retourne un tableau de dataURLs base64 triés par taille décroissante (les plus
 // grandes en premier = plus probables d'être la photo du candidat).
 export async function GET(request: Request) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   const { searchParams } = new URL(request.url)
   const url = searchParams.get('url')
   if (!url) return new NextResponse('Missing url', { status: 400 })
+
+  // Whitelist Supabase (anti-SSRF)
+  try {
+    const supabaseHost = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname
+    const targetHost = new URL(url).hostname
+    if (targetHost !== supabaseHost) {
+      return new NextResponse('URL non autorisée', { status: 403 })
+    }
+  } catch {
+    return new NextResponse('URL invalide', { status: 400 })
+  }
 
   try {
     const res = await fetch(url)

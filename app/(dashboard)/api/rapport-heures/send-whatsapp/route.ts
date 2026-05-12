@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { envoyerDocument } from '@/lib/whatsapp'
+import { requireAuth } from '@/lib/auth-guard'
 
 // ── Shared helpers (mirror route.ts) ──────────────────────────────────────────
 
@@ -228,6 +229,9 @@ async function generatePdfBytes(payload: {
 // ── API Route ──────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   try {
     const body = await req.json()
     const { telephone, collaborateur, entreprise, semaine, annee, dates, gridData, dayTypes } = body

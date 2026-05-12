@@ -16,7 +16,7 @@ import { sendCandidateReminderEmail, type ReminderWindow } from '@/lib/complianc
 import { daysUntilExpiry } from '@/lib/compliance/document-status'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300
 
 // v2.7.3 — Destinataire unique pour toutes les alertes conformité L-Agence
 const LAGENCE_EMAIL = 'info@l-agence.ch'
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   // Auth
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
 

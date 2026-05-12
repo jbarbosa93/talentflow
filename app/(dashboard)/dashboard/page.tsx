@@ -18,7 +18,13 @@ import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import NumberTicker from '@/components/magicui/number-ticker'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, LabelList, Cell } from 'recharts'
+
+// recharts lazy-loaded (~150 KB gzipped hors bundle initial)
+const CandidaturesChart = dynamic(() => import('./CandidaturesChart'), { ssr: false, loading: () => (
+  <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-foreground)', fontSize: 13 }}>
+    Chargement du graphique…
+  </div>
+) })
 
 const CandidatsMap = dynamic(() => import('@/components/CandidatsMap'), { ssr: false, loading: () => (
   <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: 13 }}>
@@ -86,7 +92,7 @@ export default function DashboardPage() {
     }))
   }, [])
 
-  const { data: stats } = useQuery({
+  const { data: stats, isError: statsError } = useQuery({
     queryKey: ['dashboard-stats', user?.id],
     queryFn: async () => {
       // Filtrage explicite par user_id sur pipeline_rappels (ceinture+bretelles avec RLS v1.9.12).
@@ -246,6 +252,23 @@ export default function DashboardPage() {
   return (
     <div className="d-page">
 
+      {/* Bandeau erreur stats — non-bloquant, le reste de la page reste utilisable */}
+      {statsError && (
+        <div
+          style={{
+            padding: '12px 16px',
+            margin: '0 0 16px 0',
+            background: 'var(--destructive-soft, #FEE2E2)',
+            color: 'var(--destructive, #B91C1C)',
+            border: '1px solid var(--destructive, #DC2626)',
+            borderRadius: 8,
+            fontSize: 14,
+          }}
+        >
+          ⚠️ Impossible de charger les KPIs du dashboard. Vérifie ta connexion ou réessaye.
+        </div>
+      )}
+
       {/* ── v1.9.127 — Welcome Hero V2 (gold gradient + welcome-stats + photo consultant) ── */}
       <motion.div className="welcome-v2" custom={0} variants={fadeUp} initial="hidden" animate="show">
         <div className="welcome-v2-text" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -343,42 +366,7 @@ export default function DashboardPage() {
           </div>
           <div className="card-v2-body">
           {chartData && chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={chartData} margin={{ top: 24, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  axisLine={{ stroke: 'var(--border)' }}
-                  tickLine={false}
-                  interval={chartPeriod === 'jour' ? 4 : 0}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  cursor={{ fill: 'var(--accent)' }}
-                  contentStyle={{
-                    background: 'var(--card)', border: '1px solid var(--border)',
-                    borderRadius: 10, fontSize: 13, fontWeight: 600,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-                    color: 'var(--foreground)',
-                  }}
-                  labelStyle={{ fontWeight: 700, color: 'var(--foreground)' }}
-                  itemStyle={{ color: 'var(--foreground)' }}
-                  formatter={(value: any) => [`${value} candidature${value > 1 ? 's' : ''}`, '']}
-                />
-                <Bar dataKey="candidatures" radius={[8, 8, 0, 0]} maxBarSize={54}>
-                  {chartData.map((_d, i) => (
-                    <Cell key={i} fill={i === chartData.length - 1 ? 'var(--primary)' : 'var(--primary-soft, rgba(247,201,72,0.55))'} />
-                  ))}
-                  <LabelList dataKey="candidatures" position="top" style={{ fill: 'var(--foreground)', fontSize: 12, fontWeight: 700 }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <CandidaturesChart chartData={chartData} chartPeriod={chartPeriod} />
           ) : (
             <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 13 }}>
               Chargement du graphique...

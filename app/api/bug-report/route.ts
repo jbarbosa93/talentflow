@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { emailWrapper } from '@/lib/email-template'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
@@ -12,6 +13,9 @@ const escHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   try {
     const { text, date, version, page, userAgent } = await request.json()
 

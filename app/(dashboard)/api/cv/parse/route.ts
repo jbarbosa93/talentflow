@@ -833,10 +833,27 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const timestamp = Date.now()
   const nomFichierStorage = `${timestamp}_${filenameEffectif.replace(/[^a-zA-Z0-9._-]/g, '_')}`
 
+  // v2.7.5 — fallback MIME depuis l'extension si file.type vide (sinon octet-stream
+  // est bloqué par la whitelist du bucket cvs ajoutée en v2.7.5).
+  const inferMimeFromExt = (name: string): string => {
+    const ext = name.toLowerCase().split('.').pop() || ''
+    if (ext === 'pdf') return 'application/pdf'
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+    if (ext === 'png') return 'image/png'
+    if (ext === 'webp') return 'image/webp'
+    if (ext === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    if (ext === 'doc') return 'application/msword'
+    if (ext === 'rtf') return 'application/rtf'
+    return 'application/pdf' // fallback safe (le pipeline traite majoritairement des PDFs)
+  }
+  const uploadContentType = file.type && file.type !== 'application/octet-stream'
+    ? file.type
+    : inferMimeFromExt(filenameEffectif)
+
   dbg('[CV Parse] Upload storage...')
   const { data: storageData, error: storageError } = await withTimeout(
     adminClient.storage.from('cvs').upload(nomFichierStorage, buffer, {
-      contentType: file.type || 'application/octet-stream',
+      contentType: uploadContentType,
       upsert: false,
     }),
     15_000, 'upload storage'

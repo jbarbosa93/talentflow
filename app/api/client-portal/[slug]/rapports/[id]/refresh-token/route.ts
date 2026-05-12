@@ -15,6 +15,13 @@ import { CLIENT_TOKEN_TTL_MS } from '@/lib/report/types'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+// Rate-limit in-memory : 5 régénérations / heure / slug
+// Note : Map non partagée entre instances Vercel — protection au mieux par instance
+// (sur 1 Pod = 5/h strict, sur N Pods = 5×N/h dans le pire cas — toujours mieux qu'illimité).
+const RATE_LIMIT_MAP = new Map<string, number[]>()
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 // 1h
+const RATE_LIMIT_MAX = 5
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ slug: string; id: string }> },
@@ -24,6 +31,17 @@ export async function POST(
     if (!slug || slug.length < 8 || !id) {
       return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 })
     }
+
+    // Rate-limit par slug (5/h)
+    const now = Date.now()
+    const history = (RATE_LIMIT_MAP.get(slug) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS)
+    if (history.length >= RATE_LIMIT_MAX) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Réessayez dans 1h.' },
+        { status: 429 },
+      )
+    }
+    RATE_LIMIT_MAP.set(slug, [...history, now])
 
     const admin = createAdminClient()
 

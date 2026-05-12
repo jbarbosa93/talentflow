@@ -15,6 +15,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import {
   Loader2, FileText, Download, CheckCircle2, Clock, Edit3, AlertTriangle, RefreshCw, X,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface Rapport {
   id: string
@@ -159,7 +160,7 @@ export default function RapportsTab({ slug }: { slug: string }) {
       if (!r.ok) throw new Error(d.error || 'Erreur')
       window.location.href = `/report/client/${d.client_token}`
     } catch (e: any) {
-      alert(e.message || 'Impossible de régénérer le lien. Contactez L-Agence SA : +41 24 552 18 70')
+      toast.error(e.message || 'Impossible de régénérer le lien. Contactez L-Agence SA : +41 24 552 18 70')
       setRefreshingId(null)
     }
   }

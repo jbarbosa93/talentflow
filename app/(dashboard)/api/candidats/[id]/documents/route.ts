@@ -10,6 +10,7 @@ import {
   getCandidatDocuments,
 } from '@/lib/compliance/queries'
 import { isDriver } from '@/lib/compliance/driver-detection'
+import { safeContentType } from '@/lib/utils/mime'
 import { uploadComplianceFile } from '@/lib/compliance/storage'
 
 export const runtime = 'nodejs'
@@ -99,13 +100,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const updates: Record<string, string> = {}
     if (fileRecto && fileRecto.size > 0) {
       const path = await uploadComplianceFile({
-        candidatId: id, documentId: docId, side: 'recto', file: fileRecto, mimeType: fileRecto.type || 'application/octet-stream',
+        candidatId: id, documentId: docId, side: 'recto', file: fileRecto,
+        mimeType: safeContentType(fileRecto.type, fileRecto.name),
       })
       updates.file_recto_path = path
     }
     if (fileVerso && fileVerso.size > 0) {
       const path = await uploadComplianceFile({
-        candidatId: id, documentId: docId, side: 'verso', file: fileVerso, mimeType: fileVerso.type || 'application/octet-stream',
+        candidatId: id, documentId: docId, side: 'verso', file: fileVerso,
+        mimeType: safeContentType(fileVerso.type, fileVerso.name),
       })
       updates.file_verso_path = path
     }

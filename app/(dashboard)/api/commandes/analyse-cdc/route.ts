@@ -106,9 +106,11 @@ export async function POST(request: NextRequest) {
         const admin = createAdminClient()
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
         const storagePath = `cdc/${Date.now()}_${safeName}`
+        // v2.7.5 — fallback PDF (whitelist bucket cvs interdit octet-stream)
         const contentType = isPdf ? 'application/pdf'
           : isDocx ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-          : mimeType || 'application/octet-stream'
+          : mimeType && mimeType !== 'application/octet-stream' ? mimeType
+          : 'application/pdf'
         const { data: upData, error: upErr } = await admin.storage.from('cvs').upload(storagePath, buffer, {
           contentType,
           upsert: false,

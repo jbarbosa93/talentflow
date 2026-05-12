@@ -34,7 +34,7 @@ export default function AlertesPage() {
   const [filter, setFilter] = useState<FilterKey>('all')
   const [mineOnly, setMineOnly] = useState(false)
 
-  const { data, isLoading } = useQuery<AlertsResponse>({
+  const { data, isLoading, isError, refetch } = useQuery<AlertsResponse>({
     queryKey: ['alertes', mineOnly ? 'mine' : 'all'],
     queryFn: async () => {
       const url = `/api/document-alerts?mode=full${mineOnly ? '&mine=1' : ''}`
@@ -44,6 +44,34 @@ export default function AlertesPage() {
     },
     refetchInterval: 5 * 60_000,
   })
+
+  // Bandeau erreur si l'API échoue (réseau, 500, 401)
+  if (isError) {
+    return (
+      <div style={{ padding: '24px 32px', maxWidth: 1100, margin: '0 auto', textAlign: 'center' }}>
+        <p style={{ fontSize: 16, color: 'var(--foreground)', marginBottom: 12 }}>
+          ⚠️ Impossible de charger les alertes.
+        </p>
+        <p style={{ fontSize: 14, color: 'var(--muted-foreground)', marginBottom: 20 }}>
+          Vérifie ta connexion ou réessaye.
+        </p>
+        <button
+          onClick={() => refetch()}
+          style={{
+            padding: '8px 16px',
+            background: 'var(--primary)',
+            color: 'var(--primary-foreground)',
+            border: 'none',
+            borderRadius: 8,
+            cursor: 'pointer',
+            fontSize: 14,
+          }}
+        >
+          Réessayer
+        </button>
+      </div>
+    )
+  }
 
   const filteredAlerts = useMemo(() => {
     if (!data) return []

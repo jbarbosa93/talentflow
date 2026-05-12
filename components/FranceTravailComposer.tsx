@@ -21,7 +21,7 @@ const DEFAULT: FTForm = {
 
 const lbl = (txt: string, required = false) => (
   <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }}>
-    {txt}{required && <span style={{ color: '#EF4444', marginLeft: 2 }}>*</span>}
+    {txt}{required && <span style={{ color: 'var(--destructive)', marginLeft: 2 }}>*</span>}
   </label>
 )
 
@@ -322,9 +322,9 @@ export default function FranceTravailComposer() {
       )}
 
       {error && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 14px', borderRadius: 8, background: '#FEE2E2', border: '1.5px solid #FECACA', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 14px', borderRadius: 8, background: 'var(--destructive-soft, #FEE2E2)', border: '1.5px solid #FECACA', marginBottom: 16 }}>
           <AlertCircle size={14} color="#DC2626" />
-          <span style={{ fontSize: 13, color: '#DC2626' }}>{error}</span>
+          <span style={{ fontSize: 13, color: 'var(--destructive)' }}>{error}</span>
         </div>
       )}
 

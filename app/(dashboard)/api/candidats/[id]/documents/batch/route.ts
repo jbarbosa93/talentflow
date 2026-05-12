@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { uploadComplianceFile } from '@/lib/compliance/storage'
+import { safeContentType } from '@/lib/utils/mime'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         documentId: insertedIds[0],
         side: 'recto',
         file: fileRecto,
-        mimeType: fileRecto.type || 'application/octet-stream',
+        mimeType: safeContentType(fileRecto.type, fileRecto.name),
       })
       updates.file_recto_path = path
     }
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         documentId: insertedIds[0],
         side: 'verso',
         file: fileVerso,
-        mimeType: fileVerso.type || 'application/octet-stream',
+        mimeType: safeContentType(fileVerso.type, fileVerso.name),
       })
       updates.file_verso_path = path
     }

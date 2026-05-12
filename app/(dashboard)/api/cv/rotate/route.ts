@@ -3,16 +3,31 @@
 // Returns the rotated PDF as a blob
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
 export async function GET(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   const url = request.nextUrl.searchParams.get('url')
   const rotation = parseInt(request.nextUrl.searchParams.get('rotation') || '0', 10)
 
   if (!url) {
     return NextResponse.json({ error: 'URL manquante' }, { status: 400 })
+  }
+
+  // Whitelist Supabase (anti-SSRF)
+  try {
+    const supabaseHost = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname
+    const targetHost = new URL(url).hostname
+    if (targetHost !== supabaseHost) {
+      return NextResponse.json({ error: 'URL non autorisée' }, { status: 403 })
+    }
+  } catch {
+    return NextResponse.json({ error: 'URL invalide' }, { status: 400 })
   }
 
   if (rotation === 0) {

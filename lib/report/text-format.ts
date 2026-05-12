@@ -95,12 +95,6 @@ export function toWhatsAppSafe(s: string): string {
   return s.split('').map(c => LATIN_MAP[c] ?? c).join('')
 }
 
-/**
- * @deprecated v2.3.9 — Utiliser `toWhatsAppSafe` à la place.
- * Alias conservé pour rétrocompat avec v2.3.8.
- */
-export const stripAccentsForWa = toWhatsAppSafe
-
 // Format date "JJ.MM.AAAA" deterministe (independant du locale ICU Vercel
 // qui peut renvoyer des slashes au lieu de points sur fr-CH).
 export function formatDateChDot(d: Date | string): string {

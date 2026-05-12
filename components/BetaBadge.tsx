@@ -128,7 +128,7 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
           {hasNewVersion && (
             <span style={{
               width: 7, height: 7, borderRadius: '50%',
-              background: '#EF4444', flexShrink: 0,
+              background: 'var(--destructive)', flexShrink: 0,
               animation: 'pulse 2s infinite',
             }} />
           )}
@@ -285,7 +285,7 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
                           <span style={{
                             fontSize: 9.5, fontWeight: 600,
                             padding: '3px 8px', borderRadius: 99,
-                            background: 'rgba(239,68,68,0.12)', color: '#DC2626',
+                            background: 'rgba(239,68,68,0.12)', color: 'var(--destructive)',
                             border: '1px solid rgba(239,68,68,0.30)',
                             textTransform: 'uppercase', letterSpacing: '0.06em',
                             animation: 'pulse 2s infinite',
@@ -371,7 +371,7 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
               </button>
             </div>
             <div style={{ padding: '18px 22px' }}>
-              <p style={{ margin: '0 0 12px', fontSize: 12, color: '#64748B' }}>
+              <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted-foreground)' }}>
                 Décrivez le problème rencontré. La page et la version sont enregistrées automatiquement.
               </p>
               <textarea
@@ -388,7 +388,7 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
                 onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#E2E8F0' }}
               />
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                <span style={{ fontSize: 10, color: '#94A3B8', flex: 1 }}>
+                <span style={{ fontSize: 10, color: 'var(--muted-foreground)', flex: 1 }}>
                   📍 {typeof window !== 'undefined' ? window.location.pathname : ''} · {APP_VERSION}
                 </span>
               </div>

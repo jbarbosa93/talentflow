@@ -8,6 +8,7 @@ import {
   uploadComplianceFile,
   COMPLIANCE_BUCKET,
 } from '@/lib/compliance/storage'
+import { safeContentType } from '@/lib/utils/mime'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -54,13 +55,15 @@ export async function PATCH(
 
     if (fileRecto && fileRecto.size > 0) {
       const path = await uploadComplianceFile({
-        candidatId: id, documentId: docId, side: 'recto', file: fileRecto, mimeType: fileRecto.type || 'application/octet-stream',
+        candidatId: id, documentId: docId, side: 'recto', file: fileRecto,
+        mimeType: safeContentType(fileRecto.type, fileRecto.name),
       })
       updates.file_recto_path = path
     }
     if (fileVerso && fileVerso.size > 0) {
       const path = await uploadComplianceFile({
-        candidatId: id, documentId: docId, side: 'verso', file: fileVerso, mimeType: fileVerso.type || 'application/octet-stream',
+        candidatId: id, documentId: docId, side: 'verso', file: fileVerso,
+        mimeType: safeContentType(fileVerso.type, fileVerso.name),
       })
       updates.file_verso_path = path
     }

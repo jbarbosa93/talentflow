@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requireSecretariatAccess } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
@@ -11,6 +12,9 @@ type AllowedTable = typeof ALLOWED_TABLES[number]
 
 // POST /api/secretariat/import — insertion en masse
 export async function POST(request: NextRequest) {
+  const accessError = await requireSecretariatAccess()
+  if (accessError) return accessError
+
   try {
     const supabase = await createClient()
 
