@@ -2,7 +2,7 @@
 // v2.2.0 — Phase 2
 'use client'
 
-import { use, useCallback, useEffect, useState } from 'react'
+import { use, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, Loader2, Sparkles, FileText, ListChecks } from 'lucide-react'
 import TemplateEditor from '@/components/sign/TemplateEditor'
@@ -58,6 +58,56 @@ export default function TemplateEditPage({ params }: PageProps) {
     fetchTemplate()
   }, [fetchTemplate])
 
+  // v2.7.4 — Save synchrone (sans refetch) déclenché aux moments charnières :
+  // switch d'onglet (Wizard ↔ Document) et sortie de la page (beforeunload /
+  // visibilitychange hidden / pagehide). Garantit qu'aucune modif ne se perd
+  // même si l'auto-save 800ms de TemplateEditor n'a pas encore eu le temps de
+  // partir. Utilise `keepalive: true` pour que la requête survive à la
+  // fermeture de l'onglet (limite 64 KB — suffisant pour un JSON de template).
+  const stateRef = useRef({ documents, recipientsSchema, wizardSteps, wizardEnabled })
+  stateRef.current = { documents, recipientsSchema, wizardSteps, wizardEnabled }
+
+  const flushSave = useCallback((opts?: { keepalive?: boolean }) => {
+    const body = JSON.stringify({
+      documents: stateRef.current.documents,
+      recipients_schema: stateRef.current.recipientsSchema,
+      wizard_steps: stateRef.current.wizardSteps,
+      wizard_enabled: stateRef.current.wizardEnabled,
+    })
+    try {
+      void fetch(`/api/sign/templates/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        keepalive: opts?.keepalive === true,
+      })
+    } catch {
+      // best-effort, on n'a pas de chemin de récupération si le navigateur ferme
+    }
+  }, [id])
+
+  // Switch d'onglet → flush avant le changement
+  const handleTabSwitch = useCallback((next: TabId) => {
+    if (next !== activeTab) flushSave()
+    setActiveTab(next)
+  }, [activeTab, flushSave])
+
+  // Sortie de page → flush avec keepalive (best-effort, survit au close)
+  useEffect(() => {
+    const onUnload = () => flushSave({ keepalive: true })
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushSave({ keepalive: true })
+    }
+    window.addEventListener('beforeunload', onUnload)
+    window.addEventListener('pagehide', onUnload)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('beforeunload', onUnload)
+      window.removeEventListener('pagehide', onUnload)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [flushSave])
+
   // Détecte si import DocuSign (au moins un champ source: docusign)
   const isDocusignImport = !!template?.documents.some(d =>
     (d.fields || []).some(f => f.source === 'docusign')
@@ -107,7 +157,7 @@ export default function TemplateEditPage({ params }: PageProps) {
         }}>
           <button
             type="button"
-            onClick={() => setActiveTab('wizard')}
+            onClick={() => handleTabSwitch('wizard')}
             style={tabStyle(activeTab === 'wizard')}
           >
             <ListChecks size={14} />
@@ -115,7 +165,7 @@ export default function TemplateEditPage({ params }: PageProps) {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('document')}
+            onClick={() => handleTabSwitch('document')}
             style={tabStyle(activeTab === 'document')}
           >
             <FileText size={14} />

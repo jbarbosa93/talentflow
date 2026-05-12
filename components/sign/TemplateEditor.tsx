@@ -376,7 +376,11 @@ export default function TemplateEditor({
       if (!r.ok) throw new Error(d.error || 'Erreur')
       if (!silent) toast.success('Template enregistré')
       setDirty(false)
-      onSaved?.()
+      // v2.7.4 — En mode silent (auto-save / switch onglet / unload) on NE refetch PAS
+      // le template. Avant : onSaved=fetchTemplate → setLoading(true) → re-render complet
+      // de la page → flash blanc "clignement" à chaque frappe. Le state local est déjà
+      // cohérent avec la DB (on vient de l'envoyer), inutile de refaire un GET.
+      if (!silent) onSaved?.()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erreur'
       // En auto-save : toast d'erreur en warning discret pour signaler à l'user qu'il
@@ -1075,13 +1079,15 @@ export default function TemplateEditor({
             className="neo-btn-yellow"
             onClick={() => handleSave()}
             disabled={saving || !dirty}
-            style={{ width: '100%', justifyContent: 'center', opacity: !dirty ? 0.55 : 1 }}
-            title={dirty ? 'Forcer un enregistrement immédiat (sinon auto-save dans 800ms)' : 'Aucun changement à enregistrer'}
+            style={{ width: '100%', justifyContent: 'center', opacity: !dirty && !saving ? 0.55 : 1 }}
+            title={dirty ? 'Forcer un enregistrement immédiat (auto-save 800ms sinon)' : 'Tout est enregistré'}
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {/* v2.7.4 — Indique "Auto-save…" pendant la sauvegarde automatique pour
-                que l'utilisateur sache que ses changements sont en cours de persistance. */}
-            {saving ? 'Auto-save…' : dirty ? 'Enregistrement auto dans 1s…' : 'Enregistré ✓'}
+            {/* v2.7.4 — Label STABLE pour éviter le "clignement" perçu par João
+                (le label changeait à chaque frappe → bouton qui bouge). L'auto-save
+                reste actif silencieusement en arrière-plan (800ms debounce + flush
+                au switch d'onglet + flush à la sortie de page). */}
+            Enregistrer
           </button>
           {/* v2.3.16 — Aperçu PDF stampé avec données de test (sans sauvegarder).
               Permet à l'admin de visualiser le rendu final EXACT avant de partager
