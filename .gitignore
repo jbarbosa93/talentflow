@@ -57,3 +57,4 @@ CLAUDE.md.bak
 /normalize-localisation-*.json
 /retro-localisation-*.json
 /retro-photo-extraction-*.json
+.claude/
