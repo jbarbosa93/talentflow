@@ -115,6 +115,61 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
+**v2.7.0 prod (Compliance Documents complet + alertes + portail client) + v2.6.17 (rapports correction semaine)** — 12/05/2026
+
+Marathon Opus 4.7 du 12/05 — 2 releases prod le même jour.
+
+### v2.6.17 (matin) — Rapports : correction semaine signée
+- **Bouton "🔄 Corriger semaine"** dans `/sign/rapports/[id]` — admin + consultants peuvent corriger une submission signée par erreur. Pipeline : check conflit, UPDATE `week_start`+`week_end`, recalcul `field_values` auto-fill (dates par jour + n° semaine), regen PDF stampé (signatures préservées), audit `report_audit_log` action `week_corrected`.
+- **Email correction** (3 audiences admin/candidat/client) avec PDF en PJ + raison saisie. Mention "corrigé" uniquement dans l'email, pas sur le PDF.
+- **Préventif** : modal confirmation semaine avant signature candidat (tutoiement) + client (vouvoiement). Pavé jaune semaine en gros + bandeau rouge "définitif".
+
+### v2.7.0 (après-midi) — Module Compliance Documents complet
+Contexte : chauffeur PL contrôlé avec permis C échu → cette release outille la gestion des documents de conformité.
+
+#### DB
+- 3 tables : `document_types` (8 seedés), `candidat_documents` + view `candidat_documents_with_status` (status calculé dynamiquement — CURRENT_DATE non-IMMUTABLE bloque STORED), `client_portals` (slug 16 chars imprévisible).
+- 2 colonnes : `missions.metier_display`, `candidats.is_driver_override` (NULL=auto, TRUE=forcé chauffeur, FALSE=exclu).
+- `candidat_documents.metadata jsonb` (dedup rappels candidat : `notif_30d_sent_at`, `notif_14d_sent_at`).
+- Bucket privé `candidat-documents` (10 MB max, PDF/JPG/PNG/WebP).
+
+#### Fiche candidat
+- Bouton **🛡 Conformité** ouvre panel CRUD avec catégories Identité 🪪 / Permis 🚗 / Qualifications 🏆 / Formations 📋 / Autres 📄.
+- Détection chauffeur auto (`pipeline_metier === 'Chauffeur PL'` OU `/chauffeur/i`) + override manuel `is_driver_override`. Si chauffeur → banner amber + checklist 3 docs obligatoires.
+- **Multi-permis batch** : pour `permis_conduire` en création, chips multi-select sous-cat (B + C + CE en 1 click) + date d'échéance par chip. POST `/api/candidats/[id]/documents/batch` crée N rows partageant le même fichier (1 upload). Sous-cats FR+CH : AM, M, A1, A2, A, B1, B, BE, C1, C1E, C, CE, D1, D1E, D, DE, F, G.
+- **DELETE safe** : count refs `file_recto_path`/`file_verso_path` AVANT remove Storage (pattern #59).
+
+#### Modal mission
+- Champ Métier devenu `<select>` sur `app_settings.metiers` (64 métiers paramétrés). Source unique : `pipeline_metier` du candidat (jamais `titre_poste` IA, pattern #57).
+- Champ "Intitulé affiché (optionnel)" → `missions.metier_display` (max 100, affichage portail/rapports priorité `metier_display || metier`).
+- Soft block chauffeur : POST renvoie 422 `COMPLIANCE_BLOCKED` si docs manquants/expirés. Modal "Ignorer et créer" → note auto avec email actor + liste docs.
+
+#### Alertes (3 surfaces)
+- Cloche header `NotificationBell` : section "🪪 Documents conformité" agrégée avec pipeline + entretiens (refresh 5 min).
+- Page `/alertes` : filtres Tous / Expirés / <14j / 15-30j + toggle "Mes candidats uniquement". KPI cards. Badge "EN MISSION".
+- Cron `0 8 * * *` quotidien `/api/cron/document-alerts` (Bearer CRON_SECRET) :
+  - Email récap agrégé HTML à `ADMIN_EMAIL` + 1 par consultant assigné (ses candidats)
+  - **+ Rappel candidat individuel J-30 et J-14** pour types permis_conduire + qualification. Boutons WhatsApp/Email pré-remplis. Dedup metadata (pattern #61).
+
+#### Portail client public `/client-portal/{slug}`
+- Slug 16 chars `crypto.getRandomValues`. Layout dédié hors middleware d'auth.
+- **3-checks sécurité** : portal.is_active + candidat en mission active chez ce client + ownership doc (pattern #60).
+- Aucune donnée sensible (marge, tarif, notes internes, consultant).
+- Header : logo L-Agence + ClientLogo officiel client + nom entreprise Instrument Serif.
+- Card candidat : photo (fallback initiales via state imgError, pattern #62), badge 🚛 PL + âge orange, métier, **âge + localisation 1 ligne nowrap+ellipsis**, "En mission depuis le X · {durée}" (pattern #64), section permis avec date uniquement card (modal montre tout) + label "⏰ Date d'expiration", bordure rouge/orange si expiré/urgent, bar contact Appel/WhatsApp/Email.
+- Tri cards par `mission.date_debut DESC`, `alignItems: start` (pas étirement).
+- Modal "Voir tous les documents" : contact tel/email VISIBLES en texte + boutons, catégories headers colorés (Permis rouge, Identité bleu...), legacy docs affichent **label catégorie en gros** au lieu filename moche.
+- Gestion `/missions/portails` (déplacée de `/sign/portails` car contexte mission).
+
+#### DB / Stack
+- 0 nouvelle dépendance npm
+- ~5800 lignes / 37 fichiers / commit `a256881`
+- Tags v2.6.17 + v2.7.0
+- Patterns #57-64 ajoutés ci-dessous
+
+---
+
+## v2.6.2 prod — historique (mai 2026)
 **v2.6.2 prod (Secrétariat Accidents v2 + Fix retour Edge + Photo crop Word)** — 11/05/2026
 
 Phase 1 du chantier Rapports v2 (FEATURE 1 → 5 du brief João) :
