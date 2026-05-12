@@ -64,16 +64,18 @@ export function getWeekDates(weekStart: Date | string): WeekDates {
     end: isoDate(sunday),
     weekNumber: week,
     year,
-    label: formatWeekLabel(monday, sunday),
+    // v2.7.3 — Inclut le n° de semaine ISO dans le label ("Semaine 20 du 11 au 17 mai 2026")
+    label: formatWeekLabel(monday, sunday, week),
   }
 }
 
 /**
- * Formate un label lisible : "Semaine du 5 au 11 mai 2026".
- * Si le mois change : "Semaine du 28 avril au 4 mai 2026".
- * Si l'année change : "Semaine du 30 décembre 2025 au 5 janvier 2026".
+ * Formate un label lisible :
+ *   "Semaine 20 du 11 au 17 mai 2026"
+ *   "Semaine 18 du 28 avril au 4 mai 2026"  (mois différent)
+ *   "Semaine 53 du 30 décembre 2025 au 5 janvier 2026"  (année différente)
  */
-export function formatWeekLabel(monday: Date, sunday: Date): string {
+export function formatWeekLabel(monday: Date, sunday: Date, weekNumber?: number): string {
   const sameMonth = monday.getUTCMonth() === sunday.getUTCMonth()
                   && monday.getUTCFullYear() === sunday.getUTCFullYear()
   const sameYear = monday.getUTCFullYear() === sunday.getUTCFullYear()
@@ -83,13 +85,14 @@ export function formatWeekLabel(monday: Date, sunday: Date): string {
     if (withYear) opts.year = 'numeric'
     return new Intl.DateTimeFormat('fr-CH', { ...opts, timeZone: 'UTC' }).format(d)
   }
+  const prefix = typeof weekNumber === 'number' ? `Semaine ${weekNumber} du` : 'Semaine du'
   if (sameMonth) {
-    return `Semaine du ${fmt(monday, false, false)} au ${fmt(sunday, true, true)}`
+    return `${prefix} ${fmt(monday, false, false)} au ${fmt(sunday, true, true)}`
   }
   if (sameYear) {
-    return `Semaine du ${fmt(monday, true, false)} au ${fmt(sunday, true, true)}`
+    return `${prefix} ${fmt(monday, true, false)} au ${fmt(sunday, true, true)}`
   }
-  return `Semaine du ${fmt(monday, true, true)} au ${fmt(sunday, true, true)}`
+  return `${prefix} ${fmt(monday, true, true)} au ${fmt(sunday, true, true)}`
 }
 
 /**

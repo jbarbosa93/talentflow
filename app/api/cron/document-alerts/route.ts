@@ -1,17 +1,25 @@
 // /api/cron/document-alerts — Email agrégé quotidien des alertes conformité
-// v2.7.0
+// v2.7.3
 // Schedule : 0 8 * * * (tous les jours 8h00 UTC)
 // Protection : Bearer CRON_SECRET
+//
+// v2.7.3 — Refonte routing :
+//   - Email récap quotidien → 1 seul envoi à info@l-agence.ch (toute l'équipe)
+//   - Suppression du routage par consultant (plus d'emails séparés par João/Seb)
+//   - Rappels candidat J-30 et J-14 → destinataire = candidat, cc = info@l-agence.ch
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getDocumentAlerts, type DocumentAlert } from '@/lib/compliance/alerts'
+import { getDocumentAlerts } from '@/lib/compliance/alerts'
 import { sendDocumentAlertsEmail } from '@/lib/compliance/send-alert-email'
 import { sendCandidateReminderEmail, type ReminderWindow } from '@/lib/compliance/send-candidate-reminder'
 import { daysUntilExpiry } from '@/lib/compliance/document-status'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
+
+// v2.7.3 — Destinataire unique pour toutes les alertes conformité L-Agence
+const LAGENCE_EMAIL = 'info@l-agence.ch'
 
 export async function GET(request: Request) {
   // Auth
@@ -22,7 +30,6 @@ export async function GET(request: Request) {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://talent-flow.ch'
-  const adminEmail = (process.env.ADMIN_EMAIL || '').trim()
 
   // 1. Récupère TOUTES les alertes (limite 500)
   let summary
@@ -40,73 +47,22 @@ export async function GET(request: Request) {
     })
   }
 
-  // 2. Groupe par consultant_email (assigné côté candidat)
-  const byConsultant = new Map<string, DocumentAlert[]>()
-  const unassigned: DocumentAlert[] = []
-  for (const a of summary.alerts) {
-    const c = a.candidat.pipeline_consultant
-    if (c && c.includes('@')) {
-      if (!byConsultant.has(c)) byConsultant.set(c, [])
-      byConsultant.get(c)!.push(a)
-    } else {
-      unassigned.push(a)
-    }
-  }
-
-  // 3. Récupère les noms des consultants pour la salutation
   const adminClient = createAdminClient()
-  const consultantNames = new Map<string, string>()
-  if (byConsultant.size > 0) {
-    try {
-      const { data: users } = await adminClient.auth.admin.listUsers({ perPage: 200 })
-      for (const u of (users?.users || [])) {
-        if (u.email && byConsultant.has(u.email)) {
-          const name = (u.user_metadata as any)?.full_name || (u.user_metadata as any)?.name || u.email.split('@')[0]
-          consultantNames.set(u.email, name)
-        }
-      }
-    } catch { /* non-bloquant */ }
-  }
 
-  const results: { to: string; audience: string; count: number; ok: boolean; error?: string }[] = []
+  // 2. Email unique à info@l-agence.ch (récap global, toutes alertes confondues)
+  const recapResult = await sendDocumentAlertsEmail({
+    to: LAGENCE_EMAIL,
+    audience: 'admin',
+    consultantName: null,
+    alerts: summary.alerts,
+    totalExpired: summary.expired,
+    totalUrgent: summary.urgent,
+    totalWarning: summary.warning,
+    baseUrl,
+  })
 
-  // 4. Email à ADMIN_EMAIL avec récap global
-  if (adminEmail) {
-    const r = await sendDocumentAlertsEmail({
-      to: adminEmail,
-      audience: 'admin',
-      consultantName: null,
-      alerts: summary.alerts,
-      totalExpired: summary.expired,
-      totalUrgent: summary.urgent,
-      totalWarning: summary.warning,
-      baseUrl,
-    })
-    results.push({ to: adminEmail, audience: 'admin', count: summary.alerts.length, ok: r.ok, error: r.error })
-  }
-
-  // 5. Email à chaque consultant avec ses propres alertes
-  for (const [email, alerts] of byConsultant) {
-    // Skip si consultant = admin (déjà reçu)
-    if (email.toLowerCase() === adminEmail.toLowerCase()) continue
-    const expired = alerts.filter(a => a.severity === 'expired').length
-    const urgent = alerts.filter(a => a.severity === 'urgent_14').length
-    const warning = alerts.filter(a => a.severity === 'warning_30').length
-    const r = await sendDocumentAlertsEmail({
-      to: email,
-      audience: 'consultant',
-      consultantName: consultantNames.get(email) || null,
-      alerts,
-      totalExpired: expired,
-      totalUrgent: urgent,
-      totalWarning: warning,
-      baseUrl,
-    })
-    results.push({ to: email, audience: 'consultant', count: alerts.length, ok: r.ok, error: r.error })
-  }
-
-  // 6. v2.7.1 — Rappels candidat individuels (J-30 et J-14)
-  // Pour les permis_conduire + qualification (CQC + carte conducteur).
+  // 3. v2.7.1 — Rappels candidat individuels (J-30 et J-14)
+  // Destinataire = candidat ; cc = info@l-agence.ch (géré dans send-candidate-reminder)
   // Dedup via candidat_documents.metadata.notif_30d_sent_at / notif_14d_sent_at.
   const candidateReminders: { to: string; doc: string; window: ReminderWindow; ok: boolean; error?: string }[] = []
   try {
@@ -176,10 +132,9 @@ export async function GET(request: Request) {
     expired: summary.expired,
     urgent: summary.urgent,
     warning: summary.warning,
-    unassigned_count: unassigned.length,
-    sent: results.filter(r => r.ok).length,
-    failed: results.filter(r => !r.ok).length,
-    results,
+    recap_sent: recapResult.ok,
+    recap_error: recapResult.error,
+    recap_to: LAGENCE_EMAIL,
     candidate_reminders: {
       sent: candidateReminders.filter(r => r.ok).length,
       failed: candidateReminders.filter(r => !r.ok).length,

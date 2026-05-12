@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizePhoneE164 } from '@/lib/sign/phone-format'
+import { getOrCreateClientPortal } from '@/lib/report/portal-helper'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import type { ReportDeliveryChannel, ReportLinkStatus } from '@/lib/report/types'
 
 export const runtime = 'nodejs'
@@ -84,6 +86,34 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     }
     if (typeof body.delivery_channel === 'string' && (VALID_CHANNELS as string[]).includes(body.delivery_channel)) {
       update.delivery_channel = body.delivery_channel
+    }
+
+    // v2.7.3 — Toggle "Utiliser portail rapports"
+    // Si activation → vérifie qu'un client_id est lié via report_link_clients
+    // et auto-create le portail si besoin (Q4=B).
+    if (typeof body.use_client_portal === 'boolean') {
+      if (body.use_client_portal) {
+        const { data: rlc } = await (supabase as any)
+          .from('report_link_clients')
+          .select('client_id')
+          .eq('link_id', id)
+          .not('client_id', 'is', null)
+          .limit(1)
+          .maybeSingle()
+        const clientId = rlc?.client_id as string | null | undefined
+        if (!clientId) {
+          return NextResponse.json({
+            error: 'Pour activer le portail rapports, l\'entreprise doit être liée en DB clients (via l\'autocomplete dans "Entreprises autorisées").',
+          }, { status: 400 })
+        }
+        const server = await createServerClient()
+        const { data: { user } } = await server.auth.getUser()
+        const portal = await getOrCreateClientPortal(clientId, user?.id || null)
+        if (!portal) {
+          return NextResponse.json({ error: 'Impossible de créer le portail.' }, { status: 500 })
+        }
+      }
+      update.use_client_portal = body.use_client_portal
     }
 
     if (Object.keys(update).length === 0) {

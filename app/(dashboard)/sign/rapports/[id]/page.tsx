@@ -29,6 +29,8 @@ export default function ReportLinkDetailPage({
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [recapOpen, setRecapOpen] = useState(false)
+  // v2.7.1 — Mission liée (chargée si link.mission_id présent)
+  const [mission, setMission] = useState<{ id: string; client_nom: string | null; metier: string | null; metier_display: string | null; date_debut: string | null; date_fin: string | null } | null>(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -52,6 +54,29 @@ export default function ReportLinkDetailPage({
     fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  // v2.7.1 — Charge la mission liée si présente
+  useEffect(() => {
+    const missionId = (link as any)?.mission_id
+    if (!missionId) { setMission(null); return }
+    let cancelled = false
+    fetch(`/api/missions`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (cancelled || !d?.missions) return
+        const m = d.missions.find((x: any) => x.id === missionId)
+        if (m) setMission({
+          id: m.id,
+          client_nom: m.client_nom,
+          metier: m.metier,
+          metier_display: m.metier_display,
+          date_debut: m.date_debut,
+          date_fin: m.date_fin,
+        })
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [link])
 
   const publicUrl = link
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/report/${link.slug}`
@@ -322,6 +347,60 @@ export default function ReportLinkDetailPage({
         </button>
       </div>
 
+      {/* v2.7.1 — Card MISSION LIÉE (si lien créé depuis une mission) */}
+      {mission && (
+        <div style={{
+          marginTop: 14,
+          padding: 14,
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(99,102,241,0.02))',
+          border: '1.5px solid rgba(99,102,241,0.25)',
+          borderRadius: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ fontSize: 22 }}>🔗</div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: '#818CF8', textTransform: 'uppercase', marginBottom: 2 }}>
+              Mission liée
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>
+              {mission.metier_display || mission.metier || 'Mission'}
+              {mission.client_nom ? ` · ${mission.client_nom}` : ''}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+              {mission.date_debut ? (
+                <>Du {mission.date_debut.split('-').reverse().join('.')}{mission.date_fin ? ` au ${mission.date_fin.split('-').reverse().join('.')}` : ' (indéterminée)'}</>
+              ) : '—'}
+            </div>
+          </div>
+          <a
+            href={`/missions?highlight=${mission.id}`}
+            style={{
+              padding: '7px 12px',
+              borderRadius: 8,
+              background: 'rgba(99,102,241,0.12)',
+              border: '1.5px solid rgba(99,102,241,0.4)',
+              color: '#818CF8',
+              fontSize: 12,
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+          >
+            → Voir la mission
+          </a>
+        </div>
+      )}
+
+      {/* v2.7.3 — Card "Utiliser portail rapports" */}
+      {link && (
+        <UseClientPortalToggle
+          link={link}
+          onChanged={(newValue) => setLink({ ...link, use_client_portal: newValue } as ReportLink)}
+        />
+      )}
+
       {/* v2.4.3 — InfoCards CANDIDAT uniquement (les coords client vivent désormais
           dans la section "Entreprises autorisées" en bas de page). */}
       <div style={{
@@ -453,6 +532,76 @@ export default function ReportLinkDetailPage({
         </div>,
         document.body,
       )}
+    </div>
+  )
+}
+
+// v2.7.3 — Toggle "Utiliser portail rapports" sur la page détail
+function UseClientPortalToggle({ link, onChanged }: {
+  link: ReportLink
+  onChanged: (newValue: boolean) => void
+}) {
+  const [saving, setSaving] = useState(false)
+  const enabled = (link as any).use_client_portal === true
+
+  const toggle = async () => {
+    const next = !enabled
+    setSaving(true)
+    try {
+      const r = await fetch(`/api/admin/reports/${link.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ use_client_portal: next }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Erreur')
+      toast.success(next ? '🪟 Portail rapports activé' : 'Portail rapports désactivé')
+      onChanged(next)
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{
+      marginTop: 12,
+      padding: 14,
+      borderRadius: 10,
+      border: enabled ? '1.5px solid rgba(234,179,8,0.5)' : '1px solid var(--border)',
+      background: enabled ? 'rgba(234,179,8,0.06)' : 'var(--surface)',
+      display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap',
+    }}>
+      <div style={{ fontSize: 22, lineHeight: 1 }}>🪟</div>
+      <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+          Portail rapports {enabled && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 800, color: '#A16207', background: 'rgba(234,179,8,0.15)', padding: '2px 7px', borderRadius: 99 }}>ACTIF</span>}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
+          {enabled ? (
+            <>L&apos;email de validation va à l&apos;adresse principale de l&apos;entreprise (en DB clients). Le client clique → arrive sur son portail avec <strong>tous</strong> les rapports à valider.</>
+          ) : (
+            <>Aujourd&apos;hui : les notifications candidate_signed envoient un lien unique <code>/report/client/{'{'}token{'}'}</code> (TTL 7j). Active pour passer en mode portail (lien permanent vers <code>/client-portal/{'{'}slug{'}'}?tab=rapports</code>).</>
+          )}
+        </div>
+      </div>
+      <button
+        onClick={toggle}
+        disabled={saving}
+        style={{
+          padding: '8px 14px',
+          borderRadius: 8,
+          border: enabled ? '1.5px solid #EAB308' : '1.5px solid var(--border)',
+          background: enabled ? '#EAB308' : 'var(--surface)',
+          color: enabled ? '#1c1a14' : 'var(--foreground)',
+          fontSize: 12.5, fontWeight: 700,
+          cursor: saving ? 'wait' : 'pointer',
+          opacity: saving ? 0.6 : 1,
+        }}
+      >
+        {saving ? '…' : enabled ? 'Désactiver' : 'Activer'}
+      </button>
     </div>
   )
 }

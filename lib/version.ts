@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.7.0'
+export const APP_VERSION = '2.7.3'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,69 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.7.3 — Bouton mission → /sign/rapports/new pré-rempli (validation manuelle)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.7.3',
+    date: '2026-05-12',
+    label: 'Création lien rapport depuis mission — redirige vers /sign/rapports/new pré-rempli',
+    features: [
+      'CHANGEMENT — Le bouton "📋 Rapport" sur la liste missions ne crée plus le lien automatiquement. Il redirige vers /sign/rapports/new avec query params (candidat_id, candidat_nom, client_id, client_name, mission_id, metier) pour que l\'utilisateur choisisse le contact client et valide avant création.',
+      'PRÉ-REMPLISSAGE — Au mount de /sign/rapports/new, lecture des query params : si candidat_id présent → fetch /api/candidats/[id] pour récupérer email + téléphone (pas dispo dans missions). Nom entreprise pré-rempli. Contact client + email RESTENT VIDES (l\'utilisateur les saisit explicitement). Titre auto "Rapport {candidat} — {client} ({metier})". Bandeau violet "🔗 Création depuis une mission".',
+      'API — POST /api/admin/reports accepte désormais mission_id et le stocke dans report_links.mission_id (synchro auto des dates avec /api/missions PATCH inchangée).',
+      'CLEANUP — Suppression de la route /api/admin/missions/[id]/create-report-link (créée en v2.7.1, plus utilisée).',
+      'SUSPENSE — La page /sign/rapports/new utilise désormais useSearchParams → wrapper Suspense ajouté au top-level pour Next 16 prerendering (pattern obligatoire CLAUDE.md règle v1.9.78).',
+      'BUG FIX — /missions/portails : ajout d\'un bouton "← Missions" en haut de page (oubli initial).',
+      'MODE PORTAIL RAPPORTS — Nouveau toggle "🪟 Utiliser portail rapports" sur /sign/rapports/new ET /sign/rapports/[id]. Quand activé : (a) au moment de la signature candidat (status=candidate_signed), l\'email de notification va à clients.email (mail principal entreprise) au lieu du contact saisi sur le lien, (b) le lien dans l\'email pointe vers /client-portal/{slug}?tab=rapports (slug permanent) au lieu de /report/client/{token} (TTL 7j), (c) le client voit TOUS les rapports à valider en un seul endroit avec bouton jaune par rapport. Le token client_token reste généré (defensive, permet le fallback). Nouvelle colonne report_links.use_client_portal boolean DEFAULT false. Helper lib/report/portal-helper.ts (getOrCreateClientPortal) qui auto-crée le portail si absent au moment de l\'activation (Q4=B). Pour activer, le lien doit avoir un client_id lié en DB (sinon erreur 400 — le portail est indexé par client_id).',
+      'PORTAIL CLIENT — Onglet "📋 Rapports" (2e onglet sur /client-portal/{slug}). Filtres "Tous / À valider / Validés". Groupage par candidat → photo carré + métier + count. Bouton jaune "Voir le rapport à valider →" qui régénère auto le token si expiré (POST refresh-token). Modal Aperçu PDF + Télécharger. Bandeau notes_candidat (amber) et notes_client (bleu). 3 nouvelles routes publiques (liste, document, refresh-token).',
+      'NOTES CLIENT — Bouton "📝 Notes / Remarques" à côté de "Modifier les données" sur /report/client/[token]. Modal portalisé (300 chars). PATCH update-fields immédiat. Visible : admin tooltip 📝 SubmissionHistoryTable, candidat tooltip historique, portail client bandeau bleu, emails admin/candidat à la signature.',
+      'DOWNLOAD + WHATSAPP — Sur /report/client/[token] : bouton "⬇️ Télécharger" (nouvelle route /api/reports/client/[token]/download génère PDF stampé à la volée si pas en Storage) + bouton "📱 WhatsApp" (wa.me?text=... avec lien PDF — le destinataire clique pour télécharger).',
+      'EMAIL ALERTES CONFORMITÉ — Refonte routing : email récap quotidien envoyé UNIQUEMENT à info@l-agence.ch (toute l\'équipe sur cette boîte). Suppression du routage par consultant (plus d\'emails séparés par João/Seb). Rappels candidat J-30 / J-14 : destinataire = candidat, cc systématique à info@l-agence.ch.',
+      'MODAL "MA MISSION" CANDIDAT — Clic sur card "Mes missions" sur /report/[slug] ouvre désormais un modal portalisé avec dates + durée calculée ("2 mois et 5 jours") + responsable + boutons Appeler/WhatsApp/Email. Plus de bascule formulaire (qui montrait le rapport déjà soumis en mode lecture vide). Bug 2 A.',
+      'BOUTON RAPPORTS PORTAIL COLLABORATEURS — Nouveau bouton compact 🪟 "Rapports" sur chaque card candidat dans l\'onglet Collaborateurs qui bascule vers l\'onglet Rapports.',
+      'BOUTON RETOUR PORTAIL — Sur /report/client/[token] en mode portail : bouton "← Portail" dans le header → retour à /client-portal/{slug}?tab=rapports sans devoir valider. Lookup auto serveur via use_client_portal + client_portals.slug.',
+      'FIX BUG DATES FORMAT — Les fields type=date pré-remplis par auto-fill (Lundi/Mardi/.../Semaine N°) sont désormais VERROUILLÉS en lecture seule. Affichage respecte field.dateFormat (ex: "dd.MM" → "11.05") au lieu de l\'input HTML natif qui imposait jj/mm/aaaa tronqué dans les cellules étroites. Nouvelle prop lockedFields sur PublicFieldsLayer.',
+      'FIX FORMAT WEEKLABEL — formatWeekLabel() inclut maintenant le n° de semaine ISO : "Semaine 20 du 11 au 17 mai 2026" partout (emails, header validation client, dashboard).',
+      'EMAIL SIGNATURE — En mode portail, salutation = "Bonjour" sans nom de contact (l\'email part à l\'adresse principale entreprise, pas à un contact nommé). En mode direct, comportement original préservé ("Bonjour Marie,"). Candidat affiché avec métier entre parenthèses : "Mickael Voyenet (Chauffeur PL)".',
+      'POLISH UI — Loader fade-in décalé sur 3 pages (portail, RapportsTab, page validation client). Card semaine portail rapports : suppression de la ligne client_name + métier redondante (déjà dans le header de groupe). Fix double "Semaine 20" sur header validation. Bouton retour "← Missions" ajouté sur /missions/portails.',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.7.2 — Portail Client : onglet "Rapports d'heures"
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.7.2',
+    date: '2026-05-12',
+    label: 'Portail Client — 2e onglet "Rapports" (voir + valider + télécharger)',
+    features: [
+      'PORTAIL CLIENT — Navigation par onglets (👥 Collaborateurs / 📋 Rapports). Onglet actif souligné amber. URL ?tab=rapports pour deep-link. Badge rouge avec count des rapports en attente de validation sur l\'onglet Rapports.',
+      'ONGLET RAPPORTS — Liste groupée par candidat puis par semaine (ISO). 3 états : ⏳ "À valider" (candidate_signed, amber + bouton Valider →), ✅ "Validé" (completed/client_signed, vert + Aperçu PDF + Télécharger), ✏️ "Brouillon" (draft, gris, lecture seule). Totaux calculés (h normales · h sup · repas · h dépl.) via sumSubmissionMetrics. Bandeau amber affichant notes_candidat sur les rapports à valider.',
+      'FILTRES — Tous / À valider (badge count) / Validés. Filtre par défaut : "À valider" si count>0, sinon "Tous".',
+      'TOKEN AUTO-RÉGÉNÉRÉ — Si client_token expiré (TTL 7j dépassé), le bouton "Valider" devient "🔄 Régénérer mon lien et valider →" qui appelle POST /api/client-portal/[slug]/rapports/[id]/refresh-token pour générer un nouveau token (crypto.randomUUID + TTL 7j) puis redirige vers /report/client/{token}. Le slug du portail prouve la légitimité du client — pas besoin de contacter L-Agence.',
+      'APERÇU PDF — Modal portalisé (z-index 9999, ESC pour fermer) avec iframe vers /api/client-portal/[slug]/rapports/[id]/document?inline=1. Bouton Télécharger dans le header du modal. Si le PDF n\'est pas encore stampé en Storage (status=candidate_signed), il est généré à la volée via generateReportPdf (pattern #53).',
+      'API — 3 nouvelles routes publiques : GET /api/client-portal/[slug]/rapports (liste + counts + totaux), GET .../[id]/document (proxy PDF avec ownership check), POST .../[id]/refresh-token (régen token). Toutes vérifient slug actif + report_link_clients.client_id = portal.client_id (ownership strict).',
+      'SOURCE DES DONNÉES — Q1=B : on inclut TOUTES les submissions dont report_link_clients.client_id matche portal.client_id (historique élargi). Donc même après fin de mission, le client garde l\'accès à ses rapports passés pour la compta.',
+      'AUCUNE MIGRATION SQL — Le portail s\'appuie sur les tables existantes (client_portals, report_links, report_submissions, report_link_clients). Aucune nouvelle dépendance npm.',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.7.1 — Lien mission ↔ rapport : création 1-clic depuis la liste missions
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.7.1',
+    date: '2026-05-12',
+    label: 'Bouton "Créer lien rapport" depuis une mission + jours d\'arrêt désactivés',
+    features: [
+      'LISTE MISSIONS — Nouveau bouton 📋 dans la colonne Actions de chaque ligne. Si aucun rapport lié : outline (création 1-clic), si rapport existant : vert (ouvre le lien rapport). Désactivé avec tooltip "Mission incomplète" si la mission n\'a ni candidat ni client.',
+      'CRÉATION AUTOMATIQUE — POST /api/admin/missions/[id]/create-report-link. Récupère candidat (prenom/nom/email/tel), client (nom + contact principal contacts[0]), métier (metier_display||metier), dates (date_debut/date_fin). Choisit automatiquement le template kind="report" le plus récent. Idempotent : si un lien existe déjà pour la mission, renvoie l\'existant.',
+      'DB — Nouvelle colonne report_links.mission_id (FK ON DELETE SET NULL) + unique index partiel (1 mission ↔ 1 lien max). Nouvelle table report_auto_arret_log (dédup envois cron auto-arrêt).',
+      'SYNC DATES — PATCH /api/missions/[id] propage automatiquement les changements date_debut/date_fin vers report_link_clients.mission_start_date/end_date. Aucune submission déjà signée n\'est modifiée — seulement le cadrage des semaines à venir.',
+      'CARD MISSION LIÉE — Sur /sign/rapports/[id], affichage d\'une card violette "🔗 Mission liée" avec métier + client + période + bouton "Voir la mission". Cliquable vers /missions?highlight={mission_id}.',
+      'JOURS D\'ARRÊT DÉSACTIVÉS — Sur /report/[slug], les jours couverts par un arrêt mission (lus depuis missions.arrets via report_links.mission_id) sont automatiquement grisés et bloqués en saisie. Le candidat ne peut pas y entrer d\'heures. Tooltip "Arrêt".',
+      'CRON AUTO-ARRÊT — Nouveau cron /api/cron/auto-arret-reports (dimanche 20h UTC, Bearer CRON_SECRET). Pour chaque lien rapport rattaché à une mission, si un arrêt de ≥ 14 jours couvre toute la semaine qui vient de se terminer, envoie un email récapitulatif au créateur du lien + ADMIN_EMAIL (jamais au client ni au candidat). Dédup via report_auto_arret_log. PAS de signature, PAS de PDF — juste un email info HTML.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.7.0 — Compliance Documents : permis, CQC, identité + alertes + portail client
   // ─────────────────────────────────────────────────────────────────────

@@ -70,6 +70,27 @@ export async function GET(
     }
   }
 
+  // v2.7.1 — Si le lien est rattaché à une mission, récupérer les arrêts pour bloquer
+  // les jours côté form candidat. Best-effort (silent fail si KO).
+  let missionArrets: { debut: string; fin: string }[] = []
+  const missionId = (link as any).mission_id as string | null
+  if (missionId) {
+    try {
+      const supabase = createAdminClient()
+      const { data } = await (supabase as any)
+        .from('missions')
+        .select('arrets')
+        .eq('id', missionId)
+        .maybeSingle()
+      const raw = (data as any)?.arrets
+      if (Array.isArray(raw)) {
+        missionArrets = raw.filter(
+          (a: any) => a && typeof a.debut === 'string' && typeof a.fin === 'string'
+        )
+      }
+    } catch { /* silent */ }
+  }
+
   // Submissions existantes (pour bloquer les semaines déjà soumises ET montrer l'historique)
   const submissions = await listSubmissions(link.id)
 
@@ -90,6 +111,9 @@ export async function GET(
       documents: template.documents,
     },
     wizard: { enabled: wizardEnabled, steps: wizardSteps },
+    /** v2.7.1 — Arrêts maladie/accident de la mission liée (si applicable).
+     *  Exposé côté candidat pour griser les jours d'arrêt dans le form. */
+    mission_arrets: missionArrets,
     submissions: submissions.map(s => ({
       id: s.id,
       week_start: s.week_start,

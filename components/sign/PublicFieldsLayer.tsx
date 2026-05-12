@@ -57,7 +57,12 @@ interface Props {
   registerFieldEl?: (fieldId: string, el: HTMLDivElement | null) => void
   /** v2.6.2 — Map fieldId → raison de blocage (hors mission / déjà déclaré ailleurs).
    *  Le field est rendu grisé/read-only avec tooltip explicatif. */
-  blockedFields?: Map<string, { type: 'out_of_mission' | 'already_declared'; message: string; clientName?: string }>
+  blockedFields?: Map<string, { type: 'out_of_mission' | 'already_declared' | 'arret'; message: string; clientName?: string }>
+  /** v2.7.3 — Set fieldIds verrouillés en read-only même si appartiennent au signer courant.
+   *  Cas usage : fields date auto-fill (Lundi/Mardi/.../Semaine N°) pilotés par
+   *  le sélecteur de semaine en haut → l'utilisateur ne doit pas pouvoir les modifier.
+   *  Affichage : valeur formatée selon dateFormat (vs input date natif qui ignore le format). */
+  lockedFields?: Set<string>
 }
 
 export default function PublicFieldsLayer({
@@ -65,7 +70,7 @@ export default function PublicFieldsLayer({
   signatureDataUrl, onRequestSignature, recipientColor, autoFill,
   currentFieldId, registerFieldEl,
   currentRecipientOrder, previousSignerNames,
-  blockedFields,
+  blockedFields, lockedFields,
 }: Props) {
   const visible = fields.filter(f => f.page === page && !f.metadata?.hidden)
   const curOrder = currentRecipientOrder ?? 1
@@ -133,7 +138,7 @@ export default function PublicFieldsLayer({
                 widthPx={w}
                 heightPx={h}
                 isCurrent={isCurrent}
-                forceReadOnly={belongsToPrevious}
+                forceReadOnly={belongsToPrevious || !!lockedFields?.has(f.id)}
               />
             )}
           </div>
@@ -523,7 +528,7 @@ function FieldInput({
 function BlockedFieldDisplay({
   reason, widthPx, heightPx,
 }: {
-  reason: { type: 'out_of_mission' | 'already_declared'; message: string; clientName?: string }
+  reason: { type: 'out_of_mission' | 'already_declared' | 'arret'; message: string; clientName?: string }
   widthPx: number
   heightPx: number
 }) {
@@ -554,7 +559,7 @@ function BlockedFieldDisplay({
           textOverflow: 'ellipsis',
           maxWidth: '95%',
         }}>
-          🔒 {reason.type === 'out_of_mission' ? 'Hors mission' : `Chez ${reason.clientName || 'autre'}`}
+          🔒 {reason.type === 'out_of_mission' ? 'Hors mission' : reason.type === 'arret' ? 'Arrêt' : `Chez ${reason.clientName || 'autre'}`}
         </span>
       )}
     </div>

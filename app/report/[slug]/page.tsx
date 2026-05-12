@@ -26,6 +26,7 @@ import CandidatWelcomeHeader from '@/components/report/CandidatWelcomeHeader'
 import ClientSelector from '@/components/report/ClientSelector'
 import MissionList, { type MissionItem } from '@/components/report/MissionList'
 import MissionInfoList from '@/components/report/MissionInfoList'
+import MissionInfoModal from '@/components/report/MissionInfoModal'
 import HistoryAccordion from '@/components/report/HistoryAccordion'
 import RecapPeriode from '@/components/report/RecapPeriode'
 import ContactAgenceButton from '@/components/report/ContactAgenceButton'
@@ -86,6 +87,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   // v2.4.0 — Multi-entreprise + landing page
   const [clients, setClients] = useState<ReportLinkClient[]>([])
   const [selectedClient, setSelectedClient] = useState<ReportLinkClient | null>(null)
+  // v2.7.3 — Modal infos mission (clic sur card "Mes missions" en landing)
+  const [missionInfoClient, setMissionInfoClient] = useState<ReportLinkClient | null>(null)
   const [phase, setPhase] = useState<'landing' | 'select_client' | 'form'>('landing')
   const [notesCandidat, setNotesCandidat] = useState<string>('')
   // v2.4.1 — Historique + récap (landing)
@@ -649,10 +652,10 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             </div>
             <MissionInfoList
               clients={clients}
-              onSelect={(c) => {
-                setSelectedClient(c)
-                setPhase('form')
-              }}
+              // v2.7.3 — Bug 2 A : ouvre un modal "Infos mission" au lieu de
+              // basculer en formulaire. Le clic sur "Mes missions" ne doit pas
+              // démarrer une saisie — c'est juste un récap des infos mission.
+              onSelect={(c) => setMissionInfoClient(c)}
             />
           </>
         )}
@@ -743,6 +746,14 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             pdfUrl={`/api/reports/${slug}/submissions/${viewerSubmission.id}/download`}
             title={`Rapport ${[data.candidat?.prenom, data.candidat?.nom].filter(Boolean).join(' ') || ''}`.trim() || 'Rapport'}
             subtitle={`Semaine du ${viewerSubmission.week_start} au ${viewerSubmission.week_end}`}
+          />
+        )}
+
+        {/* v2.7.3 — Modal "Infos mission" (clic sur card Mes missions) */}
+        {missionInfoClient && (
+          <MissionInfoModal
+            client={missionInfoClient}
+            onClose={() => setMissionInfoClient(null)}
           />
         )}
       </div>
@@ -837,6 +848,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     missionStart: selectedClient?.mission_start_date || null,
     missionEnd: selectedClient?.mission_end_date || null,
     declaredByOthers,
+    // v2.7.1 — Jours d'arrêt depuis la mission liée (désactivés visuellement)
+    arrets: (data as any)?.mission_arrets || [],
   })
   const blockedFields = buildBlockedFieldsMap({
     fields: candidatFields,
@@ -844,6 +857,23 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     blockedDays,
   })
   const blockedFieldIds = new Set(blockedFields.keys())
+
+  // v2.7.3 — Fields auto-fill verrouillés en read-only : dates par jour (Lundi/.../Dimanche)
+  // ET numéro de semaine (date avec dateFormat WW). Pilotés par le sélecteur de semaine
+  // en haut → l'utilisateur ne peut PAS les modifier. Affichés via formatDate (respecte
+  // field.dateFormat ex: "dd.MM") au lieu de l'input type=date natif (qui ignore dateFormat
+  // ET tronque visuellement l'année dans les cellules étroites du tableau).
+  const lockedFieldIds = new Set<string>()
+  for (const f of candidatFields) {
+    if (f.type !== 'date') continue
+    // wizardSection peut être direct sur le field OU dans metadata (legacy templates)
+    const wizardSection = f.wizardSection || (f.metadata?.wizardSection as string | undefined)
+    const dayOffset = getDayOffsetFromSection(wizardSection)
+    const isWeekNumberField = /W{1,2}/.test((f.dateFormat || '').toString())
+    if (dayOffset !== null || isWeekNumberField) {
+      lockedFieldIds.add(f.id)
+    }
+  }
 
   const canFinalize = !!signatureDataUrl
     && areAllRequiredFieldsFilled(candidatFields, values, signatureDataUrl, autoFill, blockedFieldIds)
@@ -1134,6 +1164,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
                     autoFill={autoFill}
                     currentRecipientOrder={isLockedWeek ? 99 : 1}
                     blockedFields={blockedFields}
+                    lockedFields={lockedFieldIds}
                   />
                 )}
               />
@@ -1172,6 +1203,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
                       recipientColor={recipientPalette}
                       autoFill={autoFill}
                       currentRecipientOrder={isLockedWeek ? 99 : 1}
+                      blockedFields={blockedFields}
+                      lockedFields={lockedFieldIds}
                     />
                   )}
                 />

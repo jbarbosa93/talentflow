@@ -7,12 +7,15 @@
 import { use, useEffect, useState } from 'react'
 import {
   Loader2, AlertTriangle, Phone, ShieldCheck, Calendar, FileText,
-  MessageCircle, Mail, MapPin, Cake, AlertCircle, CheckCircle2,
+  MessageCircle, Mail, MapPin, Cake, AlertCircle, CheckCircle2, Users, ClipboardList, FileClock,
 } from 'lucide-react'
 import { formatExpiryDate } from '@/lib/compliance/document-status'
 import type { CandidatDocumentWithStatus } from '@/lib/compliance/types'
 import PortalDocumentsModal from '@/components/portal/PortalDocumentsModal'
 import ClientLogo from '@/components/ClientLogo'
+import RapportsTab from '@/components/portal/RapportsTab'
+
+type TabKey = 'collaborateurs' | 'rapports'
 
 interface PortalCandidat {
   id: string
@@ -42,6 +45,33 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
   const [data, setData] = useState<PortalData | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'invalid' | 'revoked' | 'error'>('loading')
   const [openDocsFor, setOpenDocsFor] = useState<string | null>(null)
+  // v2.7.2 — Onglets : lecture initiale du ?tab=... + sync URL sur changement
+  const [tab, setTab] = useState<TabKey>(() => {
+    if (typeof window === 'undefined') return 'collaborateurs'
+    const sp = new URLSearchParams(window.location.search)
+    return sp.get('tab') === 'rapports' ? 'rapports' : 'collaborateurs'
+  })
+  // Badge count des rapports à valider (fetch léger en arrière-plan)
+  const [pendingCount, setPendingCount] = useState<number | null>(null)
+
+  const switchTab = (next: TabKey) => {
+    setTab(next)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      if (next === 'rapports') url.searchParams.set('tab', 'rapports')
+      else url.searchParams.delete('tab')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }
+
+  // Fetch count rapports en attente (pour le badge sur l'onglet)
+  useEffect(() => {
+    if (state !== 'ok') return
+    fetch(`/api/client-portal/${slug}/rapports?status=pending`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.counts) setPendingCount(d.counts.pending) })
+      .catch(() => {})
+  }, [slug, state])
 
   useEffect(() => {
     fetch(`/api/client-portal/${slug}`)
@@ -60,8 +90,11 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
   if (state === 'loading') {
     return (
       <CenteredCard>
+        <style>{`@keyframes tfFadeIn { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }`}</style>
         <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', color: '#EAB308' }} />
-        <p style={{ marginTop: 16, fontSize: 14, color: '#6B7280' }}>Chargement du portail…</p>
+        <p style={{ marginTop: 16, fontSize: 14, color: '#6B7280', animation: 'tfFadeIn 0.6s ease-out 0.25s backwards' }}>
+          Chargement du portail…
+        </p>
       </CenteredCard>
     )
   }
@@ -154,33 +187,66 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
         </div>
       </header>
 
+      {/* v2.7.2 — Navigation par onglets */}
+      <nav style={{
+        borderBottom: '1px solid #E5E7EB',
+        background: '#fff',
+        position: 'sticky', top: 0, zIndex: 50,
+      }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px', display: 'flex', gap: 4 }}>
+          <TabButton
+            active={tab === 'collaborateurs'}
+            onClick={() => switchTab('collaborateurs')}
+            icon={<Users size={16} />}
+            label="Collaborateurs"
+            count={data.candidats.length}
+          />
+          <TabButton
+            active={tab === 'rapports'}
+            onClick={() => switchTab('rapports')}
+            icon={<ClipboardList size={16} />}
+            label="Rapports"
+            badge={pendingCount && pendingCount > 0 ? pendingCount : null}
+          />
+        </div>
+      </nav>
+
       {/* Content */}
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 16px' }}>
-        {data.candidats.length === 0 ? (
-          <div style={{
-            padding: 60, textAlign: 'center',
-            background: '#fff', border: '1px dashed #E5E7EB', borderRadius: 14,
-            color: '#6B7280', fontSize: 14,
-          }}>
-            Aucun collaborateur en mission actuellement.<br/>
-            <span style={{ fontSize: 12, marginTop: 8, display: 'inline-block' }}>Contactez L-Agence SA pour toute question.</span>
-          </div>
-        ) : (
-          <>
-            <p style={{ fontSize: 14, color: '#374151', margin: '0 0 22px', fontWeight: 500 }}>
-              <strong style={{ color: '#1C1A14' }}>{data.candidats.length}</strong> collaborateur{data.candidats.length > 1 ? 's' : ''} en mission chez vous.
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16, alignItems: 'start' }}>
-              {data.candidats.map((c, idx) => (
-                <CandidatCard
-                  key={c.id}
-                  candidat={c}
-                  delayMs={idx * 60}
-                  onOpenDocs={() => setOpenDocsFor(c.id)}
-                />
-              ))}
+        {tab === 'collaborateurs' && (
+          data.candidats.length === 0 ? (
+            <div style={{
+              padding: 60, textAlign: 'center',
+              background: '#fff', border: '1px dashed #E5E7EB', borderRadius: 14,
+              color: '#6B7280', fontSize: 14,
+            }}>
+              Aucun collaborateur en mission actuellement.<br/>
+              <span style={{ fontSize: 12, marginTop: 8, display: 'inline-block' }}>Contactez L-Agence SA pour toute question.</span>
             </div>
-          </>
+          ) : (
+            <>
+              <p style={{ fontSize: 14, color: '#374151', margin: '0 0 22px', fontWeight: 500 }}>
+                <strong style={{ color: '#1C1A14' }}>{data.candidats.length}</strong> collaborateur{data.candidats.length > 1 ? 's' : ''} en mission chez vous.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16, alignItems: 'start' }}>
+                {data.candidats.map((c, idx) => (
+                  <CandidatCard
+                    key={c.id}
+                    candidat={c}
+                    delayMs={idx * 60}
+                    onOpenDocs={() => setOpenDocsFor(c.id)}
+                    onOpenRapports={() => {
+                      switchTab('rapports')
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                    }}
+                  />
+                ))}
+              </div>
+            </>
+          )
+        )}
+        {tab === 'rapports' && (
+          <RapportsTab slug={slug} />
         )}
       </main>
 
@@ -224,10 +290,11 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
 
 // ─── Card candidat ─────────────────────────────────────────────────────────────
 
-function CandidatCard({ candidat: c, delayMs, onOpenDocs }: {
+function CandidatCard({ candidat: c, delayMs, onOpenDocs, onOpenRapports }: {
   candidat: PortalCandidat
   delayMs: number
   onOpenDocs: () => void
+  onOpenRapports: () => void
 }) {
   const [imgError, setImgError] = useState(false)
   const fullName = `${c.prenom || ''} ${c.nom || ''}`.trim() || 'Collaborateur'
@@ -402,6 +469,20 @@ function CandidatCard({ candidat: c, delayMs, onOpenDocs }: {
             <span><strong style={{ color: '#1C1A14' }}>{totalDocs}</strong> document{totalDocs > 1 ? 's' : ''}</span>
           )}
         </div>
+        {/* v2.7.3 — Bouton compact "Rapports" : bascule vers l'onglet Rapports du portail */}
+        <button
+          onClick={onOpenRapports}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '7px 10px', borderRadius: 99,
+            background: '#FEF3C7', border: '1.5px solid #FCD34D',
+            color: '#78350F', fontSize: 11.5, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+          title="Voir ses rapports d'heures"
+        >
+          <FileClock size={11} /> Rapports
+        </button>
         <button
           onClick={onOpenDocs}
           disabled={totalDocs === 0}
@@ -417,7 +498,7 @@ function CandidatCard({ candidat: c, delayMs, onOpenDocs }: {
           onMouseEnter={e => { if (totalDocs > 0) (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)' }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none' }}
         >
-          <FileText size={11} /> Voir tous les documents
+          <FileText size={11} /> Documents
         </button>
       </div>
 
@@ -553,4 +634,55 @@ function miniBtn(bg: string, color: string): React.CSSProperties {
     fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
     fontFamily: 'inherit', transition: 'transform 0.15s',
   }
+}
+
+// v2.7.2 — Bouton onglet (soulignement amber si actif + badge optionnel)
+function TabButton({ active, onClick, icon, label, count, badge }: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  label: string
+  count?: number
+  badge?: number | null
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '14px 16px',
+        border: 'none',
+        background: 'transparent',
+        color: active ? '#1C1A14' : '#6B7280',
+        fontSize: 14, fontWeight: 700,
+        cursor: 'pointer',
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        position: 'relative',
+        fontFamily: 'inherit',
+        minHeight: 48,
+      }}
+    >
+      {icon}
+      <span>{label}</span>
+      {typeof count === 'number' && (
+        <span style={{
+          fontSize: 11, color: '#9CA3AF', fontWeight: 600,
+          background: '#F3F4F6', padding: '1px 7px', borderRadius: 99,
+        }}>{count}</span>
+      )}
+      {badge && badge > 0 && (
+        <span style={{
+          fontSize: 11, color: '#fff', fontWeight: 800,
+          background: '#DC2626', padding: '1px 7px', borderRadius: 99,
+          minWidth: 18, textAlign: 'center',
+        }}>{badge}</span>
+      )}
+      {active && (
+        <span style={{
+          position: 'absolute', bottom: -1, left: 12, right: 12,
+          height: 3, borderRadius: '3px 3px 0 0',
+          background: '#EAB308',
+        }} />
+      )}
+    </button>
+  )
 }

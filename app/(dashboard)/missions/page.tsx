@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import {
-  TrendingUp, Plus, Pencil, Trash2, X,
+  TrendingUp, Plus, Pencil, Trash2, X, FileText,
   Loader2, CheckCircle2, Clock, XCircle,
   Building2, User, Calendar, Search, AlertTriangle,
   ChevronDown, ChevronUp, ShieldCheck,
@@ -38,6 +38,8 @@ interface Mission {
   absences: { debut: string; fin: string }[]
   vacances: { debut: string; fin: string }[]
   arrets: { debut: string; fin: string }[]
+  report_link_id: string | null
+  report_link_slug: string | null
   created_at: string
   updated_at: string
 }
@@ -806,11 +808,12 @@ function DeleteModal({ mission, onConfirm, onClose }: { mission: Mission; onConf
 
 // ─── Mission Row (compact) ────────────────────────────────────────────────────
 
-function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
+function MissionRow({ mission, onEdit, onDelete, onMakePermanent, onCreateReport }: {
   mission: Mission & { _expired?: boolean }
   onEdit: (m: Mission) => void
   onDelete: (m: Mission) => void
   onMakePermanent: (m: Mission) => void
+  onCreateReport: (m: Mission) => void
 }) {
   const effectifStatut = mission._expired ? 'fin_mission' : mission.statut
   // LPP active si marge_avec_lpp renseignée ET mission > 3 mois
@@ -918,6 +921,34 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
             ∞
           </button>
         )}
+        {(() => {
+          const hasLink = !!mission.report_link_id
+          const incomplete = !mission.candidat_id && !mission.client_id
+          const disabled = incomplete
+          const title = hasLink
+            ? 'Voir le rapport lié'
+            : incomplete
+              ? 'Mission incomplète — candidat ou client manquant'
+              : 'Créer un lien rapport pré-rempli'
+          return (
+            <button
+              onClick={() => onCreateReport(mission)}
+              disabled={disabled}
+              style={{
+                padding: '5px 7px', borderRadius: 6,
+                background: hasLink ? 'rgba(34,197,94,0.12)' : 'var(--secondary)',
+                border: hasLink ? '1.5px solid rgba(34,197,94,0.4)' : '1px solid var(--border)',
+                color: hasLink ? 'var(--success)' : 'var(--muted)',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                opacity: disabled ? 0.4 : 1,
+                display: 'flex', alignItems: 'center',
+              }}
+              title={title}
+            >
+              <FileText size={12} />
+            </button>
+          )
+        })()}
         <button onClick={() => onEdit(mission)} style={{ padding: '5px 7px', borderRadius: 6, background: 'var(--secondary)', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Modifier"><Pencil size={12} /></button>
         <button onClick={() => onDelete(mission)} style={{ padding: '5px 7px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Supprimer"><Trash2 size={12} /></button>
       </div>
@@ -1215,6 +1246,28 @@ export default function MissionsPage() {
     } catch (e: any) { toast.error(e.message) }
   }
 
+  // v2.7.3 — Ouverture lien existant OU redirect vers /sign/rapports/new pré-rempli
+  // (l'utilisateur choisit le contact client et valide avant de créer)
+  const handleCreateReport = (m: Mission) => {
+    if (m.report_link_id) {
+      window.location.href = `/sign/rapports/${m.report_link_id}`
+      return
+    }
+    if (!m.candidat_id && !m.client_id) {
+      toast.error('Mission incomplète — candidat ou client manquant')
+      return
+    }
+    const params = new URLSearchParams()
+    if (m.candidat_id) params.set('candidat_id', m.candidat_id)
+    if (m.candidat_nom) params.set('candidat_nom', m.candidat_nom)
+    if (m.client_id) params.set('client_id', m.client_id)
+    if (m.client_nom) params.set('client_name', m.client_nom)
+    params.set('mission_id', m.id)
+    const metierAffiche = m.metier_display || m.metier
+    if (metierAffiche) params.set('metier', metierAffiche)
+    window.location.href = `/sign/rapports/new?${params.toString()}`
+  }
+
   if (!mounted) return null
 
   return (
@@ -1506,7 +1559,7 @@ export default function MissionsPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {missions.map(m => <MissionRow key={m.id} mission={m} onEdit={setEditMission} onDelete={setDeleteMission} onMakePermanent={handleMakePermanent} />)}
+          {missions.map(m => <MissionRow key={m.id} mission={m} onEdit={setEditMission} onDelete={setDeleteMission} onMakePermanent={handleMakePermanent} onCreateReport={handleCreateReport} />)}
           <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', marginTop: 6 }}>{missions.length} entrée{missions.length !== 1 ? 's' : ''}</div>
         </div>
       )}

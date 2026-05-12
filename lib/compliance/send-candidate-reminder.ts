@@ -8,6 +8,8 @@
 import { formatExpiryDate } from './document-status'
 
 const FROM_DEFAULT = 'L-Agence SA <noreply@talent-flow.ch>'
+// v2.7.3 — Adresse principale L-Agence en copie systématique sur tous les rappels candidat
+const LAGENCE_CC = 'info@l-agence.ch'
 
 export interface CandidateReminderResult {
   ok: boolean
@@ -117,7 +119,9 @@ export async function sendCandidateReminderEmail(args: {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM_DEFAULT, to: args.to, subject, html, text }),
+      // v2.7.3 — Destinataire principal = candidat ; cc systématique à info@l-agence.ch
+      // pour que l'équipe ait toujours une trace des rappels envoyés.
+      body: JSON.stringify({ from: FROM_DEFAULT, to: args.to, cc: LAGENCE_CC, subject, html, text }),
     })
     if (!r.ok) {
       const err = await r.text().catch(() => `HTTP ${r.status}`)

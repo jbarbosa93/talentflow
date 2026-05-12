@@ -58,6 +58,9 @@ interface VerifyResponse {
   weekLabel?: string
   /** v2.5.1 — Numéro de semaine ISO (ex: 19 pour la semaine du 4-10 mai 2026). */
   weekNumber?: number
+  /** v2.7.3 — Slug du portail client si le lien est en mode portail (null sinon).
+   *  Permet d'afficher un bouton "← Retour au portail" dans le header. */
+  portal_slug?: string | null
 }
 
 const COMPANY = 'L-Agence SA'
@@ -82,6 +85,10 @@ export default function PublicClientReportPage({
   const [saving, setSaving] = useState(false)
   // v2.4.0 — Note libre client (saved via PATCH update-fields juste avant la signature finale)
   const [notesClient, setNotesClient] = useState<string>('')
+  // v2.7.3 — Modal "Notes/Remarques" en haut de page (à côté de "Modifier les données")
+  const [notesModalOpen, setNotesModalOpen] = useState(false)
+  const [notesDraft, setNotesDraft] = useState<string>('')
+  const [savingNotes, setSavingNotes] = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 900)
@@ -224,8 +231,11 @@ export default function PublicClientReportPage({
   if (state === 'loading') {
     return (
       <CenteredCard>
+        <style>{`@keyframes tfFadeIn { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }`}</style>
         <Loader2 size={28} className="animate-spin" style={{ color: '#EAB308' }} />
-        <p style={{ ...textStyle, marginTop: 16 }}>Chargement du rapport…</p>
+        <p style={{ ...textStyle, marginTop: 16, animation: 'tfFadeIn 0.6s ease-out 0.25s backwards' }}>
+          Chargement du rapport…
+        </p>
       </CenteredCard>
     )
   }
@@ -356,11 +366,28 @@ export default function PublicClientReportPage({
         display: 'flex', alignItems: 'center', gap: 12,
         flexShrink: 0,
       }}>
+        {/* v2.7.3 — Bouton retour vers le portail client (visible UNIQUEMENT si lien en mode portail) */}
+        {data.portal_slug && (
+          <a
+            href={`/client-portal/${data.portal_slug}?tab=rapports`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '6px 10px', borderRadius: 8,
+              border: '1px solid #E5E7EB', background: '#fff',
+              color: '#374151', fontSize: 12, fontWeight: 600,
+              textDecoration: 'none', flexShrink: 0,
+            }}
+            title="Retour au portail (sans valider)"
+          >
+            ← Portail
+          </a>
+        )}
         {/* v2.4.7 — Logo officiel (au lieu de l'icône jaune + texte L-AGENCE approximatif) */}
         <LogoLAgence height={isMobile ? 30 : 34} color="dark" />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {data.weekNumber ? <strong style={{ color: '#1C1A14' }}>Semaine {data.weekNumber} · </strong> : null}
+          {/* v2.7.3 — weekLabel inclut déjà "Semaine N°" depuis formatWeekLabel().
+              Avant : "Semaine 20 · Semaine 20 du 11..." → maintenant juste le label. */}
+          <div style={{ fontSize: 12, color: '#1C1A14', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {data.weekLabel}
           </div>
         </div>
@@ -479,6 +506,63 @@ export default function PublicClientReportPage({
             }}
           >
             <Edit3 size={11} /> Modifier les données
+          </button>
+          {/* v2.7.3 — Bouton "Notes/Remarques" : ouvre modal pour saisir des commentaires
+              au candidat + L-Agence. Visible même sans modif des données. */}
+          <button
+            type="button"
+            onClick={() => { setNotesDraft(notesClient); setNotesModalOpen(true) }}
+            style={{
+              flexShrink: 0,
+              padding: '4px 10px', fontSize: 11.5, fontWeight: 600,
+              border: notesClient ? '1.5px solid #2563EB' : '1px solid #93C5FD',
+              borderRadius: 7,
+              background: notesClient ? '#DBEAFE' : 'transparent',
+              color: '#1D4ED8',
+              cursor: 'pointer', fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}
+          >
+            📝 {notesClient ? 'Note ajoutée' : 'Notes / Remarques'}
+          </button>
+          {/* v2.7.3 — Bouton Télécharger le PDF (génère à la volée si pas encore stampé) */}
+          <a
+            href={`/api/reports/client/${token}/download`}
+            style={{
+              flexShrink: 0,
+              padding: '4px 10px', fontSize: 11.5, fontWeight: 600,
+              border: '1px solid #D1D5DB', borderRadius: 7,
+              background: '#fff', color: '#374151', textDecoration: 'none',
+              fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}
+            title="Télécharger le rapport en PDF"
+          >
+            ⬇️ Télécharger
+          </a>
+          {/* v2.7.3 — Bouton WhatsApp : ouvre wa.me/web.whatsapp.com avec le lien
+              du PDF dans le message. Le client choisit le contact, le destinataire
+              clique le lien pour télécharger le PDF. */}
+          <button
+            type="button"
+            onClick={() => {
+              const pdfUrl = `${window.location.origin}/api/reports/client/${token}/download`
+              const candidatLabel = candidateFullName || 'le collaborateur'
+              const msg = `Bonjour,\n\nVoici le rapport d'heures de ${candidatLabel} pour la ${data.weekLabel || ''}.\n\nLien PDF : ${pdfUrl}\n\n— L-Agence SA`
+              const url = `https://wa.me/?text=${encodeURIComponent(msg)}`
+              window.open(url, '_blank', 'noopener,noreferrer')
+            }}
+            style={{
+              flexShrink: 0,
+              padding: '4px 10px', fontSize: 11.5, fontWeight: 600,
+              border: '1.5px solid #25D366', borderRadius: 7,
+              background: '#25D366', color: '#fff',
+              cursor: 'pointer', fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}
+            title="Envoyer le rapport par WhatsApp"
+          >
+            📱 WhatsApp
           </button>
         </div>
       )}
@@ -689,6 +773,141 @@ export default function PublicClientReportPage({
           onConfirm={doFinalize}
         />
       )}
+
+      {/* v2.7.3 — Modal Notes/Remarques (sauvegarde immédiate via PATCH update-fields) */}
+      {notesModalOpen && (
+        <NotesClientModal
+          value={notesDraft}
+          onChange={setNotesDraft}
+          saving={savingNotes}
+          onClose={() => setNotesModalOpen(false)}
+          onSave={async () => {
+            setSavingNotes(true)
+            try {
+              const trimmed = notesDraft.trim().slice(0, 300)
+              const r = await fetch(`/api/reports/client/${token}/update-fields`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes_client: trimmed }),
+              })
+              const d = await r.json()
+              if (!r.ok) throw new Error(d.error || 'Erreur')
+              setNotesClient(trimmed)
+              toast.success(trimmed ? 'Note enregistrée' : 'Note supprimée')
+              setNotesModalOpen(false)
+            } catch (e: any) {
+              toast.error(e.message || 'Erreur enregistrement note')
+            } finally {
+              setSavingNotes(false)
+            }
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// v2.7.3 — Modal portalisé pour saisir notes client (max 300 chars)
+function NotesClientModal({ value, onChange, saving, onSave, onClose }: {
+  value: string
+  onChange: (v: string) => void
+  saving: boolean
+  onSave: () => void
+  onClose: () => void
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !saving) onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose, saving])
+
+  return (
+    <div
+      onClick={() => { if (!saving) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 14,
+          width: 'min(540px, 100%)',
+          padding: 22,
+          boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
+          fontFamily: 'system-ui, sans-serif',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#1C1A14' }}>
+              📝 Notes / Remarques
+            </div>
+            <div style={{ fontSize: 12.5, color: '#6B7280', marginTop: 4, lineHeight: 1.5 }}>
+              Visible pour vous sur le portail, par le candidat et par L-Agence. Idéal pour signaler un écart, une absence, une correction que vous avez fait sur le rapport…
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={saving}
+            style={{
+              width: 32, height: 32, borderRadius: 8,
+              border: '1px solid #E5E7EB', background: '#fff',
+              cursor: saving ? 'wait' : 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            aria-label="Fermer"
+          >
+            <XIcon size={14} />
+          </button>
+        </div>
+        <textarea
+          value={value}
+          onChange={e => onChange(e.target.value.slice(0, 300))}
+          maxLength={300}
+          rows={5}
+          placeholder="Ex: Pierre a fait 9h le mardi au lieu de 8h, à corriger…"
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            border: '1px solid #D1D5DB', borderRadius: 8,
+            fontSize: 14, fontFamily: 'inherit', lineHeight: 1.5,
+            resize: 'vertical',
+          }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+          <span style={{ fontSize: 11.5, color: '#9CA3AF' }}>{value.length}/300</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={onClose}
+              disabled={saving}
+              style={{
+                padding: '8px 14px', borderRadius: 8,
+                border: '1px solid #E5E7EB', background: '#fff',
+                color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              Annuler
+            </button>
+            <button
+              onClick={onSave}
+              disabled={saving}
+              style={{
+                padding: '8px 16px', borderRadius: 8,
+                border: '1.5px solid #1C1A14', background: '#EAB308',
+                color: '#1C1A14', fontSize: 13, fontWeight: 700,
+                cursor: saving ? 'wait' : 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              Enregistrer
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

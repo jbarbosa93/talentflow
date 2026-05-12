@@ -182,26 +182,90 @@ export async function POST(
   let notifResult: { email?: { ok: boolean; error?: string }; whatsapp?: { ok: boolean; error?: string } } = {}
   if (clientToken) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
-    const signUrl = `${appUrl}/report/client/${clientToken}`
+
+    // v2.7.3 — Mode portail rapports : si activé, on remplace l'URL signature
+    // par le portail permanent + on cible l'email principal de l'entreprise.
+    let portalSignUrl: string | null = null
+    let portalDestEmail: string | null = null
+    let portalUsed = false
+    if ((link as any).use_client_portal === true) {
+      // Trouve le client_id via report_link_clients (1ʳᵉ ligne avec client_id non null)
+      const { data: rlc } = await supabase
+        .from('report_link_clients' as any)
+        .select('client_id')
+        .eq('link_id', link.id)
+        .not('client_id', 'is', null)
+        .limit(1)
+        .maybeSingle()
+      const clientId = (rlc as any)?.client_id as string | null
+      if (clientId) {
+        const { data: portal } = await supabase
+          .from('client_portals' as any)
+          .select('slug, is_active')
+          .eq('client_id', clientId)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if ((portal as any)?.slug) {
+          portalSignUrl = `${appUrl}/client-portal/${(portal as any).slug}?tab=rapports`
+        }
+        const { data: clientRow } = await (supabase as any)
+          .from('clients')
+          .select('email')
+          .eq('id', clientId)
+          .maybeSingle()
+        portalDestEmail = (clientRow as any)?.email || null
+      }
+    }
+
+    // URL et destinataire effectifs (portail prioritaire si dispo)
+    const signUrl = portalSignUrl || `${appUrl}/report/client/${clientToken}`
+    const emailTarget = portalSignUrl && portalDestEmail ? portalDestEmail : dest.email
+    portalUsed = !!(portalSignUrl && portalDestEmail)
+
     // v2.3.x Bug 7 — Utilise link.candidat_name (source unique) au lieu de parser title.
     // Plus jamais "Rapport d'heures Joao a soumis..." dans les emails.
-    const candidateName = (link.candidat_name && link.candidat_name.trim())
+    let candidateName = (link.candidat_name && link.candidat_name.trim())
       || (link.title || 'Le collaborateur')
 
+    // v2.7.3 — Ajoute le métier entre parenthèses : "Mickael Voyenet (Chauffeur PL)"
+    // Source : missions.metier_display || missions.metier via link.mission_id
+    const missionIdLink = (link as any).mission_id as string | null
+    if (missionIdLink) {
+      try {
+        const { data: missionRow } = await (supabase as any)
+          .from('missions')
+          .select('metier, metier_display')
+          .eq('id', missionIdLink)
+          .maybeSingle()
+        const metier = (missionRow as any)?.metier_display || (missionRow as any)?.metier
+        if (metier && !candidateName.includes('(')) {
+          candidateName = `${candidateName} (${metier})`
+        }
+      } catch { /* silent */ }
+    }
+
     if (link.delivery_channel === 'email' || link.delivery_channel === 'both') {
-      if (dest.email) {
+      if (emailTarget) {
         const r = await sendClientInviteEmail({
-          to: dest.email,
-          clientName: dest.name || dest.email,
-          clientContactName: dest.contact,
+          to: emailTarget,
+          clientName: dest.name || emailTarget,
+          clientContactName: portalUsed ? null : dest.contact,
           candidateName,
           weekLabel: weekDates.label,
           signUrl,
           expiresAt: tokenExpires,
+          portalMode: portalUsed,
         })
         notifResult.email = r
       } else {
-        notifResult.email = { ok: false, error: 'Email client manquant' }
+        notifResult.email = {
+          ok: false,
+          error: portalUsed
+            ? 'Email principal entreprise manquant (renseigne-le dans la fiche client)'
+            : 'Email client manquant',
+        }
       }
     }
     if (link.delivery_channel === 'whatsapp' || link.delivery_channel === 'both') {
@@ -224,7 +288,7 @@ export async function POST(
       submissionId,
       action: 'client_notified',
       ip,
-      metadata: { channel: link.delivery_channel, ...notifResult },
+      metadata: { channel: link.delivery_channel, portal_used: portalUsed, ...notifResult },
     })
   }
 

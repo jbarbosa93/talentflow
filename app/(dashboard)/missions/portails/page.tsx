@@ -4,11 +4,12 @@
 // v2.7.0
 
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import {
   Plus, Copy, ExternalLink, Trash2, X, Loader2, Search, ShieldCheck,
-  Check, Link as LinkIcon, Calendar,
+  Check, Link as LinkIcon, Calendar, ChevronLeft,
 } from 'lucide-react'
 
 interface ClientPortal {
@@ -81,6 +82,14 @@ export default function PortailsPage() {
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1100, margin: '0 auto' }}>
+      {/* v2.7.3 — Bouton retour Missions */}
+      <div style={{ marginBottom: 12 }}>
+        <Link href="/missions" className="neo-btn-ghost neo-btn-sm" style={{ padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <ChevronLeft size={14} />
+          Missions
+        </Link>
+      </div>
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
         <div>

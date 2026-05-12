@@ -2,9 +2,9 @@
 // v2.2.6
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ClipboardList, Loader2, Plus, FileText, Eraser } from 'lucide-react'
 import { toast } from 'sonner'
 import type { SignTemplate } from '@/lib/sign/types'
@@ -13,9 +13,27 @@ import ClientContactAutocomplete from '@/components/report/ClientContactAutocomp
 import SaveContactDialog from '@/components/report/SaveContactDialog'
 
 export default function NewReportLinkPage() {
+  // v2.7.3 — useSearchParams nécessite Suspense au top-level (Next 16 prerendering)
+  return (
+    <Suspense fallback={null}>
+      <NewReportLinkPageInner />
+    </Suspense>
+  )
+}
+
+function NewReportLinkPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [templates, setTemplates] = useState<SignTemplate[]>([])
   const [tplLoading, setTplLoading] = useState(true)
+
+  // v2.7.3 — Mission liée (pré-remplissage depuis /missions). Stocké en state hidden
+  // et inclus dans le POST de création du lien.
+  const [missionId, setMissionId] = useState<string | null>(null)
+  // v2.7.3 — Mode "Utiliser portail rapports" : email validation → /client-portal/{slug}
+  const [useClientPortal, setUseClientPortal] = useState(false)
+  // v2.7.3 — Email principal entreprise (clients.email) — affiché quand toggle activé
+  const [clientPrincipalEmail, setClientPrincipalEmail] = useState<string | null>(null)
 
   // Form state
   const [candidatId, setCandidatId] = useState<string | null>(null)
@@ -42,6 +60,60 @@ export default function NewReportLinkPage() {
   const [originalContactEmail, setOriginalContactEmail] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
 
+  // v2.7.3 — Pré-remplissage depuis query params (lien créé depuis /missions)
+  // Lu UNE FOIS au mount. Si candidat_id présent → fetch fiche pour récupérer
+  // email + téléphone (pas dispo dans la query, viennent de la table candidats).
+  useEffect(() => {
+    const qpCandidatId = searchParams.get('candidat_id')
+    const qpCandidatNom = searchParams.get('candidat_nom')
+    const qpClientId = searchParams.get('client_id')
+    const qpClientName = searchParams.get('client_name')
+    const qpMissionId = searchParams.get('mission_id')
+    const qpMetier = searchParams.get('metier')
+
+    if (qpMissionId) setMissionId(qpMissionId)
+
+    // CLIENT : seulement le nom de l'entreprise — contact + email RESTENT VIDES
+    // pour que l'utilisateur les choisisse explicitement (cf spec).
+    if (qpClientName) setClientName(qpClientName)
+    if (qpClientId) setClientId(qpClientId)
+
+    // CANDIDAT : si candidat_id présent, fetch la fiche pour pré-remplir
+    // prenom/nom/email/phone comme si l'utilisateur avait utilisé l'autocomplete.
+    if (qpCandidatId) {
+      setCandidatId(qpCandidatId)
+      fetch(`/api/candidats/${qpCandidatId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then((d: any) => {
+          const c = d?.candidat || d
+          if (!c) return
+          setCandidatPrenom(c.prenom || '')
+          setCandidatNom(c.nom || '')
+          if (c.telephone) setCandidatPhone(c.telephone)
+          if (c.email) setCandidatEmail(c.email)
+        })
+        .catch(() => {
+          // Fallback : split candidat_nom si fetch KO
+          if (qpCandidatNom) {
+            const parts = qpCandidatNom.trim().split(/\s+/)
+            setCandidatPrenom(parts[0] || '')
+            setCandidatNom(parts.slice(1).join(' ') || '')
+          }
+        })
+    } else if (qpCandidatNom) {
+      // Sans candidat_id, split simple
+      const parts = qpCandidatNom.trim().split(/\s+/)
+      setCandidatPrenom(parts[0] || '')
+      setCandidatNom(parts.slice(1).join(' ') || '')
+    }
+
+    // TITRE : pré-rempli si on a candidat + client (sinon useEffect auto-titre s'en occupe)
+    if (qpCandidatNom && qpClientName) {
+      setTitle(`Rapport ${qpCandidatNom} — ${qpClientName}${qpMetier ? ` (${qpMetier})` : ''}`)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Charge les templates de type 'report' uniquement
   useEffect(() => {
     fetch('/api/sign/templates?limit=100')
@@ -49,11 +121,47 @@ export default function NewReportLinkPage() {
       .then(d => {
         const all = (d.templates || []) as SignTemplate[]
         // Filtre côté client : on n'expose que kind='report' (sécurité côté serveur via POST validation)
-        setTemplates(all.filter(t => (t as { kind?: string }).kind === 'report'))
+        const reportTpls = all.filter(t => (t as { kind?: string }).kind === 'report')
+        setTemplates(reportTpls)
+        // v2.7.3 — Auto-sélection du template le plus récent (1er de la liste,
+        // /api/sign/templates trie déjà par created_at DESC). Évite le clic obligatoire
+        // quand un seul template existe ou que le plus récent est généralement le bon.
+        if (reportTpls.length > 0) {
+          setTemplateId(prev => prev || reportTpls[0].id)
+        }
       })
       .catch(() => toast.error('Erreur chargement templates'))
       .finally(() => setTplLoading(false))
   }, [])
+
+  // v2.7.3 — Fetch l'email principal de l'entreprise quand le toggle "Utiliser portail" est activé.
+  // Quand récupéré, on pré-remplit clientEmail (= destinataire portail) si le champ est vide
+  // ou si l'utilisateur ne l'a pas modifié depuis le précédent fetch.
+  useEffect(() => {
+    if (!useClientPortal || !clientId) {
+      setClientPrincipalEmail(null)
+      return
+    }
+    let cancelled = false
+    fetch(`/api/clients/${clientId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((d: any) => {
+        if (cancelled) return
+        const principal = (d?.client?.email || d?.email || '').trim() || null
+        setClientPrincipalEmail(principal)
+        // Pré-remplit clientEmail si vide (ou si la valeur actuelle correspond à l'ancien contact)
+        if (principal) {
+          setClientEmail(prev => {
+            const cur = (prev || '').trim()
+            if (!cur) return principal
+            // Si l'utilisateur a déjà saisi un email différent, on ne l'écrase pas.
+            return cur
+          })
+        }
+      })
+      .catch(() => { if (!cancelled) setClientPrincipalEmail(null) })
+    return () => { cancelled = true }
+  }, [useClientPortal, clientId])
 
   // Auto-titre dès qu'on a candidat + client
   useEffect(() => {
@@ -160,10 +268,19 @@ export default function NewReportLinkPage() {
           client_contact_name: clientContactName.trim() || null,
           client_email: clientEmail.trim() || null,
           delivery_channel: 'email',
+          // v2.7.3 — Lie le rapport à la mission d'origine (si créé depuis /missions)
+          mission_id: missionId,
+          // v2.7.3 — Mode portail rapports (envoi à l'email principal entreprise)
+          use_client_portal: useClientPortal,
+          client_id: clientId,
         }),
       })
       const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Erreur création')
+      if (!r.ok) {
+        // v2.7.3 — Affiche le détail DB pour debug rapide (colonne manquante, etc.)
+        const fullMsg = d.details ? `${d.error || 'Erreur'} — ${d.details}` : (d.error || 'Erreur création')
+        throw new Error(fullMsg)
+      }
       toast.success('Lien rapport créé')
       router.push(`/sign/rapports/${d.link.id}`)
     } catch (e: any) {
@@ -255,6 +372,27 @@ export default function NewReportLinkPage() {
           </div>
         </div>
       </div>
+
+      {/* v2.7.3 — Bandeau si pré-remplissage depuis une mission */}
+      {missionId && (
+        <div style={{
+          marginTop: 14,
+          padding: '12px 14px',
+          borderRadius: 10,
+          background: 'rgba(99,102,241,0.08)',
+          border: '1.5px solid rgba(99,102,241,0.3)',
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          fontSize: 13,
+        }}>
+          <span style={{ fontSize: 18 }}>🔗</span>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <strong style={{ color: '#4338CA' }}>Création depuis une mission</strong>
+            <div style={{ color: 'var(--muted)', marginTop: 2 }}>
+              Candidat et entreprise pré-remplis · choisis le contact client puis valide pour créer le lien.
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 18 }}>
         {/* Section Candidat */}
@@ -470,26 +608,95 @@ export default function NewReportLinkPage() {
               {clientContactName && <> · {clientContactName}</>}
             </div>
           )}
-          {/* v2.3.x Feature 5 — Contact pour la salutation des emails/WA client */}
-          <Field label="Nom du contact client (optionnel)" hint="utilisé pour la salutation : Bonjour Marie, …">
-            <input
-              type="text"
-              value={clientContactName}
-              onChange={e => setClientContactName(e.target.value)}
-              placeholder="Ex: Marie Dupont ou Directeur RH"
-              className="neo-input"
-              style={{ height: 42 }}
-            />
-          </Field>
-          <Field label="Email client *">
+          {/* v2.7.3 — Toggle "Utiliser portail rapports" */}
+          {clientId && (
+            <div style={{
+              marginTop: 4,
+              padding: 14,
+              borderRadius: 10,
+              border: useClientPortal ? '1.5px solid rgba(234,179,8,0.5)' : '1px solid var(--border)',
+              background: useClientPortal ? 'rgba(234,179,8,0.06)' : 'var(--secondary)',
+              transition: 'all 0.15s',
+            }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={useClientPortal}
+                  onChange={e => setUseClientPortal(e.target.checked)}
+                  style={{ marginTop: 3, cursor: 'pointer', width: 16, height: 16 }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--foreground)' }}>
+                    🪟 Utiliser le portail rapports
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
+                    Les notifications de signature candidat vont à l&apos;email principal de l&apos;entreprise (en DB clients).
+                    Le client clique le lien → arrive sur son portail avec <strong>tous</strong> les rapports à valider en un endroit.
+                    {useClientPortal && ' Le portail sera créé automatiquement si nécessaire.'}
+                  </div>
+                </div>
+              </label>
+            </div>
+          )}
+          {/* v2.3.x Feature 5 — Contact pour la salutation des emails/WA client.
+              v2.7.3 — Masqué en mode portail (l'email va à l'adresse principale entreprise,
+              pas à un contact nommé → la salutation perd son sens). */}
+          {!useClientPortal && (
+            <Field label="Nom du contact client (optionnel)" hint="utilisé pour la salutation : Bonjour Marie, …">
+              <input
+                type="text"
+                value={clientContactName}
+                onChange={e => setClientContactName(e.target.value)}
+                placeholder="Ex: Marie Dupont ou Directeur RH"
+                className="neo-input"
+                style={{ height: 42 }}
+              />
+            </Field>
+          )}
+          <Field label="Email client *" hint={useClientPortal ? 'Mode portail actif → destinataire = email principal entreprise' : undefined}>
             <input
               type="email"
               value={clientEmail}
               onChange={e => setClientEmail(e.target.value)}
-              placeholder="contact@client.ch"
+              placeholder={useClientPortal && clientPrincipalEmail ? clientPrincipalEmail : 'contact@client.ch'}
               className="neo-input"
-              style={{ height: 42 }}
+              style={{
+                height: 42,
+                background: useClientPortal ? 'rgba(234,179,8,0.05)' : undefined,
+                borderColor: useClientPortal ? 'rgba(234,179,8,0.35)' : undefined,
+              }}
             />
+            {/* v2.7.3 — Hint email principal entreprise quand mode portail actif */}
+            {useClientPortal && (
+              <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+                {clientPrincipalEmail ? (
+                  <>
+                    📧 Email principal de l&apos;entreprise (fiche client) :{' '}
+                    <strong style={{ color: '#A16207' }}>{clientPrincipalEmail}</strong>
+                    {clientEmail.trim().toLowerCase() !== clientPrincipalEmail.toLowerCase() && (
+                      <>
+                        {' '}·{' '}
+                        <button
+                          type="button"
+                          onClick={() => setClientEmail(clientPrincipalEmail)}
+                          style={{
+                            background: 'none', border: 'none', padding: 0,
+                            color: '#A16207', fontWeight: 700, cursor: 'pointer',
+                            textDecoration: 'underline', fontSize: 11.5, fontFamily: 'inherit',
+                          }}
+                        >
+                          utiliser celui-ci
+                        </button>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <span style={{ color: 'var(--destructive)' }}>
+                    ⚠️ Aucun email principal sur la fiche client — renseigne-le dans /clients/[id] avant d&apos;activer le portail.
+                  </span>
+                )}
+              </div>
+            )}
           </Field>
         </Section>
 

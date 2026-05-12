@@ -45,6 +45,30 @@ export async function PATCH(
       .single()
 
     if (error) throw error
+
+    // v2.7.1 — Sync auto des dates mission vers report_link_clients
+    // (uniquement si date_debut ou date_fin a changé ET un lien rapport est lié)
+    if ('date_debut' in filtered || 'date_fin' in filtered) {
+      try {
+        const { data: link } = await (supabase as any)
+          .from('report_links')
+          .select('id')
+          .eq('mission_id', id)
+          .maybeSingle()
+        if (link?.id) {
+          await (supabase as any)
+            .from('report_link_clients')
+            .update({
+              mission_start_date: data.date_debut ?? null,
+              mission_end_date: data.date_fin ?? null,
+            })
+            .eq('link_id', link.id)
+        }
+      } catch (e) {
+        console.warn('[missions PATCH] sync report_link_clients dates failed', e)
+      }
+    }
+
     return NextResponse.json({ mission: data })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

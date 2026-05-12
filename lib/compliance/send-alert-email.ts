@@ -1,8 +1,9 @@
 // TalentFlow Compliance — Email agrégé quotidien des alertes documents
-// v2.7.0
+// v2.7.3
 //
 // Envoyé chaque matin par le cron /api/cron/document-alerts à 8h00.
-// 1 email récapitulatif par destinataire (ADMIN_EMAIL + consultants assignés).
+// Destinataire unique : info@l-agence.ch (toute l'équipe sur cette boîte).
+// Plus de routage par consultant — tout va à L-Agence.
 
 import type { DocumentAlert } from './alerts'
 import { formatExpiryDate } from './document-status'

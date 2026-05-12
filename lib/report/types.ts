@@ -51,6 +51,17 @@ export interface ReportLink {
   status: ReportLinkStatus
   delivery_channel: ReportDeliveryChannel
   created_by: string | null
+  /** v2.7.1 — Mission liée. Si renseignée, les dates de mission sont synchronisées
+   *  automatiquement sur report_link_clients (mission_start_date / mission_end_date)
+   *  via le PATCH /api/missions/[id]. Permet aussi au form heures candidat de
+   *  désactiver les jours d'arrêt (lus depuis missions.arrets). */
+  mission_id: string | null
+  /** v2.7.3 — Si true, les notifications de signature candidat redirigent vers
+   *  /client-portal/{slug}?tab=rapports (slug permanent) au lieu de
+   *  /report/client/{token} (TTL 7j). L'email part à clients.email (mail principal
+   *  entreprise) et non au contact saisi sur le lien.
+   *  Le token reste généré côté DB en defensive — le portail est le canal préféré. */
+  use_client_portal: boolean
   created_at: string
   updated_at: string
 }

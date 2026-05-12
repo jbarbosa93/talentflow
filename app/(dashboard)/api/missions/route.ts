@@ -37,10 +37,25 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query
     if (error) throw error
 
+    // v2.7.1 — Récupère les liens rapport déjà rattachés à ces missions (1 seul round-trip)
+    const missionIds = (data ?? []).map((m: any) => m.id).filter(Boolean)
+    let reportLinksByMission: Record<string, { id: string; slug: string }> = {}
+    if (missionIds.length > 0) {
+      const { data: links } = await (supabase as any)
+        .from('report_links')
+        .select('id, slug, mission_id')
+        .in('mission_id', missionIds)
+      for (const l of (links ?? []) as { id: string; slug: string; mission_id: string }[]) {
+        if (l.mission_id) reportLinksByMission[l.mission_id] = { id: l.id, slug: l.slug }
+      }
+    }
+
     const missions = (data ?? []).map((m: any) => ({
       ...m,
       photo_url: m.candidats?.photo_url || null,
       client_canton: m.clients?.canton || null,
+      report_link_id: reportLinksByMission[m.id]?.id || null,
+      report_link_slug: reportLinksByMission[m.id]?.slug || null,
       candidats: undefined,
       clients: undefined,
     }))

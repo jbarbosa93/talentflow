@@ -10,6 +10,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { generateSlug } from '@/lib/report/slug'
 import { listReportLinks } from '@/lib/report/queries'
 import { normalizePhoneE164 } from '@/lib/sign/phone-format'
+import { getOrCreateClientPortal } from '@/lib/report/portal-helper'
 import type { ReportDeliveryChannel, ReportLinkStatus } from '@/lib/report/types'
 
 export const runtime = 'nodejs'
@@ -122,7 +123,33 @@ export async function POST(req: NextRequest) {
       ? body.candidat_email.toLowerCase().trim()
       : null
 
-    const insertPayload = {
+    // v2.7.3 — mission_id optionnel (lié depuis /missions ou /sign/rapports/new)
+    const missionIdInput = typeof body.mission_id === 'string' && body.mission_id.trim()
+      ? body.mission_id.trim()
+      : null
+
+    // v2.7.3 — Mode portail rapports (Q1+Q4) : si activé ET un client_id est lié,
+    // on s'assure qu'un portail existe pour ce client (auto-create sinon).
+    // Si pas de client_id lié → refuse (le portail est indexé par client_id).
+    const useClientPortalInput = body.use_client_portal === true
+    let clientIdLinked: string | null = typeof body.client_id === 'string' && body.client_id.trim()
+      ? body.client_id.trim()
+      : null
+    if (useClientPortalInput) {
+      if (!clientIdLinked) {
+        return NextResponse.json({
+          error: 'Pour utiliser le portail rapports, sélectionne d\'abord un client lié en DB (via l\'autocomplete).',
+        }, { status: 400 })
+      }
+      const portal = await getOrCreateClientPortal(clientIdLinked, user?.id || null)
+      if (!portal) {
+        return NextResponse.json({
+          error: 'Impossible de créer le portail pour ce client.',
+        }, { status: 500 })
+      }
+    }
+
+    const insertPayload: Record<string, unknown> = {
       slug,
       candidat_id: body.candidat_id || null,
       candidat_name: candidatNameStored,
@@ -140,7 +167,12 @@ export async function POST(req: NextRequest) {
       status: 'active' as const,
       delivery_channel: channel,
       created_by: user?.id || null,
+      mission_id: missionIdInput,
     }
+    // v2.7.3 — N'inclut use_client_portal QUE si true. Defensive : si la migration
+    // 20260512_v273_use_client_portal n'a pas encore été appliquée en DB et que
+    // l'user ne coche pas la case, la création fonctionne quand même.
+    if (useClientPortalInput) insertPayload.use_client_portal = true
 
     const { data, error } = await supabase
       .from('report_links' as any)
@@ -150,23 +182,51 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error('[reports] POST insert error', error)
-      return NextResponse.json({ error: 'Erreur création' }, { status: 500 })
+      // v2.7.3 — Expose le message DB pour debug (colonne manquante, contrainte, etc.)
+      return NextResponse.json({
+        error: 'Erreur création',
+        details: error.message || String(error),
+      }, { status: 500 })
     }
 
     // v2.4.3 — Crée automatiquement la 1ʳᵉ entreprise destinataire dans
     // report_link_clients à partir des coords client saisies. Plus de "lien orphelin".
+    // v2.7.3 — Si mission_id présent, pré-remplit mission_start_date + mission_end_date
+    // depuis la mission (sinon l'admin doit ressaisir manuellement dans le modal Edit).
     if (data && insertPayload.client_name) {
       const linkRow = data as unknown as { id: string }
+
+      // Récup dates mission si lien créé depuis /missions ou avec mission_id
+      let missionStart: string | null = null
+      let missionEnd: string | null = null
+      if (missionIdInput) {
+        try {
+          const { data: missionRow } = await (supabase as any)
+            .from('missions')
+            .select('date_debut, date_fin')
+            .eq('id', missionIdInput)
+            .maybeSingle()
+          if (missionRow) {
+            missionStart = missionRow.date_debut || null
+            missionEnd = missionRow.date_fin || null
+          }
+        } catch (e) {
+          console.warn('[reports] POST mission dates fetch failed (non-blocking)', e)
+        }
+      }
+
       try {
         await supabase
           .from('report_link_clients' as any)
           .insert({
             link_id: linkRow.id,
-            client_id: null,
+            client_id: clientIdLinked,
             client_name: insertPayload.client_name,
             client_email: insertPayload.client_email,
             client_contact_name: insertPayload.client_contact_name,
             client_phone: insertPayload.client_phone,
+            mission_start_date: missionStart,
+            mission_end_date: missionEnd,
             display_order: 0,
           })
       } catch (e) {

@@ -12,7 +12,7 @@ import type { SignField } from '@/lib/sign/types'
 import { getDayOffsetFromSection, dateForDayOfWeek } from '@/lib/sign/field-helpers'
 
 export type DayBlockReason = {
-  type: 'out_of_mission' | 'already_declared'
+  type: 'out_of_mission' | 'already_declared' | 'arret'
   /** Message court affiché en tooltip / mention sur le field grisé. */
   message: string
   /** Pour 'already_declared' uniquement : nom de l'entreprise qui a déjà rempli ce jour. */
@@ -33,9 +33,11 @@ export function buildBlockedDaysForWeek(args: {
   missionEnd: string | null
   /** Jours déjà déclarés par d'autres entreprises sur cette semaine. */
   declaredByOthers: { clientName: string; daysIso: string[] }[]
+  /** v2.7.1 — Arrêts maladie/accident de la mission (debut/fin inclus, YYYY-MM-DD). */
+  arrets?: { debut: string; fin: string }[]
 }): Map<string, DayBlockReason> {
   const out = new Map<string, DayBlockReason>()
-  const { weekDaysIso, missionStart, missionEnd, declaredByOthers } = args
+  const { weekDaysIso, missionStart, missionEnd, declaredByOthers, arrets } = args
 
   // Étape C : jours hors mission
   for (const day of weekDaysIso) {
@@ -48,10 +50,23 @@ export function buildBlockedDaysForWeek(args: {
     }
   }
 
-  // Étape D : jours déjà déclarés ailleurs (n'écrase pas out_of_mission)
+  // v2.7.1 — Étape ARRÊT : jours en arrêt maladie/accident
+  // Priorité plus haute que already_declared, plus basse que out_of_mission
+  if (arrets && arrets.length > 0) {
+    for (const day of weekDaysIso) {
+      const existing = out.get(day)
+      if (existing && existing.type === 'out_of_mission') continue
+      const inArret = arrets.some(a => a.debut && a.fin && day >= a.debut && day <= a.fin)
+      if (inArret) {
+        out.set(day, { type: 'arret', message: 'Jour en arrêt — non saisissable' })
+      }
+    }
+  }
+
+  // Étape D : jours déjà déclarés ailleurs (n'écrase pas out_of_mission ni arret)
   for (const other of declaredByOthers) {
     for (const day of other.daysIso) {
-      if (out.has(day)) continue  // already_declared a une priorité plus basse que out_of_mission
+      if (out.has(day)) continue  // already_declared a une priorité plus basse
       out.set(day, {
         type: 'already_declared',
         message: `Déjà déclaré chez ${other.clientName}`,

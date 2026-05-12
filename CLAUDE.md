@@ -115,9 +115,27 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.7.0 prod (Compliance Documents complet + alertes + portail client) + v2.6.17 (rapports correction semaine)** — 12/05/2026
+**v2.7.3 prod (Mode portail rapports + onglet Rapports portail client + lien mission ↔ rapport + UX polish)** — 12/05/2026
 
-Marathon Opus 4.7 du 12/05 — 2 releases prod le même jour.
+### v2.7.3 (soir) — Mode portail rapports + lien mission + alertes routing unifié
+- **Mode portail rapports** : toggle "🪟 Utiliser portail rapports" sur `/sign/rapports/new` et `[id]`. Quand activé → email signature candidat envoyé à `clients.email` (mail principal entreprise) avec lien vers `/client-portal/{slug}?tab=rapports` (slug permanent, pas TTL). Auto-création portail si absent. Nouvelle colonne `report_links.use_client_portal`.
+- **Onglet Rapports portail client** : 2e onglet sur `/client-portal/{slug}`. Filtres Tous/À valider/Validés. Groupage par candidat (photo carré + métier + count). Bouton jaune "Voir le rapport à valider →" qui régénère auto le token expiré. Bandeaux notes_candidat (amber) + notes_client (bleu). Modal PDF preview.
+- **Lien mission ↔ rapport** : bouton "📋 Rapport" sur liste missions → redirect `/sign/rapports/new` pré-rempli (candidat_id + mission_id + dates). Nouvelle colonne `report_links.mission_id`. Card "🔗 Mission liée" sur page détail. PATCH missions sync auto dates → `report_link_clients`. Jours d'arrêt mission désactivés sur form candidat. Cron `auto-arret-reports` dimanche 20h UTC (rapport auto si arrêt >= 14j couvre toute la semaine).
+- **Notes / Remarques client** : bouton "📝 Notes" sur `/report/client/[token]` à côté de "Modifier les données" → modal portalisé → PATCH `notes_client` immédiat. Diffusion 4 surfaces : admin tooltip, candidat tooltip historique, portail client bandeau bleu, emails à la signature.
+- **Boutons Télécharger + WhatsApp** sur page validation client : nouvelle route `/api/reports/client/[token]/download` qui génère PDF stampé à la volée (pattern #53). WhatsApp via `wa.me?text=` avec lien PDF (limitation API : pas de pièce jointe directe).
+- **Alertes conformité → unifié sur info@l-agence.ch** : refonte cron `document-alerts`. Email récap quotidien → 1 seul envoi à `info@l-agence.ch` (toute l'équipe). Suppression du routage par consultant. Rappels candidat J-30/J-14 : `to` candidat, `cc` info@l-agence.ch systématique.
+- **Modal "Ma mission" candidat** (Bug 2 A) : clic "Mes missions" sur `/report/[slug]` ouvre modal portalisé (dates + durée calculée + responsable + boutons Appeler/WhatsApp/Email). Plus de bascule formulaire.
+- **Fix dates format candidat desktop** : fields date auto-fill (Lundi/.../Semaine N°) verrouillés en lecture seule, respectent `field.dateFormat` (`dd.MM` → `11.05`) au lieu de l'input HTML natif qui tronquait. Nouvelle prop `lockedFields` sur `PublicFieldsLayer`.
+- **Format weekLabel global** : `Semaine 20 du 11 au 17 mai 2026` partout (modif `formatWeekLabel()` accepte `weekNumber` paramètre).
+- **Bouton retour "← Portail"** sur `/report/client/[token]` quand lien en mode portail (lookup auto serveur).
+- **Bouton "🪟 Rapports"** sur cards portail Collaborateurs → bascule onglet Rapports.
+- **Email signature mode portail** : "Bonjour" sans nom contact. Mode direct préservé. Candidat affiché avec métier : `Mickael Voyenet (Chauffeur PL)`.
+- **DB** : 2 migrations appliquées (`v271_mission_report_link` + `v273_use_client_portal`). 0 nouvelle dépendance npm.
+
+### v2.7.0 (12/05 matin) — Compliance Documents
+Voir `docs/CLAUDE-history.md` pour le détail.
+
+Marathon Opus 4.7 du 12/05 — 3 releases prod le même jour (v2.6.17 matin + v2.7.0 midi + v2.7.3 soir).
 
 ### v2.6.17 (matin) — Rapports : correction semaine signée
 - **Bouton "🔄 Corriger semaine"** dans `/sign/rapports/[id]` — admin + consultants peuvent corriger une submission signée par erreur. Pipeline : check conflit, UPDATE `week_start`+`week_end`, recalcul `field_values` auto-fill (dates par jour + n° semaine), regen PDF stampé (signatures préservées), audit `report_audit_log` action `week_corrected`.

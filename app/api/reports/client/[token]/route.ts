@@ -174,6 +174,33 @@ export async function GET(
     metadata: { user_agent: req.headers.get('user-agent') || null },
   })
 
+  // v2.7.3 — Si le lien est en mode portail, on remonte le slug du portail pour
+  // que la page client puisse afficher un bouton "← Retour au portail".
+  // Lookup : report_link_clients.client_id → client_portals.slug actif.
+  let portalSlug: string | null = null
+  if ((link as any).use_client_portal === true && submission.report_link_client_id) {
+    try {
+      const admin = createAdminClient()
+      const { data: rlc } = await (admin as any)
+        .from('report_link_clients')
+        .select('client_id')
+        .eq('id', submission.report_link_client_id)
+        .maybeSingle()
+      const cid = (rlc as any)?.client_id as string | null
+      if (cid) {
+        const { data: portal } = await (admin as any)
+          .from('client_portals')
+          .select('slug')
+          .eq('client_id', cid)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        portalSlug = (portal as any)?.slug || null
+      }
+    } catch { /* silent */ }
+  }
+
   return NextResponse.json({
     valid: true,
     submission: {
@@ -208,5 +235,7 @@ export async function GET(
     wizard: { enabled: wizardEnabled, steps: wizardSteps },
     weekLabel: weekDates.label,
     weekNumber: weekDates.weekNumber,
+    // v2.7.3 — Slug portail pour le bouton "← Retour au portail" (null si mode standard)
+    portal_slug: portalSlug,
   })
 }

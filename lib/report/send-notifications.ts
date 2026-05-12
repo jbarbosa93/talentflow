@@ -46,6 +46,9 @@ export async function sendClientInviteEmail(args: {
   weekLabel: string
   signUrl: string
   expiresAt: Date | string
+  /** v2.7.3 — Mode portail : si true, greeting = "Bonjour" sans nom (l'email va à
+   *  l'adresse principale entreprise, pas à un contact nommé). */
+  portalMode?: boolean
 }): Promise<NotifResult> {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
@@ -65,9 +68,12 @@ function buildClientInviteHtml(p: {
   weekLabel: string
   signUrl: string
   expiresAt: Date | string
+  portalMode?: boolean
 }): string {
   const expiresStr = formatDateChDot(p.expiresAt)
-  const greetingName = pickGreetingName(p)
+  // v2.7.3 — En mode portail, salutation neutre "Bonjour" (pas de nom de contact)
+  const greetingName = p.portalMode ? '' : pickGreetingName(p)
+  const greetingLine = greetingName ? `Bonjour ${escapeHtml(greetingName)},` : 'Bonjour,'
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -81,7 +87,7 @@ function buildClientInviteHtml(p: {
         Rapport à valider
       </div>
       <h1 style="font-family:Georgia,serif;font-size:24px;font-weight:400;color:#1C1A14;margin:0 0 14px;line-height:1.25;">
-        Bonjour ${escapeHtml(greetingName) || 'à vous'},
+        ${greetingLine}
       </h1>
       <p style="font-size:14.5px;color:#374151;line-height:1.6;margin:0 0 16px;">
         <strong>${escapeHtml(p.candidateName)}</strong> a soumis son rapport d'heures pour la <strong>${escapeHtml(p.weekLabel)}</strong>.
@@ -108,10 +114,12 @@ function buildClientInviteHtml(p: {
 
 function buildClientInviteText(p: {
   clientName: string; clientContactName?: string | null; candidateName: string; weekLabel: string; signUrl: string; expiresAt: Date | string
+  portalMode?: boolean
 }): string {
-  const greetingName = pickGreetingName(p)
+  const greetingName = p.portalMode ? '' : pickGreetingName(p)
+  const greetingLine = greetingName ? `Bonjour ${greetingName},` : 'Bonjour,'
   return [
-    `Bonjour ${greetingName || 'à vous'},`,
+    greetingLine,
     '',
     `${p.candidateName} a soumis son rapport d'heures pour la ${p.weekLabel}.`,
     '',

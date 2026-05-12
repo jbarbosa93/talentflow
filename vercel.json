@@ -24,6 +24,10 @@
     {
       "path": "/api/cron/document-alerts",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/auto-arret-reports",
+      "schedule": "0 20 * * 0"
     }
   ]
 }
