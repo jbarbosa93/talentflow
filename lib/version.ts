@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.7.5'
+export const APP_VERSION = '2.7.6'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.7.6 — Fix logo CV personnalisé (ratio hauteur corrigé)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.7.6',
+    date: '2026-05-13',
+    label: 'Fix logo CV personnalisé',
+    features: [
+      'FIX — Logo L-Agence dans le CV personnalisé : hauteur corrigée (ratio 722×147 au lieu de l\'ancien 550×170).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.7.5 — Durcissement sécurité + dette technique (17 fixes audit global)
   // ─────────────────────────────────────────────────────────────────────

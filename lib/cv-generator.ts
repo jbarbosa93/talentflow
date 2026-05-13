@@ -220,8 +220,8 @@ export async function generateBrandedCV(
 
   const logoY = PAGE_HEIGHT - MARGIN - 10
   if (logoPng) {
-    // Logo image 550×170 (horizontal, ratio 3.24:1) — affiché à 160×49px
-    page.drawImage(logoPng, { x: MARGIN, y: logoY - 45, width: 160, height: 49 })
+    // Logo image 722×147 (ratio 4.91:1) — affiché à 160×33px
+    page.drawImage(logoPng, { x: MARGIN, y: logoY - 33, width: 160, height: 33 })
   } else {
     page.drawText('L-AGENCE', { x: MARGIN, y: logoY - 10, font: helveticaBold, size: 20, color: DARK })
     page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: logoY - 28, font: helvetica, size: 8, color: GRAY })
@@ -410,8 +410,8 @@ export async function generateBrandedCV(
   // Left side: logo + agency info
   const fLeftY = footerTop - 16
   if (logoPng) {
-    // Logo image horizontal à 85×26px dans le footer
-    page.drawImage(logoPng, { x: MARGIN, y: fLeftY - 16, width: 85, height: 26 })
+    // Logo image horizontal à 85×17px dans le footer (ratio 722×147)
+    page.drawImage(logoPng, { x: MARGIN, y: fLeftY - 16, width: 85, height: 17 })
   } else {
     page.drawText('L-AGENCE', { x: MARGIN, y: fLeftY, font: helveticaBold, size: 12, color: DARK })
     page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: fLeftY - 12, font: helvetica, size: 7, color: GRAY })
