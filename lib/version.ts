@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.7.7'
+export const APP_VERSION = '2.7.8'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.7.8 — Auto-cochage conditionnel checkboxes
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.7.8',
+    date: '2026-05-14',
+    label: 'Sign — Auto-cochage conditionnel',
+    features: [
+      'UX — Sign : 2 nouvelles actions dans les règles conditionnelles : "Auto-cocher" et "Auto-décocher" (uniquement sur checkboxes).',
+      'UX — Sign : exemple d\'usage — Impôts à la source auto-coché Non si Suisse ou Permis C, Oui sinon.',
+      'UX — Sign : le candidat peut toujours override l\'auto-check en cliquant manuellement.',
+      'UX — Sign : auto-check pris en compte au PDF stamping final (la case apparaît cochée dans le PDF signé).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.7.7 — Refonte UX éditeur templates Sign (audit-driven)
   // ─────────────────────────────────────────────────────────────────────

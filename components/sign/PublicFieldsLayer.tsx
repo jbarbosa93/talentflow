@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PenLine, Check } from 'lucide-react'
 import type { SignField, SignFieldType } from '@/lib/sign/types'
 import { formatDate } from '@/lib/sign/pdf-stamp'
+import { effectiveCheckedState } from '@/lib/sign/field-helpers'
 
 interface Props {
   page: number
@@ -174,6 +175,7 @@ export default function PublicFieldsLayer({
                 heightPx={h}
                 isCurrent={isCurrent}
                 forceReadOnly={belongsToPrevious || !!lockedFields?.has(f.id)}
+                allValues={values}
               />
             )}
           </div>
@@ -207,11 +209,13 @@ interface FieldInputProps {
   /** v2.2.3 Pack 1 — Force le champ en lecture seule (rendu seulement la valeur, sans input).
    *  Utilisé pour afficher les valeurs remplies par les signers précédents. */
   forceReadOnly?: boolean
+  /** v2.7.7 — Toutes les valeurs courantes (pour évaluer les conditions check/uncheck) */
+  allValues?: Record<string, unknown>
 }
 
 function FieldInput({
   field, value, onChange, signatureDataUrl, onRequestSignature,
-  recipientColor, autoFill, widthPx, heightPx, isCurrent, forceReadOnly,
+  recipientColor, autoFill, widthPx, heightPx, isCurrent, forceReadOnly, allValues,
 }: FieldInputProps) {
   const t = field.type as SignFieldType
   const isRequired = !!field.required
@@ -366,7 +370,12 @@ function FieldInput({
 
   // ─── CHECKBOX ───
   if (t === 'checkbox') {
-    const checked = value === true || value === 'true'
+    // v2.7.7 — Auto-check si conditions match et pas de valeur explicite candidat
+    const userExplicit = value === true || value === false || value === 'true' || value === 'false'
+    const autoChecked = !userExplicit && allValues ? effectiveCheckedState(field, allValues) : undefined
+    const checked = userExplicit
+      ? (value === true || value === 'true')
+      : (autoChecked !== undefined ? autoChecked : (field.metadata?.selected === true))
     return (
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
         <div
@@ -702,10 +711,18 @@ function isFieldFilled(
   value: unknown,
   signatureDataUrl: string | null,
   autoFill: Props['autoFill'],
+  allValues?: Record<string, unknown>,
 ): boolean {
   const t = f.type
   if (t === 'signature' || t === 'initial') return !!signatureDataUrl
-  if (t === 'checkbox') return value === true || value === 'true'
+  if (t === 'checkbox') {
+    if (value === true || value === 'true' || value === false || value === 'false') return true
+    if (allValues) {
+      const auto = effectiveCheckedState(f, allValues)
+      if (auto !== undefined) return true
+    }
+    return f.metadata?.selected === true
+  }
   if (t === 'annotation') return true // toujours "rempli" (informatif)
   if (t === 'formula') return true // calcul auto
   if (isAutoFillType(t)) {

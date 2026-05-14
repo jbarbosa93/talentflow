@@ -252,7 +252,34 @@ export function effectiveFieldState(
       case 'show':       visible = true; break
       case 'require':    required = true; break
       case 'unrequire':  required = false; break
+      // v2.7.7 — check/uncheck gérés par effectiveCheckedState (n'affectent pas visible/required)
     }
   }
   return { visible, required }
+}
+
+/**
+ * v2.7.7 — État effectif "coché/décoché" d'une checkbox calculé depuis les conditions
+ * `check` / `uncheck`. Retourne :
+ *   - true  si une condition check a matché (et c'est la dernière action)
+ *   - false si une condition uncheck a matché
+ *   - undefined si aucune condition check/uncheck n'a matché → utiliser metadata.selected (default)
+ *
+ * Le candidat peut TOUJOURS override ce calcul en cliquant manuellement.
+ * Le helper isCheckboxOverridden() détecte si l'utilisateur a fait une action explicite.
+ */
+export function effectiveCheckedState(
+  field: SignField,
+  fieldValues: Record<string, unknown>,
+): boolean | undefined {
+  if (field.type !== 'checkbox') return undefined
+  if (!field.conditions || field.conditions.length === 0) return undefined
+  let result: boolean | undefined = undefined
+  for (const cond of field.conditions) {
+    const met = evaluateCondition(cond, fieldValues)
+    if (!met) continue
+    if (cond.action === 'check') result = true
+    else if (cond.action === 'uncheck') result = false
+  }
+  return result
 }

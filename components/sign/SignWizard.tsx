@@ -55,7 +55,7 @@ function enrichSection(section: string, weekStartDate?: string | null): string {
 }
 import {
   looksLikeDateField, looksLikeCountrySelect, looksLikeCompanyField, EUROPEAN_COUNTRIES,
-  effectiveFieldState, computeFormulaValue, formatFormulaValue,
+  effectiveFieldState, effectiveCheckedState, computeFormulaValue, formatFormulaValue,
 } from '@/lib/sign/field-helpers'
 
 interface AutoFill {
@@ -248,7 +248,7 @@ export default function SignWizard({
       const eff = effectiveFieldState(f, fieldValues)
       if (!eff.visible) continue            // caché par condition
       if (!eff.required) continue           // pas requis (ou allégé par condition)
-      if (isFieldFilled(f, fieldValues[f.id], signatureDataUrl, autoFill)) continue
+      if (isFieldFilled(f, fieldValues[f.id], signatureDataUrl, autoFill, fieldValues)) continue
       setValidationError(`"${f.tooltip || f.label || 'Champ'}" est requis`)
       return false
     }
@@ -956,7 +956,13 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
   }
 
   if (t === 'checkbox') {
-    const checked = value === true || value === 'true'
+    // v2.7.7 — Si l'utilisateur n'a pas explicitement cliqué (value undefined),
+    // utilise l'auto-cochage des conditions check/uncheck. Sinon respecte le choix user.
+    const userExplicit = value === true || value === false || value === 'true' || value === 'false'
+    const autoChecked = !userExplicit && allValues ? effectiveCheckedState(field, allValues) : undefined
+    const checked = userExplicit
+      ? (value === true || value === 'true')
+      : (autoChecked !== undefined ? autoChecked : (field.metadata?.selected === true))
     return (
       <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', padding: '8px 0' }}>
         {/* Checkbox HTML caché, accessibilité préservée */}
@@ -1169,7 +1175,7 @@ function RecapStep({
         {steps.map((s, idx) => {
           const fields = fieldsByStepMap.get(s.id) || []
           const filledCount = fields.filter(f =>
-            isFieldFilled(f, fieldValues[f.id], signatureDataUrl, autoFill)
+            isFieldFilled(f, fieldValues[f.id], signatureDataUrl, autoFill, fieldValues)
           ).length
           const allFilled = filledCount === fields.length
           return (
@@ -1261,10 +1267,20 @@ function prettifySpaces(s: string): string {
 
 function isFieldFilled(
   f: SignField, value: unknown, signatureDataUrl: string | null, autoFill: AutoFill,
+  allValues?: Record<string, unknown>,
 ): boolean {
   const t = f.type
   if (t === 'signature' || t === 'initial') return !!signatureDataUrl
-  if (t === 'checkbox') return value === true || value === 'true'
+  if (t === 'checkbox') {
+    if (value === true || value === 'true') return true
+    if (value === false || value === 'false') return true  // user explicitly unchecked
+    // v2.7.7 — checkbox sans valeur user : "remplie" si auto-check matche OU si selected par défaut
+    if (allValues) {
+      const auto = effectiveCheckedState(f, allValues)
+      if (auto !== undefined) return true
+    }
+    return f.metadata?.selected === true
+  }
   if (t === 'annotation') return true
   if (t === 'formula') return true  // calcul auto, toujours "rempli" même si 0
   // v2.2.4 — Heuristique : title/text avec tooltip "société/entreprise" → traité comme company

@@ -226,6 +226,8 @@ export type SignConditionAction =
   | 'unrequire'    // rendre facultatif
   | 'show'         // afficher (non implémenté Phase 2 — Phase 4)
   | 'hide'         // masquer (non implémenté Phase 2 — Phase 4)
+  | 'check'        // v2.7.7 — auto-cocher (checkbox uniquement). Le candidat peut override.
+  | 'uncheck'      // v2.7.7 — auto-décocher (checkbox uniquement). Le candidat peut override.
 
 export interface SignFieldCondition {
   triggerFieldId: string
@@ -250,6 +252,8 @@ export const CONDITION_ACTION_LABELS: Record<SignConditionAction, string> = {
   unrequire:  'rendre facultatif',
   show:       'afficher (Phase 4)',
   hide:       'masquer (Phase 4)',
+  check:      'auto-cocher (case à cocher)',
+  uncheck:    'auto-décocher (case à cocher)',
 }
 
 export interface PdfPageDimensions {

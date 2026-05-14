@@ -1921,6 +1921,8 @@ function ConditionsEditor({
                   <option value="hide">Cacher ce champ</option>
                   <option value="require">Rendre obligatoire</option>
                   <option value="unrequire">Rendre facultatif</option>
+                  <option value="check">☑ Auto-cocher (case à cocher)</option>
+                  <option value="uncheck">☐ Auto-décocher (case à cocher)</option>
                 </select>
                 <button onClick={() => remove(i)} className="neo-btn-ghost" style={{ padding: 4, color: '#DC2626' }}>
                   <XIcon size={12} />

@@ -12,7 +12,7 @@
 
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib'
 import type { SignField } from './types'
-import { computeFormulaValue, formatFormulaValue } from './field-helpers'
+import { computeFormulaValue, formatFormulaValue, effectiveCheckedState } from './field-helpers'
 
 // ─── Stamp envelopeId (Phase 3) ─────────────────────────────────────────
 
@@ -190,7 +190,16 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
 
         case 'checkbox': {
           const v = opts.fieldValues[f.id]
-          const checked = v === true || v === 'true'
+          // v2.7.7 — Si pas de valeur explicite candidat, utilise auto-check des conditions
+          // (et fallback metadata.selected si rien)
+          const userExplicit = v === true || v === false || v === 'true' || v === 'false'
+          let checked: boolean
+          if (userExplicit) {
+            checked = v === true || v === 'true'
+          } else {
+            const auto = effectiveCheckedState(f, opts.fieldValues)
+            checked = auto !== undefined ? auto : (f.metadata?.selected === true)
+          }
           if (checked) {
             const size = Math.min(wPts, hPts) * 0.85
             const cx = xPts + wPts / 2
