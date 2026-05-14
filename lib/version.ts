@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.8.2'
+export const APP_VERSION = '2.8.3'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.3 — Feedback "Créer le groupe" + default SelectExactly
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.3',
+    date: '2026-05-14',
+    label: 'Sign — Feedback Créer le groupe checkboxes',
+    features: [
+      'FIX — "Créer le groupe" Mode Document : toast de confirmation explicite ("Groupe « X » créé · 2 cases · Exactement 1").',
+      'UX — Si les cases sont DÉJÀ groupées, message indique "remplacement appliqué" (avant : silencieux → l\'utilisateur croyait que rien ne se passait).',
+      'UX — Bouton affiche "✓ Créé !" pendant 500ms puis revient à "Créer le groupe".',
+      'UX — Reset auto du formulaire (label vidé, X=1) après création pour enchaîner un autre groupe.',
+      'UX — Default règle passe de "Au moins X" à "Exactement X" (cas le plus fréquent pour Oui/Non = radio).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.8.2 — Chatbot template : modal de confirmation lisible et éditable
   // ─────────────────────────────────────────────────────────────────────

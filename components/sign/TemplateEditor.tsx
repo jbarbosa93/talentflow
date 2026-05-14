@@ -681,7 +681,13 @@ export default function TemplateEditor({
   ) => {
     const groupId = `g_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
     const selectedFields = fields.filter(f => selectedIds.includes(f.id) && f.type === 'checkbox')
-    if (selectedFields.length === 0) return
+    if (selectedFields.length === 0) {
+      toast.error('Aucune case à cocher sélectionnée')
+      return
+    }
+    // v2.8.3 — Si certains champs sont DÉJÀ dans un groupe, on remplace (re-groupe).
+    // Avant : silencieux → l'utilisateur croyait que le bouton ne marchait pas.
+    const alreadyGrouped = selectedFields.filter(f => f.groupId).length
     const fallbackName = `G${(fields.filter(f => f.groupId).map(f => f.groupId).filter((v, i, a) => a.indexOf(v) === i).length) + 1}`
     const groupName = label || fallbackName
     const set = new Set(selectedFields.map(f => f.id))
@@ -696,6 +702,10 @@ export default function TemplateEditor({
         groupMax: rule === 'SelectAtLeast' ? undefined : count,
       }
     }))
+    const ruleLabel = rule === 'SelectExactly' ? `Exactement ${count}` : rule === 'SelectAtMost' ? `Au plus ${count}` : `Au moins ${count}`
+    toast.success(
+      `✓ Groupe « ${groupName} » créé (${selectedFields.length} cases · ${ruleLabel})${alreadyGrouped > 0 ? ` — ${alreadyGrouped} case${alreadyGrouped > 1 ? 's étaient' : ' était'} déjà groupée${alreadyGrouped > 1 ? 's' : ''}, remplacement appliqué` : ''}`,
+    )
   }
 
   // Retirer un champ d'un groupe
@@ -3939,9 +3949,11 @@ function summarizeCondition(c: SignFieldCondition, triggerLabel: string): string
 function CheckboxGroupForm({
   count, onCreate,
 }: { count: number; onCreate: (rule: 'SelectAtLeast' | 'SelectAtMost' | 'SelectExactly', n: number, label?: string) => void }) {
-  const [rule, setRule] = useState<'SelectAtLeast' | 'SelectAtMost' | 'SelectExactly'>('SelectAtLeast')
+  // v2.8.3 — Default SelectExactly car c'est le cas le plus fréquent (radio Oui/Non)
+  const [rule, setRule] = useState<'SelectAtLeast' | 'SelectAtMost' | 'SelectExactly'>('SelectExactly')
   const [n, setN] = useState(1)
   const [label, setLabel] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   return (
     <div
       style={{
@@ -3986,11 +3998,24 @@ function CheckboxGroupForm({
       </Field>
       <button
         type="button"
-        onClick={() => onCreate(rule, n, label.trim() || undefined)}
+        onClick={() => {
+          setSubmitting(true)
+          onCreate(rule, n, label.trim() || undefined)
+          // Reset form après création
+          setLabel('')
+          setN(1)
+          // Brief animation pour confirmer le clic
+          setTimeout(() => setSubmitting(false), 500)
+        }}
         className="neo-btn-yellow"
-        style={{ height: 36, fontSize: 12.5, justifyContent: 'center' }}
+        style={{
+          height: 36, fontSize: 12.5, justifyContent: 'center',
+          opacity: submitting ? 0.6 : 1,
+          transition: 'opacity 0.2s',
+        }}
+        disabled={submitting}
       >
-        Créer le groupe
+        {submitting ? '✓ Créé !' : 'Créer le groupe'}
       </button>
     </div>
   )
