@@ -32,7 +32,7 @@ import { CSS } from '@dnd-kit/utilities'
 // v2.2.4 — Composant partagé Mode Wizard ↔ Mode Document pour éditer les options Formule
 import FieldFormulaOptions from './FieldFormulaOptions'
 import {
-  Save, RefreshCw, Plus, Trash2, ChevronUp, ChevronDown,
+  Save, Plus, Trash2, ChevronUp, ChevronDown,
   ListChecks, FileText, Loader2, GripVertical, Edit3, X as XIcon,
   Eye, EyeOff, AlertTriangle, Info, Settings2, Sparkles, Smartphone, Copy,
   Users, ArrowRightLeft,
@@ -43,7 +43,8 @@ import { toast } from 'sonner'
 import type { SignDocument, SignField, SignFieldType, SignFieldCondition, SignRecipientSchema } from '@/lib/sign/types'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { WizardStep, WizardStepAttachment } from '@/lib/sign/wizard-builder'
-import { buildWizardSteps, buildWizardStepsForAllRoles } from '@/lib/sign/wizard-builder'
+// v2.7.6 — buildWizardSteps/ForAllRoles supprimés des imports (handleRegenerate retiré).
+// Toujours dispo côté serveur si besoin (lib/sign/wizard-builder.ts).
 
 interface Props {
   templateId: string
@@ -96,9 +97,9 @@ export default function WizardEditor({
   const [selectedStepIdx, setSelectedStepIdx] = useState<number>(0)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
-  const [confirmRegen, setConfirmRegen] = useState(false)
+  // v2.7.6 — confirmRegen supprimé avec handleRegenerate
   const [enriching, setEnriching] = useState(false)
-  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(true)
   const [rolesPopoverOpen, setRolesPopoverOpen] = useState(false)
   const [orphanModalOpen, setOrphanModalOpen] = useState(false)
   const [locatedFieldId, setLocatedFieldId] = useState<string | null>(null)
@@ -438,21 +439,9 @@ export default function WizardEditor({
   }
 
   // ─── Re-génération auto ─────────────────────────────────────────────────
-  const handleRegenerate = () => {
-    if (!confirmRegen) {
-      setConfirmRegen(true)
-      setTimeout(() => setConfirmRegen(false), 5000)
-      return
-    }
-    // v2.2.1 — Régénère pour TOUS les rôles (pas juste 1)
-    const orders = allRoles.map(r => r.order)
-    const newSteps = buildWizardStepsForAllRoles(documents, orders)
-    setSteps(newSteps)
-    setSelectedStepIdx(0)
-    setConfirmRegen(false)
-    markDirty()
-    toast.success(`${newSteps.length} étapes re-générées (${orders.length} rôle${orders.length > 1 ? 's' : ''})`)
-  }
+  // v2.7.6 — handleRegenerate supprimé (cf. audit). Cause de bugs récurrents
+  // (dates semaine → step Signature). Remplacé par "Améliorer avec l'IA" qui est
+  // plus fiable et utilise Claude Vision pour comprendre le contenu réel du PDF.
 
   // ─── Enrichir avec l'IA (Claude vision PDF) ───────────────────────────
   const handleEnrichWithAI = async () => {
@@ -460,14 +449,26 @@ export default function WizardEditor({
     if (!confirm('Analyser le PDF avec Claude IA ? L\'opération prend ~30-60s par document et écrasera la structure actuelle des étapes (les fields restent intacts).')) return
     setEnriching(true)
     try {
-      const r = await fetch(`/api/sign/templates/${templateId}/enrich-with-ai`, { method: 'POST' })
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Erreur')
-      const errs = d.errors as string[] | undefined
-      const parts = [`${d.stepsCount} étapes`]
-      if (d.newFieldsCount > 0) parts.push(`${d.newFieldsCount} champs créés`)
-      if (d.fieldUpdatesCount > 0) parts.push(`${d.fieldUpdatesCount} champs enrichis`)
-      toast.success(`✨ IA : ${parts.join(' · ')}${errs?.length ? ` (${errs.length} avertissements)` : ''}`)
+      // v2.7.6 — Boucle pagination IA pour templates > 5 docs (3 par batch)
+      let totalSteps = 0
+      let totalNewFields = 0
+      let totalUpdated = 0
+      let allErrors: string[] = []
+      let nextBatch: number | null = 0
+      while (nextBatch !== null) {
+        const r: Response = await fetch(`/api/sign/templates/${templateId}/enrich-with-ai?batchStart=${nextBatch}`, { method: 'POST' })
+        const d: any = await r.json()
+        if (!r.ok) throw new Error(d.error || 'Erreur')
+        totalSteps += (d.stepsCount as number) ?? 0
+        totalNewFields += (d.newFieldsCount as number) ?? 0
+        totalUpdated += (d.fieldUpdatesCount as number) ?? 0
+        if (Array.isArray(d.errors)) allErrors.push(...(d.errors as string[]))
+        nextBatch = d.status === 'partial' ? (d.nextBatchIndex as number | null) : null
+      }
+      const parts = [`${totalSteps} étapes`]
+      if (totalNewFields > 0) parts.push(`${totalNewFields} champs créés`)
+      if (totalUpdated > 0) parts.push(`${totalUpdated} champs enrichis`)
+      toast.success(`✨ IA : ${parts.join(' · ')}${allErrors.length ? ` (${allErrors.length} avertissements)` : ''}`)
       onSaved?.()
     } catch (e: any) {
       toast.error(e.message || 'Erreur enrichissement IA')
@@ -506,7 +507,9 @@ export default function WizardEditor({
       if (!r.ok) throw new Error(d.error || 'Erreur')
       toast.success('Wizard enregistré')
       setDirty(false)
-      onSaved?.()
+      // v2.7.6 — Plus de onSaved → fetchTemplate ici : le state local est déjà
+      // cohérent avec la DB après PATCH 200. Évite le reload qui faisait
+      // disparaître l'aperçu live + casser le scroll/sélection.
     } catch (e: any) {
       toast.error(e.message || 'Erreur enregistrement')
     } finally {
@@ -675,15 +678,10 @@ export default function WizardEditor({
           {enriching ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
           {enriching ? 'Analyse IA…' : 'Améliorer avec l\'IA'}
         </button>
-        <button
-          type="button"
-          onClick={handleRegenerate}
-          className="neo-btn-ghost neo-btn-sm"
-          style={{ color: confirmRegen ? '#DC2626' : undefined }}
-        >
-          <RefreshCw size={13} />
-          {confirmRegen ? 'Confirmer ? Cela écrasera vos modifs' : 'Re-générer auto'}
-        </button>
+        {/* v2.7.6 — "Re-générer auto" supprimé : 3 chemins (manuel / heuristique / IA)
+            créaient de la confusion, et l'heuristique cause des régressions (cf. bug
+            dates semaine → step Signature documenté dans wizard-builder.ts).
+            Utilise "Améliorer avec l'IA" pour reconstruire la structure. */}
         <button
           type="button"
           onClick={addStep}
@@ -872,6 +870,11 @@ export default function WizardEditor({
             top: 16,
             alignSelf: 'flex-start',
             maxHeight: 'calc(100vh - 32px)',
+            // v2.7.6 — Isole le layout pour empêcher tout reflow externe (toolbar dirty=*,
+            // changements dans la liste d'étapes, etc.) de bouger visuellement le cadre iPhone.
+            // Note : on N'ajoute PAS `willChange: transform` car ça force la compositing GPU
+            // et dégrade le rendu sub-pixel des polices à l'intérieur du cadre.
+            contain: 'layout style',
           }}>
             <WizardPreview
               steps={steps}
@@ -1170,6 +1173,7 @@ function StepDetail({
                   totalFieldsInStep={stepFields.length}
                   allRecipientFields={allRecipientFields}
                   onUpdate={(patch) => onUpdateField(f.id, patch)}
+                  onUpdateAnyField={onUpdateField}
                   onRemove={() => onRemoveFieldFromStep(f.id)}
                   onSplitAfter={() => onSplitAt(i + 1)}
                   onDuplicate={() => onDuplicateField(f.id)}
@@ -1196,6 +1200,7 @@ interface SortableFieldRowProps {
   totalFieldsInStep: number
   allRecipientFields: SignField[]
   onUpdate: (patch: Partial<SignField>) => void
+  onUpdateAnyField?: (fieldId: string, patch: Partial<SignField>) => void
   onRemove: () => void
   onSplitAfter: () => void
   onDuplicate: () => void
@@ -1234,6 +1239,9 @@ interface FieldEditorProps {
   totalFieldsInStep: number
   allRecipientFields: SignField[]
   onUpdate: (patch: Partial<SignField>) => void
+  /** v2.7.6 — Update arbitraire par fieldId (utilisé pour syncer la description de section
+   *  sur tous les fields siblings avec le même wizardSection). */
+  onUpdateAnyField?: (fieldId: string, patch: Partial<SignField>) => void
   onRemove: () => void
   onSplitAfter: () => void
   onDuplicate: () => void
@@ -1247,7 +1255,7 @@ interface FieldEditorProps {
 
 function FieldEditor({
   field, fieldIdxInStep, totalFieldsInStep, allRecipientFields,
-  onUpdate, onRemove, onSplitAfter, onDuplicate, dragHandleProps,
+  onUpdate, onUpdateAnyField, onRemove, onSplitAfter, onDuplicate, dragHandleProps,
   availableTargetSteps, onMoveToStep,
 }: FieldEditorProps) {
   const [movePopoverOpen, setMovePopoverOpen] = useState(false)
@@ -1350,9 +1358,9 @@ function FieldEditor({
         })()}
         <input
           type="text"
-          value={field.tooltip || ''}
-          placeholder={field.label || `(${field.type})`}
-          onChange={e => onUpdate({ tooltip: e.target.value })}
+          value={field.tooltip || field.label || ''}
+          placeholder={`(${field.type})`}
+          onChange={e => onUpdate({ tooltip: e.target.value, label: e.target.value })}
           style={{
             flex: 1,
             border: 'none',
@@ -1365,6 +1373,7 @@ function FieldEditor({
           }}
         />
         <span className="neo-badge neo-badge-gray" style={{ fontSize: 10, flexShrink: 0 }}>{field.type}</span>
+        {field.required && <span style={{ color: '#DC2626', fontSize: 13, fontWeight: 700, flexShrink: 0, lineHeight: 1 }}>*</span>}
         {/* v2.2.4 — Bouton "Déplacer vers étape" (visible si autres steps du même rôle) */}
         {availableTargetSteps && availableTargetSteps.length > 0 && (
           <>
@@ -1540,6 +1549,24 @@ function FieldEditor({
             )}
           </div>
 
+          {/* v2.7.6 — Annotation / Instruction (= Infobulle Mode Document) :
+              partage la propriété `helpText` avec TemplateEditor. Affichée en
+              italique gris sous le label du champ dans le wizard. */}
+          <div>
+            <label style={editLabelSmall}>Annotation / Instruction</label>
+            <input
+              type="text"
+              value={field.helpText || ''}
+              onChange={e => onUpdate({ helpText: e.target.value.slice(0, 200) || undefined })}
+              maxLength={200}
+              placeholder="Ex : Indiquez votre IBAN suisse au format CH…"
+              style={{ ...editInputStyle, padding: '6px 8px', fontSize: 12 }}
+            />
+            <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 3, fontStyle: 'italic' }}>
+              Texte d&apos;aide visible sous le titre du champ dans le wizard.
+            </div>
+          </div>
+
           {/* Required */}
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--foreground)' }}>
             <input
@@ -1550,6 +1577,59 @@ function FieldEditor({
             />
             Champ obligatoire
           </label>
+
+          {/* v2.7.6 — Le consultant peut compléter si le candidat laisse vide */}
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--foreground)' }}>
+            <input
+              type="checkbox"
+              checked={!!(field.metadata?.consultantCanFill)}
+              onChange={e => onUpdate({ metadata: { ...field.metadata, consultantCanFill: e.target.checked || undefined } })}
+              style={{ width: 14, height: 14, accentColor: '#6366F1', cursor: 'pointer' }}
+            />
+            Le consultant peut compléter si vide
+          </label>
+
+          {/* v2.7.6 — Auto-fill : verrouillage (lecture seule) pour champs type=firstname/lastname/email/etc. */}
+          {['firstname', 'lastname', 'fullname', 'email', 'company', 'title'].includes(field.type) && (
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--foreground)' }}>
+              <input
+                type="checkbox"
+                checked={!!field.autoFillLocked}
+                onChange={e => onUpdate({ autoFillLocked: e.target.checked || undefined })}
+                style={{ width: 14, height: 14, accentColor: '#15803D', cursor: 'pointer' }}
+              />
+              Verrouiller la valeur (lecture seule)
+              <span style={{ fontSize: 10.5, color: 'var(--muted)', marginLeft: 4 }}>
+                — par défaut, le candidat peut corriger
+              </span>
+            </label>
+          )}
+
+          {/* v2.7.6 — Source auto-fill pour type=number (téléphone candidat) */}
+          {field.type === 'number' && (
+            <div>
+              <label style={editLabelSmall}>Auto-remplir avec</label>
+              <select
+                value={field.autoFillSource || ''}
+                onChange={e => onUpdate({ autoFillSource: (e.target.value || undefined) as 'phone' | undefined })}
+                style={{ ...editInputStyle, padding: '6px 8px', fontSize: 12, cursor: 'pointer' }}
+              >
+                <option value="">— Aucun —</option>
+                <option value="phone">📱 Téléphone du candidat</option>
+              </select>
+              {field.autoFillSource === 'phone' && (
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--foreground)', marginTop: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!field.autoFillLocked}
+                    onChange={e => onUpdate({ autoFillLocked: e.target.checked || undefined })}
+                    style={{ width: 14, height: 14, accentColor: '#15803D', cursor: 'pointer' }}
+                  />
+                  Verrouiller (lecture seule)
+                </label>
+              )}
+            </div>
+          )}
 
           {/* Default value */}
           <div>
@@ -1623,6 +1703,38 @@ function FieldEditor({
             </div>
           </div>
 
+          {/* v2.7.6 — Annotation de la section (affichée à côté du titre de la carte).
+              Sync sur tous les fields siblings de la même section. */}
+          {field.wizardSection && field.wizardSection.trim() && (
+            <div>
+              <label style={editLabelSmall}>Annotation de la section</label>
+              <input
+                type="text"
+                value={field.sectionDescription || ''}
+                onChange={e => {
+                  const newDesc = e.target.value.slice(0, 200) || undefined
+                  const sectionName = (field.wizardSection || '').trim()
+                  if (onUpdateAnyField && sectionName) {
+                    // Sync sur tous les fields avec le même wizardSection
+                    for (const sib of allRecipientFields) {
+                      if ((sib.wizardSection || '').trim() === sectionName) {
+                        onUpdateAnyField(sib.id, { sectionDescription: newDesc })
+                      }
+                    }
+                  } else {
+                    onUpdate({ sectionDescription: newDesc })
+                  }
+                }}
+                maxLength={200}
+                placeholder="Ex : Veuillez nous dire si vous avez ou pas permis de conduire"
+                style={{ ...editInputStyle, padding: '6px 8px', fontSize: 12 }}
+              />
+              <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 3, fontStyle: 'italic' }}>
+                Affichée en italique gris à côté du nom de la section dans le wizard.
+              </div>
+            </div>
+          )}
+
           {/* List items pour select */}
           {field.type === 'select' && (
             <ListItemsEditor
@@ -1641,11 +1753,30 @@ function FieldEditor({
           )}
 
           {/* Conditions */}
-          <ConditionsEditor
-            conditions={field.conditions || []}
-            otherFields={allRecipientFields.filter(f => f.id !== field.id)}
-            onChange={(conds) => onUpdate({ conditions: conds.length === 0 ? undefined : conds })}
-          />
+          {(() => {
+            const sectionName = (field.wizardSection || '').trim()
+            const sectionSiblings = sectionName
+              ? allRecipientFields.filter(f => (f.wizardSection || '').trim() === sectionName)
+              : []
+            const conds = field.conditions || []
+            const canApplyToSection = !!(sectionName && sectionSiblings.length > 1 && conds.length > 0 && onUpdateAnyField)
+            return (
+              <ConditionsEditor
+                conditions={conds}
+                otherFields={allRecipientFields.filter(f => f.id !== field.id)}
+                onChange={(c) => onUpdate({ conditions: c.length === 0 ? undefined : c })}
+                sectionName={sectionName || undefined}
+                sectionFieldCount={sectionSiblings.length}
+                onApplyToSection={canApplyToSection ? () => {
+                  for (const sib of sectionSiblings) {
+                    if (sib.id === field.id) continue
+                    onUpdateAnyField!(sib.id, { conditions: conds.length === 0 ? undefined : conds })
+                  }
+                  toast.success(`✓ Conditions appliquées à ${sectionSiblings.length - 1} autre${sectionSiblings.length - 1 > 1 ? 's' : ''} champ${sectionSiblings.length - 1 > 1 ? 's' : ''}`)
+                } : undefined}
+              />
+            )
+          })()}
         </div>
       )}
     </div>
@@ -1703,11 +1834,16 @@ function ListItemsEditor({
 // ConditionsEditor — édite les conditions show/hide/require/unrequire
 // ───────────────────────────────────────────────────────────────────────
 function ConditionsEditor({
-  conditions, otherFields, onChange,
+  conditions, otherFields, onChange, onApplyToSection, sectionName, sectionFieldCount,
 }: {
   conditions: SignFieldCondition[]
   otherFields: SignField[]
   onChange: (c: SignFieldCondition[]) => void
+  /** v2.7.6 — Si défini, affiche un bouton pour appliquer ces conditions à tous les
+   *  champs de la même section (sauf celui-ci). Pratique pour les blocs conjoint, etc. */
+  onApplyToSection?: () => void
+  sectionName?: string
+  sectionFieldCount?: number
 }) {
   const addCondition = () => {
     onChange([...conditions, {
@@ -1792,15 +1928,34 @@ function ConditionsEditor({
               </div>
             </div>
           ))}
-          <button
-            type="button"
-            onClick={addCondition}
-            className="neo-btn-ghost neo-btn-sm"
-            style={{ alignSelf: 'flex-start' }}
-          >
-            <Plus size={12} />
-            Ajouter une condition
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+            <button
+              type="button"
+              onClick={addCondition}
+              className="neo-btn-ghost neo-btn-sm"
+              style={{ alignSelf: 'flex-start' }}
+            >
+              <Plus size={12} />
+              Ajouter une condition
+            </button>
+            {/* v2.7.6 — Bouton pour appliquer ces conditions à toute la section (gain de
+                temps massif pour blocs type conjoint, enfant, etc.) */}
+            {onApplyToSection && sectionName && (sectionFieldCount ?? 0) > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Appliquer ces ${conditions.length} condition${conditions.length > 1 ? 's' : ''} à tous les ${(sectionFieldCount ?? 0) - 1} autres champs de la section « ${sectionName} » ? Leurs conditions existantes seront ÉCRASÉES.`)) {
+                    onApplyToSection()
+                  }
+                }}
+                className="neo-btn-ghost neo-btn-sm"
+                style={{ alignSelf: 'flex-start', color: 'var(--accent-foreground)', background: 'var(--primary-soft, #FEF3C7)' }}
+                title={`Copier ces conditions sur les ${(sectionFieldCount ?? 0) - 1} autres champs de la section`}
+              >
+                📋 Appliquer à toute la section « {sectionName} »
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -2204,7 +2359,7 @@ interface OrphanFieldsModalProps {
   onClose: () => void
 }
 
-function OrphanFieldsModal({
+export function OrphanFieldsModal({
   orphanFields, steps, locatedFieldId,
   onLocate, onAddToStep, onAddAllToStep, onDelete, onClose,
 }: OrphanFieldsModalProps) {

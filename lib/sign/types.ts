@@ -108,6 +108,15 @@ export interface SignField {
   // Si true, le champ est pré-rempli depuis le profil destinataire au signing.
   autoFill?: boolean
 
+  // v2.7.6 — Verrouille un champ auto-fill (firstname/lastname/email/company/title)
+  // en lecture seule. Par défaut (undefined/false) le destinataire peut corriger
+  // la valeur pré-remplie au cas où elle est fausse.
+  autoFillLocked?: boolean
+
+  // v2.7.6 — Source d'auto-remplissage pour les champs `number` (Numéro).
+  // 'phone' = téléphone portable du candidat (depuis sa fiche).
+  autoFillSource?: 'phone'
+
   // v2.2.0 Phase 2.5 — Formatage du texte rendu (texte/date/email/...)
   font?: string                    // 'Arial' | 'Helvetica' | 'Calibri' | 'Times' | 'Courier'
   fontSize?: number                // pt
@@ -135,6 +144,11 @@ export interface SignField {
   // → le Wizard affichera un sous-titre "Lundi" séparant ce groupe des autres.
   // Compatible avec les modes d'affichage 'list' et 'cards' du WizardStep.
   wizardSection?: string
+
+  // v2.7.6 — Annotation/description affichée à côté du titre de la section dans
+  // le wizard (italique gris). Synchronisée entre tous les fields du même
+  // `wizardSection` (édition sur un field → patch sur tous les siblings).
+  sectionDescription?: string
 
   // Métadonnées spécifiques (ex: DocuSign listItems pour 'select', tabType original)
   metadata?: Record<string, unknown>

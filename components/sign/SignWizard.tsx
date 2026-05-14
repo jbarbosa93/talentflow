@@ -68,6 +68,8 @@ interface AutoFill {
   companyName?: string
   /** v2.2.2 — Fonction/poste du destinataire (typiquement candidat.metier_recherche) */
   title?: string
+  /** v2.7.6 — Téléphone du candidat (utilisé par les fields number avec autoFillSource='phone') */
+  telephone?: string
 }
 
 interface Props {
@@ -167,6 +169,59 @@ export default function SignWizard({
 
   // Map fieldId → field (résolution rapide)
   const fieldsByStepMap = useMemo(() => fieldsByStep(steps, documents), [steps, documents])
+
+  // v2.7.6 — Wrapper sur onValueChange qui applique les règles de groupe checkbox :
+  // - SelectExactly N=1 ou SelectAtMost N=1 → comportement radio (uncheck siblings on check)
+  // - SelectAtMost N>1 ou SelectExactly N>1 → refuse de cocher si déjà N cases cochées
+  // - SelectAtLeast → aucune restriction UI (validation au submit seulement)
+  const handleValueChange = useMemo(() => {
+    return (fieldId: string, value: unknown) => {
+      // Résoud le field dans documents
+      let target: SignField | null = null
+      for (const d of documents) {
+        const found = (d.fields || []).find(f => f.id === fieldId)
+        if (found) { target = found; break }
+      }
+      if (!target || target.type !== 'checkbox' || !target.groupId || value !== true) {
+        onValueChange(fieldId, value)
+        return
+      }
+      const rule = target.groupRule
+      const groupId = target.groupId
+      const max = rule === 'SelectExactly' ? (target.groupMin ?? target.groupMax ?? 1)
+        : rule === 'SelectAtMost' ? (target.groupMax ?? 1)
+        : null
+      // Collecte les siblings du groupe
+      const siblings: SignField[] = []
+      for (const d of documents) {
+        for (const f of (d.fields || [])) {
+          if (f.groupId === groupId && f.id !== fieldId) siblings.push(f)
+        }
+      }
+      if (max === 1) {
+        // Comportement radio : décocher tous les autres puis cocher celui-ci
+        for (const s of siblings) {
+          const curr = fieldValues[s.id]
+          if (curr === true || curr === 'true') onValueChange(s.id, false)
+        }
+        onValueChange(fieldId, true)
+        return
+      }
+      if (max !== null && max > 1) {
+        // Compte les siblings déjà cochés
+        let checkedCount = 0
+        for (const s of siblings) {
+          const curr = fieldValues[s.id]
+          if (curr === true || curr === 'true') checkedCount++
+        }
+        if (checkedCount + 1 > max) {
+          // Bloque le check (déjà au max)
+          return
+        }
+      }
+      onValueChange(fieldId, value)
+    }
+  }, [documents, fieldValues, onValueChange])
 
   // v2.3.x Bug 2 — Si hideRecap, pas de step récap finale (totalSteps = steps.length).
   // La dernière vraie étape affiche directement le CTA finalize.
@@ -353,7 +408,7 @@ export default function SignWizard({
             step={currentStep}
             fields={stepFields}
             values={fieldValues}
-            onChange={onValueChange}
+            onChange={handleValueChange}
             signatureDataUrl={signatureDataUrl}
             onRequestSignature={onRequestSignature}
             autoFill={autoFill}
@@ -622,8 +677,10 @@ function GroupedFields({
   if (displayMode === 'cards') {
     return (
       <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {groups.map((g, gi) => (
-          g.name ? (
+        {groups.map((g, gi) => {
+          // v2.7.6 — Description de section : lue depuis le premier field qui en porte une
+          const sectionDesc = g.fields.find(f => f.sectionDescription)?.sectionDescription?.trim()
+          return g.name ? (
             <div key={gi} style={{
               padding: '14px 16px',
               border: '1px solid #E5E7EB',
@@ -636,7 +693,7 @@ function GroupedFields({
                 fontSize: 16,
                 fontWeight: 700,
                 color: '#1C1A14',
-                marginBottom: 12,
+                marginBottom: sectionDesc ? 4 : 12,
                 letterSpacing: '-0.2px',
                 display: 'flex', alignItems: 'center', gap: 8,
               }}>
@@ -646,13 +703,29 @@ function GroupedFields({
                 }} />
                 {enrichSection(g.name, weekStartDate)}
               </div>
+              {sectionDesc && (
+                <div style={{
+                  fontSize: 12.5,
+                  color: '#6B7280',
+                  fontStyle: 'italic',
+                  marginBottom: 12,
+                  lineHeight: 1.45,
+                  paddingLeft: 14,
+                }}>
+                  {sectionDesc}
+                </div>
+              )}
+              {/* v2.7.6 — Layout adapté au contenu :
+                  - Si tous les fields sont des checkboxes (ex: Oui/Non d'un groupe radio) → grid 2 colonnes
+                  - Sinon (mix de select, date, text…) → liste verticale (1 par ligne, plus lisible) */}
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                display: g.fields.every(f => f.type === 'checkbox') ? 'grid' : 'flex',
+                flexDirection: 'column',
+                gridTemplateColumns: g.fields.every(f => f.type === 'checkbox') ? 'repeat(2, 1fr)' : undefined,
                 gap: 12,
               }}>
                 {g.fields.map(f => (
-                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} />
+                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} hideLabelIfEmpty />
                 ))}
               </div>
             </div>
@@ -664,7 +737,7 @@ function GroupedFields({
               ))}
             </div>
           )
-        ))}
+        })}
       </div>
     )
   }
@@ -672,32 +745,47 @@ function GroupedFields({
   // ─── Mode LIST (défaut) : sous-titres séparant les groupes, fields verticaux ───
   return (
     <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {groups.map((g, gi) => (
-        <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {g.name && (
-            <div style={{
-              fontSize: 11.5,
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              color: '#A16207',
-              borderBottom: '1px solid #E5E7EB',
-              paddingBottom: 6,
-              marginTop: gi > 0 ? 8 : 0,
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}>
-              <span style={{
-                width: 6, height: 6, borderRadius: 999,
-                background: '#EAB308', flexShrink: 0,
-              }} />
-              {enrichSection(g.name, weekStartDate)}
-            </div>
-          )}
-          {g.fields.map(f => (
-            <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} />
-          ))}
-        </div>
-      ))}
+      {groups.map((g, gi) => {
+        // v2.7.6 — Description de section : lue depuis le premier field qui en porte une
+        const sectionDesc = g.fields.find(f => f.sectionDescription)?.sectionDescription?.trim()
+        return (
+          <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {g.name && (
+              <div style={{ marginTop: gi > 0 ? 8 : 0, borderBottom: '1px solid #E5E7EB', paddingBottom: 6 }}>
+                <div style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: '#A16207',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: 999,
+                    background: '#EAB308', flexShrink: 0,
+                  }} />
+                  {enrichSection(g.name, weekStartDate)}
+                </div>
+                {sectionDesc && (
+                  <div style={{
+                    fontSize: 12,
+                    color: '#6B7280',
+                    fontStyle: 'italic',
+                    marginTop: 4,
+                    lineHeight: 1.45,
+                    paddingLeft: 14,
+                  }}>
+                    {sectionDesc}
+                  </div>
+                )}
+              </div>
+            )}
+            {g.fields.map(f => (
+              <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} />
+            ))}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -785,16 +873,27 @@ interface FieldRowProps {
   onChange: (v: unknown) => void
   autoFill: AutoFill
   allValues?: Record<string, unknown>
+  /** v2.7.6 — Si true et que le field n'a aucun label/tooltip explicite,
+   *  on n'affiche pas l'étiquette (évite le doublon avec le titre de la carte). */
+  hideLabelIfEmpty?: boolean
 }
 
-function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps) {
+function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpty }: FieldRowProps) {
   const t = field.type as SignFieldType
-  const label = humanLabel(field)
+  // v2.7.6 — Si on est dans une carte ET aucun libellé explicite (tooltip ET label vides
+  // ou label = UUID DocuSign), on masque l'étiquette du field (la carte porte déjà le titre).
+  const hasExplicitLabel = !!(field.tooltip && field.tooltip.trim())
+    || !!(field.label && field.label.trim() && !UUID_LABEL_RE.test(field.label))
+  const renderLabel = !hideLabelIfEmpty || hasExplicitLabel
+  const label = renderLabel ? humanLabel(field) : ''
   // v2.2.4 — looksLikeCompanyField : type=title/text avec tooltip "société/entreprise" → traité comme company auto-fill
   const isCompanyHeuristic = looksLikeCompanyField(field) && t !== 'company'
   const isAutoFill = ['firstname', 'lastname', 'fullname', 'email', 'company', 'title'].includes(t) || isCompanyHeuristic
   const eff = allValues ? effectiveFieldState(field, allValues) : { visible: true, required: !!field.required }
-  const isRequired = eff.required
+  // v2.7.6 — Force l'affichage de l'étoile dès que `field.required` est true au niveau source,
+  // pour éviter qu'une condition d'unrequire (parfois résiduelle des imports DocuSign)
+  // masque le `*` alors que l'admin a explicitement coché "Champ obligatoire".
+  const isRequired = !!field.required || eff.required
 
   // Auto-detect : text qui ressemble à une date → date picker
   const renderAsDate = looksLikeDateField(field)
@@ -803,24 +902,42 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
     ? EUROPEAN_COUNTRIES
     : null
 
-  // Si c'est un auto-fill on l'affiche en lecture seule pré-rempli
+  // Si c'est un auto-fill : pré-rempli depuis le profil destinataire.
+  // v2.7.6 — Par défaut MODIFIABLE (le candidat peut corriger si la valeur est fausse).
+  // Seul `autoFillLocked === true` rend le champ verrouillé en lecture seule.
   if (isAutoFill) {
-    // v2.2.4 — Si heuristique company match, on force le type effectif à 'company' pour getAutoFillValue
     const val = getAutoFillValue(isCompanyHeuristic ? 'company' : t, autoFill, value)
+    if (field.autoFillLocked) {
+      return (
+        <div>
+          {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
+          <HelpText text={field.helpText} />
+          <div style={{
+            ...inputStyle,
+            background: '#F0FDF4',
+            borderColor: '#86EFAC',
+            color: '#1C1A14',
+            fontWeight: 500,
+          }}>
+            {val || <span style={{ color: '#9CA3AF' }}>—</span>}
+            <Check size={14} style={{ color: '#15803D', marginLeft: 'auto' }} />
+          </div>
+        </div>
+      )
+    }
+    // Editable : on pré-remplit l'input avec la valeur auto-fill, mais le candidat peut écraser.
+    const inputValue = typeof value === 'string' && value.length > 0 ? value : val
     return (
       <div>
-        <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
         <HelpText text={field.helpText} />
-        <div style={{
-          ...inputStyle,
-          background: '#F0FDF4',
-          borderColor: '#86EFAC',
-          color: '#1C1A14',
-          fontWeight: 500,
-        }}>
-          {val || <span style={{ color: '#9CA3AF' }}>—</span>}
-          <Check size={14} style={{ color: '#15803D', marginLeft: 'auto' }} />
-        </div>
+        <input
+          type={t === 'email' ? 'email' : 'text'}
+          value={inputValue}
+          onChange={e => onChange(e.target.value)}
+          placeholder={val}
+          style={inputStyle}
+        />
       </div>
     )
   }
@@ -828,7 +945,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
   if (t === 'date' && field.metadata?.tabType === 'datesigned') {
     return (
       <div>
-        <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
         <HelpText text={field.helpText} />
         <div style={{ ...inputStyle, background: '#F0FDF4', borderColor: '#86EFAC' }}>
           {autoFill.today}
@@ -866,15 +983,17 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
             <Check size={14} strokeWidth={3} style={{ color: '#1C1A14' }} />
           )}
         </span>
-        <span style={{ fontSize: 14, color: '#1C1A14', lineHeight: 1.4 }}>
-          {label}
-          {isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}
-          {field.helpText && field.helpText.trim() && (
-            <div style={{ marginTop: 3, fontSize: 12, color: '#6B7280', fontStyle: 'italic', lineHeight: 1.45 }}>
-              {field.helpText}
-            </div>
-          )}
-        </span>
+        {renderLabel && (
+          <span style={{ fontSize: 14, color: '#1C1A14', lineHeight: 1.4 }}>
+            {label}
+            {isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}
+            {field.helpText && field.helpText.trim() && (
+              <div style={{ marginTop: 3, fontSize: 12, color: '#6B7280', fontStyle: 'italic', lineHeight: 1.45 }}>
+                {field.helpText}
+              </div>
+            )}
+          </span>
+        )}
       </label>
     )
   }
@@ -885,7 +1004,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
     const stringValue = typeof value === 'string' ? value : ''
     return (
       <div>
-        <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
         <HelpText text={field.helpText} />
         <select
           value={stringValue}
@@ -905,7 +1024,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
     const stringValue = typeof value === 'string' ? value : ''
     return (
       <div>
-        <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
         <HelpText text={field.helpText} />
         <input
           type="date"
@@ -923,7 +1042,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
     const formatted = formatFormulaValue(field, computed)
     return (
       <div>
-        <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
         <HelpText text={field.helpText} />
         <div style={{
           ...inputStyle,
@@ -946,11 +1065,38 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
 
   // text / number / fallback (avec auto-detect date)
   const isNumber = t === 'number'
-  const stringValue = value !== undefined && value !== null ? String(value) : ''
+  // v2.7.6 — Numéro avec source 'phone' → pré-remplit avec le téléphone du candidat.
+  // Le rendu reste un input modifiable (sauf si autoFillLocked) — le candidat peut corriger.
+  const phoneAutoValue = isNumber && field.autoFillSource === 'phone' ? (autoFill.telephone || '') : ''
+  if (phoneAutoValue && field.autoFillLocked) {
+    const explicitOverride = typeof value === 'string' || typeof value === 'number'
+      ? String(value).trim()
+      : ''
+    const displayed = explicitOverride || phoneAutoValue
+    return (
+      <div>
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
+        <HelpText text={field.helpText} />
+        <div style={{
+          ...inputStyle,
+          background: '#F0FDF4',
+          borderColor: '#86EFAC',
+          color: '#1C1A14',
+          fontWeight: 500,
+        }}>
+          {displayed || <span style={{ color: '#9CA3AF' }}>—</span>}
+          <Check size={14} style={{ color: '#15803D', marginLeft: 'auto' }} />
+        </div>
+      </div>
+    )
+  }
+  const stringValue = value !== undefined && value !== null
+    ? String(value)
+    : phoneAutoValue
   if (renderAsDate) {
     return (
       <div>
-        <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
         <HelpText text={field.helpText} />
         <input
           type="date"
@@ -963,16 +1109,21 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
   }
   return (
     <div>
-      <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
+      {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
         <HelpText text={field.helpText} />
       <input
-        type={isNumber ? 'number' : 'text'}
-        inputMode={isNumber ? 'decimal' : 'text'}
+        type={isNumber && !phoneAutoValue ? 'number' : (isNumber && phoneAutoValue ? 'tel' : 'text')}
+        inputMode={isNumber && phoneAutoValue ? 'tel' : (isNumber ? 'decimal' : 'text')}
         value={stringValue}
-        onChange={e => onChange(isNumber && e.target.value ? Number(e.target.value) : e.target.value)}
+        onChange={e => {
+          const v = e.target.value
+          if (isNumber && phoneAutoValue) onChange(v)
+          else if (isNumber) onChange(v ? Number(v) : v)
+          else onChange(v)
+        }}
         readOnly={!!field.readOnly}
         maxLength={field.maxLength}
-        placeholder={field.defaultValue || ''}
+        placeholder={phoneAutoValue || field.defaultValue || ''}
         style={inputStyle}
       />
     </div>
@@ -1126,6 +1277,8 @@ function isFieldFilled(
     return !!auto && auto.trim() !== ''
   }
   if (t === 'date' && f.metadata?.tabType === 'datesigned') return !!autoFill.today
+  // v2.7.6 — Numéro avec source phone : rempli si autoFill.telephone existe (même sans valeur explicite)
+  if (t === 'number' && f.autoFillSource === 'phone' && autoFill.telephone) return true
   return value !== undefined && value !== null && String(value).trim() !== ''
 }
 

@@ -50,6 +50,8 @@ interface Props {
     companyName?: string
     /** v2.2.4 — Fonction/poste candidat (rempli auto pour fields type=title) */
     title?: string
+    /** v2.7.6 — Téléphone candidat (number avec autoFillSource='phone') */
+    telephone?: string
   }
   /** v2.2.0 — id du champ "courant" (highlight pulsant + auto-focus). */
   currentFieldId?: string | null
@@ -74,6 +76,39 @@ export default function PublicFieldsLayer({
 }: Props) {
   const visible = fields.filter(f => f.page === page && !f.metadata?.hidden)
   const curOrder = currentRecipientOrder ?? 1
+
+  // v2.7.6 — Wrapper appliquant les règles de groupe checkbox (radio-like si max=1,
+  // refuse si déjà au max). Cohérent avec SignWizard.
+  const handleValueChange = (fieldId: string, value: unknown) => {
+    const target = fields.find(f => f.id === fieldId)
+    if (!target || target.type !== 'checkbox' || !target.groupId || value !== true) {
+      onValueChange(fieldId, value)
+      return
+    }
+    const rule = target.groupRule
+    const groupId = target.groupId
+    const max = rule === 'SelectExactly' ? (target.groupMin ?? target.groupMax ?? 1)
+      : rule === 'SelectAtMost' ? (target.groupMax ?? 1)
+      : null
+    const siblings = fields.filter(f => f.groupId === groupId && f.id !== fieldId)
+    if (max === 1) {
+      for (const s of siblings) {
+        const curr = values[s.id]
+        if (curr === true || curr === 'true') onValueChange(s.id, false)
+      }
+      onValueChange(fieldId, true)
+      return
+    }
+    if (max !== null && max > 1) {
+      let checkedCount = 0
+      for (const s of siblings) {
+        const curr = values[s.id]
+        if (curr === true || curr === 'true') checkedCount++
+      }
+      if (checkedCount + 1 > max) return
+    }
+    onValueChange(fieldId, value)
+  }
 
   return (
     <>
@@ -130,7 +165,7 @@ export default function PublicFieldsLayer({
               <FieldInput
                 field={f}
                 value={values[f.id]}
-                onChange={v => belongsToCurrent ? onValueChange(f.id, v) : undefined}
+                onChange={v => belongsToCurrent ? handleValueChange(f.id, v) : undefined}
                 signatureDataUrl={signatureDataUrl}
                 onRequestSignature={onRequestSignature}
                 recipientColor={recipientColor}
@@ -462,27 +497,57 @@ function FieldInput({
   }
 
   // ─── AUTO-FILL (firstname / lastname / fullname / email / company / title) ───
+  // v2.7.6 — Par défaut MODIFIABLE (le candidat peut corriger). Verrouillé en lecture
+  // seule uniquement si `autoFillLocked === true`.
   if (isAutoFill) {
     const autoValue = getAutoFillValue(t, autoFill, value)
+    if (field.autoFillLocked) {
+      return (
+        <div style={{
+          width: '100%', height: '100%',
+          background: 'rgba(34,197,94,0.08)',
+          border: '1px solid #15803D',
+          borderRadius: 2,
+          fontSize: Math.min(heightPx * 0.55, 13),
+          color: '#1C1A14',
+          padding: '0 6px',
+          display: 'flex', alignItems: 'center',
+          fontFamily: 'inherit',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          position: 'relative',
+        }}>
+          {autoValue || (
+            <span style={{ color: '#9CA3AF', fontStyle: 'italic' }}>—</span>
+          )}
+          {tooltipBubble}
+        </div>
+      )
+    }
+    const inputValue = typeof value === 'string' && value.length > 0 ? value : autoValue
     return (
-      <div style={{
-        width: '100%', height: '100%',
-        background: 'rgba(34,197,94,0.08)',
-        border: '1px solid #15803D',
-        borderRadius: 2,
-        fontSize: Math.min(heightPx * 0.55, 13),
-        color: '#1C1A14',
-        padding: '0 6px',
-        display: 'flex', alignItems: 'center',
-        fontFamily: 'inherit',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        position: 'relative',
-      }}>
-        {autoValue || (
-          <span style={{ color: '#9CA3AF', fontStyle: 'italic' }}>—</span>
-        )}
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <input
+          ref={el => { inputRef.current = el }}
+          type={t === 'email' ? 'email' : 'text'}
+          value={inputValue}
+          onChange={e => onChange(e.target.value)}
+          onFocus={showOnFocus}
+          onBlur={hideOnBlur}
+          placeholder={autoValue}
+          style={{
+            width: '100%', height: '100%',
+            border: '1px solid #15803D',
+            borderRadius: 2,
+            fontSize: Math.min(heightPx * 0.55, 13),
+            padding: '0 6px',
+            background: 'rgba(34,197,94,0.06)',
+            color: '#1C1A14',
+            fontFamily: 'inherit',
+            outline: 'none',
+          }}
+        />
         {tooltipBubble}
       </div>
     )
@@ -490,19 +555,29 @@ function FieldInput({
 
   // ─── TEXT / NUMBER (par défaut) ───
   const isNumber = t === 'number'
-  const stringValue = value !== undefined && value !== null ? String(value) : ''
+  // v2.7.6 — Numéro avec source 'phone' → pré-remplit avec téléphone candidat (modifiable)
+  const phoneAutoValue = isNumber && field.autoFillSource === 'phone' ? (autoFill.telephone || '') : ''
+  const stringValue = value !== undefined && value !== null
+    ? String(value)
+    : phoneAutoValue
+  const isPhoneNumber = isNumber && !!phoneAutoValue
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <input
         ref={el => { inputRef.current = el }}
-        type={isNumber ? 'number' : 'text'}
+        type={isPhoneNumber ? 'tel' : (isNumber ? 'number' : 'text')}
         value={stringValue}
-        onChange={e => onChange(isNumber && e.target.value ? Number(e.target.value) : e.target.value)}
+        onChange={e => {
+          const v = e.target.value
+          if (isPhoneNumber) onChange(v)
+          else if (isNumber) onChange(v ? Number(v) : v)
+          else onChange(v)
+        }}
         onFocus={showOnFocus}
         onBlur={hideOnBlur}
         readOnly={!!field.readOnly}
         maxLength={field.maxLength}
-        placeholder={field.defaultValue || ''}
+        placeholder={phoneAutoValue || field.defaultValue || ''}
         style={{
           width: '100%', height: '100%',
           background: bgColor,
@@ -638,6 +713,8 @@ function isFieldFilled(
     return !!auto && auto.trim() !== ''
   }
   if (t === 'date' && f.metadata?.tabType === 'datesigned') return !!autoFill.today
+  // v2.7.6 — Numéro avec source phone : rempli si autoFill.telephone existe
+  if (t === 'number' && f.autoFillSource === 'phone' && autoFill.telephone) return true
   return value !== undefined && value !== null && String(value).trim() !== ''
 }
 

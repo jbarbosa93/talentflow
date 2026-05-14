@@ -233,11 +233,18 @@ interface AIResult {
   new_fields?: NewField[]
 }
 
-export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+// v2.7.6 — Pagination IA : si plus de 5 docs, on traite par batch de 3.
+// Le client appelle en boucle avec batchStart jusqu'à recevoir status='complete'.
+const PAGINATION_THRESHOLD = 5
+const BATCH_SIZE = 3
+
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const authError = await requireAuth()
   if (authError) return authError
 
   const { id } = await ctx.params
+  const { searchParams } = new URL(req.url)
+  const batchStart = Math.max(0, Number(searchParams.get('batchStart') || 0))
 
   // Workaround : Claude Desktop pose ANTHROPIC_API_KEY="" dans l'env système, ce qui
   // empêche Next.js de charger la valeur depuis .env.local. On reload .env.local en
@@ -447,9 +454,18 @@ Le PDF est joint. MODE A : préserve les fieldIds existants, regroupe-les en wiz
     return result
   }
 
-  // Lance TOUS les docs en parallèle. allSettled garantit qu'un échec n'interrompt pas les autres.
+  // v2.7.6 — Pagination : si template > 5 docs, on traite par batch de 3.
+  // Sinon (≤ 5 docs), on traite tout en parallèle comme avant (perf optimale).
+  const totalDocs = template.documents.length
+  const needsPagination = totalDocs > PAGINATION_THRESHOLD
+  const batchEnd = needsPagination ? Math.min(batchStart + BATCH_SIZE, totalDocs) : totalDocs
+  const docsToProcess = template.documents
+    .map((doc, idx) => ({ doc, idx }))
+    .slice(batchStart, batchEnd)
+
+  // Lance le batch en parallèle. allSettled garantit qu'un échec n'interrompt pas les autres.
   const settled = await Promise.allSettled(
-    template.documents.map((doc, idx) => processDoc(doc, idx)),
+    docsToProcess.map(({ doc, idx }) => processDoc(doc, idx)),
   )
 
   // Agrégation des résultats — ordre préservé via docIdx pour reconstruire updatedDocs
@@ -470,15 +486,21 @@ Le PDF est joint. MODE A : préserve les fieldIds existants, regroupe-les en wiz
     allUpdates.push(...v.fieldUpdates)
   }
 
-  if (allSteps.length === 0) {
+  // v2.7.6 — En mode pagination, on n'exige pas que CHAQUE batch produise des steps
+  // (un batch peut tomber sur des docs vides). On bloque uniquement si batchStart=0
+  // et qu'AUCUN step n'a été généré du tout.
+  if (allSteps.length === 0 && batchStart === 0 && !needsPagination) {
     return NextResponse.json({
       error: 'Aucun step généré',
       details: errors,
     }, { status: 500 })
   }
 
-  // 3. Apply field_updates + new_fields aux documents
+  // 3. Apply field_updates + new_fields aux documents de CE BATCH uniquement.
+  // Les autres docs restent intacts (préservés depuis template.documents).
+  const batchDocIdxSet = new Set(docsToProcess.map(({ idx }) => idx))
   const updatedDocs: SignDocument[] = template.documents.map((d, idx) => {
+    if (!batchDocIdxSet.has(idx)) return d  // doc hors batch → préservé tel quel
     const updatedFields = (d.fields || []).map(f => {
       const upd = allUpdates.find(u => u.id === f.id)
       if (!upd) return f
@@ -494,20 +516,27 @@ Le PDF est joint. MODE A : préserve les fieldIds existants, regroupe-les en wiz
       }
       return next
     })
-    // Ajoute les new_fields générés par Claude pour ce doc
     const newFields = newFieldsByDocIdx.get(idx) || []
-    return {
-      ...d,
-      fields: [...updatedFields, ...newFields],
-    }
+    return { ...d, fields: [...updatedFields, ...newFields] }
   })
+
+  // v2.7.6 — Merge incrémental des wizard_steps : on retire les steps des docs de
+  // CE batch (par docOrder) et on les remplace par les nouveaux. Les steps des
+  // autres docs sont préservés (batchs précédents).
+  const batchDocOrders = new Set(
+    docsToProcess.map(({ doc, idx }) => doc.order ?? idx + 1),
+  )
+  const existingStepsToKeep = batchStart > 0
+    ? (template.wizard_steps || []).filter(s => !batchDocOrders.has(s.docOrder))
+    : []
+  const mergedSteps = [...existingStepsToKeep, ...allSteps]
 
   // 4. Persist
   const { error: upErr } = await supabase
     .from('sign_templates' as any)
     .update({
       documents: updatedDocs,
-      wizard_steps: allSteps,
+      wizard_steps: mergedSteps,
     })
     .eq('id', id)
 
@@ -515,12 +544,17 @@ Le PDF est joint. MODE A : préserve les fieldIds existants, regroupe-les en wiz
     return NextResponse.json({ error: 'Erreur sauvegarde DB', details: upErr.message }, { status: 500 })
   }
 
-  // Compte total des new_fields ajoutés
   let newFieldsCount = 0
   for (const arr of newFieldsByDocIdx.values()) newFieldsCount += arr.length
 
+  // v2.7.6 — Réponse : 'partial' si reste à traiter, 'complete' sinon
+  const isPartial = needsPagination && batchEnd < totalDocs
   return NextResponse.json({
     ok: true,
+    status: isPartial ? 'partial' : 'complete',
+    processedDocs: batchEnd,
+    totalDocs,
+    nextBatchIndex: isPartial ? batchEnd : null,
     stepsCount: allSteps.length,
     fieldUpdatesCount: allUpdates.length,
     newFieldsCount,

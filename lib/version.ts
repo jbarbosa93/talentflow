@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.7.6'
+export const APP_VERSION = '2.7.7'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,34 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.7.7 — Refonte UX éditeur templates Sign (audit-driven)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.7.7',
+    date: '2026-05-14',
+    label: 'Éditeur templates Sign — UX & corrections audit',
+    features: [
+      'UX — Sign : preview iPhone stable (snapshot 700ms + React.memo + contain:layout) + scale responsif sur petits écrans + ResizeObserver.',
+      'UX — Sign : Mode Wizard et Mode Document synchronisés (Texte du champ = label+tooltip, Annotation/Instruction, Section, Étape).',
+      'UX — Sign : annotation de section synchronisée entre tous les fields siblings (édition 1× → propagation).',
+      'UX — Sign : règles checkbox group (SelectExactly N=1 = radio, SelectAtMost N>1 = bloque excess) appliquées au signing.',
+      'UX — Sign : auto-fill modifiable par défaut (verrou optionnel), nouvelle source phone pour les fields Numéro.',
+      'UX — Sign : étoile required + helpText cohérents entre les 2 modes ; label masqué dans cards mode si vide.',
+      'UX — Sign : multi-select Mode Document avec "Ajouter condition aux N champs" + "Déplacer vers étape wizard" + "Tout effacer conditions".',
+      'UX — Sign : badge violet ⚙N visible en haut-droite des champs avec conditions (PDF Mode Document).',
+      'UX — Sign : sélecteur "Filtrer par étape" Mode Document — focus visuel sur 1 étape, autres champs grisés.',
+      'UX — Sign : double-clic sur outil palette → placement au centre de la page (raccourci 1-clic).',
+      'UX — Sign : bouton "Champs orphelins" accessible aussi en Mode Document (modal partagé).',
+      'UX — Sign : "Aperçu live" actif par défaut Mode Wizard ; bouton "Enregistrer" ne recharge plus la page.',
+      'PERF — Sign : pagination IA enrichment (3 docs/batch si template > 5 docs) → évite timeout Vercel 120s.',
+      'FIX — Sign : "Re-générer auto" supprimé (cause de bugs dates semaine) — utilise "Améliorer avec l\'IA".',
+      'FIX — Sign : flicker bouton "Enregistrer" pendant auto-save silencieux → state manualSaving séparé.',
+      'FIX — Sign : suppression DocuSign Envelope ID dans le PDF final signé (couvert par notre header).',
+      'FIX — Sign : multi-patch atomique (onPatchManyMixed) — fix bug "condition s\'ajoute seulement sur 1 champ".',
+      'FIX — Logo L-Agence dans le CV personnalisé : hauteur corrigée (ratio 722×147 au lieu de 550×170).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.7.6 — Fix logo CV personnalisé (ratio hauteur corrigé)
   // ─────────────────────────────────────────────────────────────────────

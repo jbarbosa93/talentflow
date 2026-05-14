@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyToken } from '@/lib/sign/tokens'
 import { logAuditEvent, extractIp } from '@/lib/sign/audit'
 import type { SignEnvelope, SignTemplate, SignDocument, SignRecipient, SignRecipientSchema } from '@/lib/sign/types'
+import type { WizardStep } from '@/lib/sign/wizard-builder'
 
 export const runtime = 'nodejs'
 
@@ -174,6 +175,30 @@ export async function POST(req: NextRequest) {
       }
     } catch { /* silencieux */ }
 
+    // v2.7.6 — Étape "À compléter" pour le consultant (recipientOrder ≥ 2) :
+    // si des champs marqués `consultantCanFill` sont vides dans les valeurs du candidat,
+    // on injecte une étape dédiée en tête du wizard pour que le consultant puisse les remplir.
+    let effectiveWizardSteps: WizardStep[] = wizardSteps as WizardStep[]
+    if (currentRecipientOrder > 1) {
+      const allFields = (documents as SignDocument[]).flatMap(d => d.fields || [])
+      const fieldsToFill = allFields.filter(f =>
+        f.metadata?.consultantCanFill === true &&
+        (f.recipientOrder ?? 1) < currentRecipientOrder &&
+        (previousFieldValues[f.id] === undefined || previousFieldValues[f.id] === null || previousFieldValues[f.id] === '')
+      )
+      if (fieldsToFill.length > 0) {
+        const consultantFillStep: WizardStep = {
+          id: `consultant-fill-${envelope.id}`,
+          title: 'Informations à compléter',
+          description: `${fieldsToFill.length} champ${fieldsToFill.length > 1 ? 's' : ''} laissé${fieldsToFill.length > 1 ? 's' : ''} vide par le candidat — vous pouvez les compléter.`,
+          fieldIds: fieldsToFill.map(f => f.id),
+          docOrder: 1,
+          recipientOrder: currentRecipientOrder,
+        }
+        effectiveWizardSteps = [consultantFillStep, ...(wizardSteps as WizardStep[])]
+      }
+    }
+
     return NextResponse.json({
       valid: true,
       envelope: {
@@ -225,7 +250,7 @@ export async function POST(req: NextRequest) {
       // v2.2.0 Phase 4a-bis-2 — Wizard mode
       wizard: {
         enabled: wizardEnabled,
-        steps: wizardSteps,
+        steps: effectiveWizardSteps,
       },
     })
   } catch (e) {

@@ -37,9 +37,12 @@ interface Props {
   wizardSteps?: WizardStep[]
   /** Feature 4 — Toggle d'affichage des badges numéros d'étapes. Défaut : true si wizardSteps non vide. */
   showStepBadges?: boolean
+  /** v2.7.6 — Filtre visuel par étape. Si défini, les fields PAS dans ce Set sont
+   *  grisés (opacity 0.3) mais restent visibles et cliquables. null = pas de filtre. */
+  stepFilterFieldIds?: Set<string> | null
 }
 
-const DEFAULT_FIELD_SIZE_PCT: Record<SignFieldType, { w: number; h: number }> = {
+export const DEFAULT_FIELD_SIZE_PCT: Record<SignFieldType, { w: number; h: number }> = {
   // Signature — v2.3.13 : tailles ratio 3:1 (signature) / 1:1 (initial)
   // alignées sur SIGNATURE_CONSTRAINTS dans lib/sign/types.ts.
   signature:  { w: 0.30, h: 0.10 },
@@ -63,7 +66,7 @@ const DEFAULT_FIELD_SIZE_PCT: Record<SignFieldType, { w: number; h: number }> = 
   attachment: { w: 0.20, h: 0.040 },
 }
 
-const PLACEHOLDER: Record<SignFieldType, string> = {
+export const PLACEHOLDER: Record<SignFieldType, string> = {
   // Signature
   signature:  'Signer',
   initial:    'Paraphe',
@@ -111,7 +114,7 @@ function clamp01(n: number): number {
 export default function FieldsCanvas({
   width, height, page, fields, onChange, selectedIds, onSelect,
   activeTool, activeRecipientOrder, genId, showSectionBadges = true,
-  wizardSteps, showStepBadges,
+  wizardSteps, showStepBadges, stepFilterFieldIds,
 }: Props) {
   const stageRef = useRef<Konva.Stage>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
@@ -570,6 +573,8 @@ export default function FieldsCanvas({
           const isHovered = hoveredId === f.id
           const c = colorFor(f.recipientOrder)
           const stepNum = showStepNums ? (fieldStepMap.get(f.id) ?? null) : null
+          // v2.7.6 — Atténuation si filtre étape actif et field hors filtre
+          const isDimmed = !!stepFilterFieldIds && !stepFilterFieldIds.has(f.id)
           return (
             <FieldGroup
               key={f.id}
@@ -580,6 +585,7 @@ export default function FieldsCanvas({
               isHovered={isHovered}
               showSectionBadges={showSectionBadges}
               stepNumber={stepNum}
+              isDimmed={isDimmed}
               onClick={ev => handleFieldClick(f.id, ev)}
               onMouseEnter={() => setHoveredId(f.id)}
               onMouseLeave={() => setHoveredId(prev => prev === f.id ? null : prev)}
@@ -715,6 +721,8 @@ interface FieldGroupProps {
   showSectionBadges: boolean
   /** Feature 4 — Numéro de l'étape wizard (1-based) auquel ce field appartient. Null = pas d'étape. */
   stepNumber: number | null
+  /** v2.7.6 — Field grisé (filtre étape actif et field hors filtre). */
+  isDimmed?: boolean
   onClick: (ev: KonvaEventObject<MouseEvent>) => void
   onMouseEnter: () => void
   onMouseLeave: () => void
@@ -726,7 +734,7 @@ interface FieldGroupProps {
 }
 
 function FieldGroup({
-  field, x, y, w, h, color, isSelected, isHovered, showSectionBadges, stepNumber,
+  field, x, y, w, h, color, isSelected, isHovered, showSectionBadges, stepNumber, isDimmed,
   onClick, onMouseEnter, onMouseLeave, onDragStart, onDragMove, onDragEnd,
   boundW, boundH,
 }: FieldGroupProps) {
@@ -839,6 +847,8 @@ function FieldGroup({
     onDragStart,
     onDragMove,
     onDragEnd,
+    // v2.7.6 — Atténue opacité si filtre étape actif et field hors filtre
+    opacity: isDimmed ? 0.3 : 1,
     // Bound function désactivé en multi-drag : sinon le leader est clampé
     // mais les autres dépassent et créent un décalage permanent.
     // En single drag → clamp normal. En multi → laisse aller, le commit final
@@ -1107,6 +1117,34 @@ function FieldGroup({
           cornerRadius={1.5}
           listening={false}
         />
+      )}
+      {/* v2.7.6 — Indicateur "a une condition" : badge violet en HAUT-DROITE avec
+          le nombre de règles. Évite le chevauchement avec stepBadge (haut-gauche).
+          Marge de 6px à droite pour laisser place au point rouge required. */}
+      {field.conditions && field.conditions.length > 0 && (
+        <Group x={Math.max(0, w - 14 - 6)} y={1} listening={false}>
+          <Rect
+            width={14}
+            height={11}
+            fill="#7C3AED"
+            cornerRadius={3}
+            shadowColor="rgba(0,0,0,0.25)"
+            shadowBlur={2}
+            shadowOffsetY={1}
+          />
+          <Text
+            x={0}
+            y={0}
+            width={14}
+            height={11}
+            text={`⚙${field.conditions.length}`}
+            fontSize={8}
+            fontStyle="bold"
+            fill="#fff"
+            align="center"
+            verticalAlign="middle"
+          />
+        </Group>
       )}
       {isReadOnly && (
         <Path

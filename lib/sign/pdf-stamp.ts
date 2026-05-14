@@ -67,6 +67,8 @@ interface AutoFill {
   companyName?: string
   /** v2.2.2 — Fonction/poste du destinataire (typiquement candidat.metier_recherche). Utilisé par les fields type=title. */
   title?: string
+  /** v2.7.6 — Téléphone candidat (utilisé par les fields number avec autoFillSource='phone'). */
+  telephone?: string
 }
 
 interface StampOptions {
@@ -249,9 +251,14 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
         case 'text':
         case 'number': {
           const v = opts.fieldValues[f.id]
+          let toDraw = ''
           if (v !== undefined && v !== null && String(v).trim()) {
-            drawTextInBox(page, String(v), xPts, yPtsBL, wPts, hPts, helv, f)
+            toDraw = String(v)
+          } else if (f.type === 'number' && f.autoFillSource === 'phone' && opts.autoFill.telephone) {
+            // v2.7.6 — Fallback téléphone candidat si le champ n'a pas été modifié
+            toDraw = opts.autoFill.telephone
           }
+          if (toDraw) drawTextInBox(page, toDraw, xPts, yPtsBL, wPts, hPts, helv, f)
           break
         }
 

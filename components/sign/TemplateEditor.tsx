@@ -13,8 +13,10 @@ import {
   PenLine, Type, CheckSquare, Calendar, List as ListIcon, Trash2, Files,
   StickyNote, Plus, Hash, Mail, Building2, Briefcase, User, IdCard,
   Sigma, Paperclip, Pencil, Check as CheckIcon, X as XIcon, Eye,
-  Sparkles, Search, FilePlus, ArrowUp, ArrowDown,
+  Sparkles, Search, FilePlus, ArrowUp, ArrowDown, AlertTriangle,
 } from 'lucide-react'
+// v2.7.6 — Import partagé du modal "Champs orphelins" (défini dans WizardEditor, réutilisé ici)
+import { OrphanFieldsModal } from './WizardEditor'
 import PdfPreviewModal from '@/components/report/PdfPreviewModal'
 import { toast } from 'sonner'
 import type { PageRenderInfo } from './PDFViewer'
@@ -37,6 +39,8 @@ const PDFViewer = dynamic(() => import('./PDFViewer'), {
   loading: () => <div style={{ padding: 40, color: 'var(--muted)' }}><Loader2 size={20} className="animate-spin" /></div>,
 })
 const FieldsCanvas = dynamic(() => import('./FieldsCanvas'), { ssr: false })
+// v2.7.6 — Tailles + libellés par défaut, partagés avec FieldsCanvas pour le double-clic palette
+import { DEFAULT_FIELD_SIZE_PCT, PLACEHOLDER } from './FieldsCanvas'
 
 interface Props {
   templateId: string
@@ -102,6 +106,10 @@ export default function TemplateEditor({
   )
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  // v2.7.6 — État distinct pour le save MANUEL (clic utilisateur sur "Enregistrer").
+  // Évite que le bouton flicker pendant les auto-saves silencieux (saving=true 800ms).
+  // Le bouton ne devient disabled QUE pendant une vraie sauvegarde manuelle.
+  const [manualSaving, setManualSaving] = useState(false)
   // v2.7.4 — Détection auto IA des champs (Claude Vision PDF natif)
   const [aiBusy, setAiBusy] = useState(false)
   const [aiStatus, setAiStatus] = useState<string>('')
@@ -112,6 +120,35 @@ export default function TemplateEditor({
   const [renamingDocIdx, setRenamingDocIdx] = useState<number | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [dirty, setDirty] = useState(false)
+  // v2.7.6 — Modal "Champs orphelins" accessible aussi depuis Mode Document
+  const [orphanModalOpen, setOrphanModalOpen] = useState(false)
+  const [orphanLocatedFieldId, setOrphanLocatedFieldId] = useState<string | null>(null)
+  // v2.7.6 — Filtre Mode Document : focus sur les fields d'une étape spécifique
+  // (les autres restent visibles mais grisés à 30% opacity). null = pas de filtre.
+  const [stepFilterIdx, setStepFilterIdx] = useState<number | null>(null)
+
+  // v2.7.6 — Champs orphelins = présents dans le PDF mais pas dans le wizard
+  // (auto-fill types exclus car gérés par le step auto-fill automatique)
+  const allTemplateFields = useMemo(
+    () => docs.flatMap(d => d.fields || []),
+    [docs],
+  )
+  const orphanFields = useMemo(() => {
+    const isAutoFill = (t: string) => ['firstname', 'lastname', 'fullname', 'email', 'company', 'title'].includes(t)
+    const wizardFieldIds = new Set<string>()
+    for (const s of wizardSteps) {
+      for (const fid of s.fieldIds) wizardFieldIds.add(fid)
+    }
+    return allTemplateFields.filter(f => !isAutoFill(f.type) && !wizardFieldIds.has(f.id))
+  }, [allTemplateFields, wizardSteps])
+
+  // v2.7.6 — Set des fields appartenant à l'étape sélectionnée (focus visuel)
+  const stepFilterFieldIds = useMemo(() => {
+    if (stepFilterIdx === null) return null
+    const step = wizardSteps[stepFilterIdx]
+    if (!step) return null
+    return new Set(step.fieldIds)
+  }, [stepFilterIdx, wizardSteps])
   // v2.3.16 — Modal preview PDF stampé avec données de test
   const [previewOpen, setPreviewOpen] = useState(false)
 
@@ -361,6 +398,7 @@ export default function TemplateEditor({
   const handleSave = async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true
     setSaving(true)
+    if (!silent) setManualSaving(true)
     try {
       const r = await fetch(`/api/sign/templates/${templateId}`, {
         method: 'PATCH',
@@ -389,6 +427,7 @@ export default function TemplateEditor({
       else toast.error(msg)
     } finally {
       setSaving(false)
+      setManualSaving(false)
     }
   }
 
@@ -503,24 +542,43 @@ export default function TemplateEditor({
     setAiStatus(isEmpty ? '📄 Téléchargement du PDF…' : '🤖 Analyse IA en cours…')
     setAiBanner(null)
     try {
+      // v2.7.6 — Boucle sur les batchs jusqu'à status:'complete' (pagination IA pour
+      // templates > 5 docs : 3 docs traités par batch pour éviter timeout Vercel 120s).
+      let totalNewFields = 0
+      let totalUpdated = 0
+      let totalSteps = 0
+      let nextBatch: number | null = 0
+      let totalDocs = 0
+
       // Petit délai cosmétique avant de changer le texte (effet "étapes")
       setTimeout(() => setAiStatus(isEmpty ? '🤖 Claude analyse votre document…' : '🤖 Restructuration des étapes…'), 1200)
-      const r = await fetch(`/api/sign/templates/${templateId}/enrich-with-ai`, { method: 'POST' })
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Erreur détection')
 
-      const newFields: number = d.newFieldsCount ?? 0
-      const updated: number = d.fieldUpdatesCount ?? 0
-      const steps: number = d.stepsCount ?? 0
+      while (nextBatch !== null) {
+        const r: Response = await fetch(`/api/sign/templates/${templateId}/enrich-with-ai?batchStart=${nextBatch}`, { method: 'POST' })
+        const d: any = await r.json()
+        if (!r.ok) throw new Error(d.error || 'Erreur détection')
 
-      if (isEmpty && newFields > 0) {
+        totalNewFields += (d.newFieldsCount as number) ?? 0
+        totalUpdated += (d.fieldUpdatesCount as number) ?? 0
+        totalSteps += (d.stepsCount as number) ?? 0
+        totalDocs = (d.totalDocs as number) ?? 0
+
+        if (d.status === 'partial') {
+          nextBatch = d.nextBatchIndex as number | null
+          setAiStatus(`🤖 ${d.processedDocs}/${totalDocs} documents traités…`)
+        } else {
+          nextBatch = null
+        }
+      }
+
+      if (isEmpty && totalNewFields > 0) {
         const pages = docs.reduce((acc, doc) => acc + (doc.page_count || 1), 0)
-        setAiBanner({ fields: newFields, pages })
-        toast.success(`✅ ${newFields} champ${newFields > 1 ? 's' : ''} détecté${newFields > 1 ? 's' : ''} et placé${newFields > 1 ? 's' : ''} !`)
+        setAiBanner({ fields: totalNewFields, pages })
+        toast.success(`✅ ${totalNewFields} champ${totalNewFields > 1 ? 's' : ''} détecté${totalNewFields > 1 ? 's' : ''} et placé${totalNewFields > 1 ? 's' : ''} !`)
       } else if (!isEmpty) {
-        const parts: string[] = [`${steps} étape${steps > 1 ? 's' : ''}`]
-        if (newFields > 0) parts.push(`${newFields} champs créés`)
-        if (updated > 0) parts.push(`${updated} enrichis`)
+        const parts: string[] = [`${totalSteps} étape${totalSteps > 1 ? 's' : ''}`]
+        if (totalNewFields > 0) parts.push(`${totalNewFields} champs créés`)
+        if (totalUpdated > 0) parts.push(`${totalUpdated} enrichis`)
         toast.success(`✨ IA : ${parts.join(' · ')}`)
       } else {
         toast.warning('Aucun champ détecté. Le PDF est peut-être un scan de mauvaise qualité.')
@@ -1045,6 +1103,7 @@ export default function TemplateEditor({
                 showSectionBadges={showSectionBadges}
                 wizardSteps={wizardSteps}
                 showStepBadges={showStepBadges}
+                stepFilterFieldIds={stepFilterFieldIds}
               />
             </div>
           )}
@@ -1078,15 +1137,13 @@ export default function TemplateEditor({
             type="button"
             className="neo-btn-yellow"
             onClick={() => handleSave()}
-            disabled={saving || !dirty}
-            style={{ width: '100%', justifyContent: 'center', opacity: !dirty && !saving ? 0.55 : 1 }}
+            disabled={manualSaving || !dirty}
+            style={{ width: '100%', justifyContent: 'center', opacity: !dirty ? 0.55 : 1 }}
             title={dirty ? 'Forcer un enregistrement immédiat (auto-save 800ms sinon)' : 'Tout est enregistré'}
           >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {/* v2.7.4 — Label STABLE pour éviter le "clignement" perçu par João
-                (le label changeait à chaque frappe → bouton qui bouge). L'auto-save
-                reste actif silencieusement en arrière-plan (800ms debounce + flush
-                au switch d'onglet + flush à la sortie de page). */}
+            {/* v2.7.6 — Spinner et disabled basés sur manualSaving (clic user), PAS sur
+                saving (qui inclut les auto-saves silencieux 800ms → clignement). */}
+            {manualSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             Enregistrer
           </button>
           {/* v2.3.16 — Aperçu PDF stampé avec données de test (sans sauvegarder).
@@ -1226,6 +1283,52 @@ export default function TemplateEditor({
           <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
             {fieldsTotalCount(docs)} champ{fieldsTotalCount(docs) > 1 ? 's' : ''} · {docs.length} PDF{docs.length > 1 ? 's' : ''}
           </div>
+
+          {/* v2.7.6 — Filtre par étape wizard : focus visuel sur les fields d'une étape
+              (les autres deviennent grisés). Utile sur templates 80+ champs. */}
+          {wizardSteps.length > 0 && (
+            <select
+              className="neo-input"
+              value={stepFilterIdx === null ? '' : String(stepFilterIdx)}
+              onChange={e => setStepFilterIdx(e.target.value === '' ? null : Number(e.target.value))}
+              style={{ fontSize: 12, padding: '6px 8px' }}
+              title="Filtrer visuellement les champs d'une étape (les autres restent visibles mais grisés)"
+            >
+              <option value="">👁 Toutes les étapes</option>
+              {wizardSteps.map((s, si) => {
+                const role = s.recipientOrder ?? 1
+                const stepNum = wizardSteps.filter((x, xi) => xi <= si && (x.recipientOrder ?? 1) === role).length
+                return (
+                  <option key={s.id} value={si}>
+                    Rôle {role} · Étape {stepNum} · {s.title} ({s.fieldIds.length})
+                  </option>
+                )
+              })}
+            </select>
+          )}
+
+          {/* v2.7.6 — Bouton "Champs orphelins" (visible aussi en Mode Document maintenant) :
+              alerte si des fields du PDF ne sont pas inclus dans le wizard candidat. */}
+          {setWizardSteps && orphanFields.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setOrphanModalOpen(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '7px 12px',
+                fontSize: 12, fontWeight: 700,
+                background: 'rgba(234,179,8,0.12)',
+                color: '#A16207',
+                border: '1px solid rgba(234,179,8,0.45)',
+                borderRadius: 8, cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+              title={`${orphanFields.length} champ${orphanFields.length > 1 ? 's présents' : ' présent'} dans le PDF mais dans aucune étape du wizard`}
+            >
+              <AlertTriangle size={12} />
+              {orphanFields.length} orphelin{orphanFields.length > 1 ? 's' : ''}
+            </button>
+          )}
         </div>
 
         {/* v2.2.4 — Champ(s) sélectionné(s) en HAUT pour éviter de scroller à chaque sélection */}
@@ -1298,7 +1401,30 @@ export default function TemplateEditor({
                         key={t}
                         type="button"
                         onClick={() => setActiveTool(active ? null : t)}
+                        onDoubleClick={() => {
+                          // v2.7.6 — Double-clic : place le field directement au centre
+                          // de la page courante (raccourci pour éviter le clic outil + clic PDF)
+                          const def = DEFAULT_FIELD_SIZE_PCT[t]
+                          const newField: SignField = {
+                            id: genId(),
+                            type: t,
+                            page: activePage,
+                            x: 0.5 - def.w / 2,
+                            y: 0.5 - def.h / 2,
+                            width: def.w,
+                            height: def.h,
+                            recipientOrder: activeRecipientOrder,
+                            label: PLACEHOLDER[t] || t,
+                            required: false,
+                            source: 'manual',
+                          }
+                          updateDocFields([...fields, newField])
+                          setSelectedIds([newField.id])
+                          setActiveTool(null)
+                          toast.success(`${FIELD_TYPE_LABELS[t]} placé au centre de la page`)
+                        }}
                         onKeyDown={e => { if (e.key === 'Escape') setActiveTool(null) }}
+                        title={`Clic = activer outil • Double-clic = placer au centre de la page ${activePage}`}
                         className="neo-btn-ghost neo-btn-sm"
                         style={{
                           justifyContent: 'flex-start',
@@ -1519,6 +1645,59 @@ export default function TemplateEditor({
           filename={`apercu-${(docs[activeDocIdx].name || 'template').replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`}
           title={`Aperçu — ${docs[activeDocIdx].name || 'Document'} (données de test)`}
           onClose={() => setPreviewOpen(false)}
+        />
+      )}
+
+      {/* v2.7.6 — Modal "Champs orphelins" partagé avec WizardEditor.
+          Affiche les fields du PDF non rattachés au wizard, permet de les y intégrer
+          (un par un ou en lot vers une étape). Locate = scroll + highlight sur le PDF. */}
+      {orphanModalOpen && setWizardSteps && (
+        <OrphanFieldsModal
+          orphanFields={orphanFields}
+          steps={wizardSteps}
+          locatedFieldId={orphanLocatedFieldId}
+          onLocate={(id) => {
+            // Localise le field : passe à son doc + sa page + le sélectionne
+            const targetDocIdx = docs.findIndex(d => (d.fields || []).some(f => f.id === id))
+            const targetField = targetDocIdx >= 0 ? (docs[targetDocIdx].fields || []).find(f => f.id === id) : null
+            if (targetField) {
+              if (targetDocIdx !== activeDocIdx) setActiveDocIdx(targetDocIdx)
+              if (targetField.page !== activePage) setActivePage(targetField.page)
+              setSelectedIds([id])
+            }
+            setOrphanLocatedFieldId(id === orphanLocatedFieldId ? null : id)
+          }}
+          onAddToStep={(fieldId, stepIdx) => {
+            setWizardSteps(prev => prev.map((s, i) => i === stepIdx
+              ? { ...s, fieldIds: s.fieldIds.includes(fieldId) ? s.fieldIds : [...s.fieldIds, fieldId] }
+              : { ...s, fieldIds: s.fieldIds.filter(id => id !== fieldId) },
+            ))
+            setOrphanLocatedFieldId(null)
+            toast.success('Champ ajouté à l\'étape')
+          }}
+          onAddAllToStep={(fieldIds, stepIdx) => {
+            setWizardSteps(prev => prev.map((s, i) => i === stepIdx
+              ? { ...s, fieldIds: [...s.fieldIds, ...fieldIds.filter(id => !s.fieldIds.includes(id))] }
+              : { ...s, fieldIds: s.fieldIds.filter(id => !fieldIds.includes(id)) },
+            ))
+            toast.success(`${fieldIds.length} champ${fieldIds.length > 1 ? 's ajoutés' : ' ajouté'}`)
+          }}
+          onDelete={(fieldIds) => {
+            const idSet = new Set(fieldIds)
+            // Supprime des docs ET des wizardSteps
+            const newDocs = docs.map(d => ({
+              ...d,
+              fields: (d.fields || []).filter(f => !idSet.has(f.id)),
+            }))
+            setDocs(newDocs)
+            setWizardSteps(prev => prev.map(s => ({
+              ...s,
+              fieldIds: s.fieldIds.filter(id => !idSet.has(id)),
+            })))
+            setDirty(true)
+            toast.success(`${fieldIds.length} champ${fieldIds.length > 1 ? 's supprimés' : ' supprimé'}`)
+          }}
+          onClose={() => { setOrphanModalOpen(false); setOrphanLocatedFieldId(null) }}
         />
       )}
     </div>
@@ -1857,12 +2036,15 @@ function SelectedFieldsPanel({
         document.body,
       )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <Field label="Libellé">
+          {/* v2.7.6 — "Libellé" édite À LA FOIS label ET tooltip : c'est le NOM AFFICHÉ
+              du champ, partagé entre Mode Document et Mode Wizard. Le "Tooltip" (hover)
+              reste séparé en bas (zone Avancé). */}
+          <Field label="Texte du champ (libellé affiché)">
             <input
               type="text"
               className="neo-input"
-              value={f.label}
-              onChange={e => onPatch(f.id, { label: e.target.value })}
+              value={f.tooltip || f.label || ''}
+              onChange={e => onPatch(f.id, { label: e.target.value, tooltip: e.target.value })}
             />
           </Field>
           <Field label="Type">
@@ -1984,6 +2166,70 @@ function SelectedFieldsPanel({
               )
             })()}
           </Field>
+
+          {/* v2.7.6 — Annotation de la section (synchronisée sur tous les fields siblings) */}
+          {f.wizardSection && f.wizardSection.trim() && (
+            <Field label="Annotation de la section">
+              <input
+                type="text"
+                className="neo-input"
+                placeholder="Ex : Veuillez nous dire si vous avez ou pas permis de conduire"
+                value={f.sectionDescription || ''}
+                maxLength={200}
+                onChange={e => {
+                  const newDesc = e.target.value.slice(0, 200) || undefined
+                  const sectionName = (f.wizardSection || '').trim()
+                  for (const sib of fields) {
+                    if ((sib.wizardSection || '').trim() === sectionName) {
+                      onPatch(sib.id, { sectionDescription: newDesc })
+                    }
+                  }
+                }}
+              />
+              <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 3, fontStyle: 'italic' }}>
+                Affichée en italique gris à côté du nom de la section dans le wizard.
+              </div>
+            </Field>
+          )}
+
+          {/* v2.7.6 — Sélecteur d'étape wizard depuis le Mode Document.
+              Permet de déplacer le champ vers une autre étape sans aller au Mode Wizard. */}
+          {setWizardSteps && (
+            <Field label="Étape wizard">
+              {(() => {
+                const currentStepIdx = (wizardSteps || []).findIndex(s => s.fieldIds.includes(f.id))
+                const role = f.recipientOrder ?? 1
+                return (
+                  <select
+                    className="neo-input"
+                    value={currentStepIdx >= 0 ? String(currentStepIdx) : ''}
+                    onChange={e => {
+                      const targetIdx = e.target.value === '' ? -1 : Number(e.target.value)
+                      setWizardSteps(prev => prev.map((s, i) => {
+                        if (i === targetIdx) {
+                          // Ajoute à la nouvelle étape (sans doublon)
+                          return s.fieldIds.includes(f.id) ? s : { ...s, fieldIds: [...s.fieldIds, f.id] }
+                        }
+                        // Retire de toutes les autres étapes
+                        return { ...s, fieldIds: s.fieldIds.filter(id => id !== f.id) }
+                      }))
+                    }}
+                  >
+                    <option value="">— Aucune (orphelin) —</option>
+                    {(wizardSteps || []).map((s, si) => {
+                      if ((s.recipientOrder ?? 1) !== role) return null
+                      const stepNum = (wizardSteps || []).filter((x, xi) => xi <= si && (x.recipientOrder ?? 1) === role).length
+                      return (
+                        <option key={s.id} value={si}>
+                          Étape {stepNum} · {s.title} ({s.fieldIds.length} champ{s.fieldIds.length > 1 ? 's' : ''})
+                        </option>
+                      )
+                    })}
+                  </select>
+                )
+              })()}
+            </Field>
+          )}
 
           {isText && (
             <>
@@ -2297,6 +2543,87 @@ function SelectedFieldsPanel({
           />
         )}
 
+        {/* v2.7.6 — Ajouter / consulter / supprimer les conditions sur les N champs sélectionnés.
+            Utilise onPatchManyMixed (atomique) au lieu de onPatch en boucle, sinon seul le
+            dernier patch survit (chaque onPatch repart de `fields` du closure). */}
+        <MultiSelectConditionForm
+          selectedFields={selectedFields}
+          allFields={fields}
+          onApply={(cond, mode) => {
+            const updates = selectedFields.map(f => {
+              const existing = f.conditions || []
+              const next = mode === 'replace' ? [cond] : [...existing, cond]
+              return { id: f.id, patch: { conditions: next } as Partial<SignField> }
+            })
+            onPatchManyMixed(updates)
+            toast.success(`✓ Condition ${mode === 'replace' ? 'remplacée' : 'ajoutée'} sur ${selectedFields.length} champs`)
+          }}
+          onRemoveCondition={(condKey) => {
+            const updates: Array<{ id: string; patch: Partial<SignField> }> = []
+            for (const f of selectedFields) {
+              const existing = f.conditions || []
+              const filtered = existing.filter(c => `${c.triggerFieldId}|${c.operator}|${c.value || ''}|${c.action}` !== condKey)
+              if (filtered.length !== existing.length) {
+                updates.push({ id: f.id, patch: { conditions: filtered.length === 0 ? undefined : filtered } })
+              }
+            }
+            if (updates.length > 0) onPatchManyMixed(updates)
+            toast.success(`✓ Règle supprimée de ${updates.length} champ${updates.length > 1 ? 's' : ''}`)
+          }}
+          onClearAll={() => {
+            const updates = selectedFields
+              .filter(f => f.conditions && f.conditions.length > 0)
+              .map(f => ({ id: f.id, patch: { conditions: undefined } as Partial<SignField> }))
+            if (updates.length > 0) onPatchManyMixed(updates)
+            toast.success(`✓ Toutes les conditions effacées de ${updates.length} champs`)
+          }}
+        />
+
+        {/* v2.7.6 — Déplacer tous les champs sélectionnés vers une étape wizard */}
+        {setWizardSteps && wizardSteps && wizardSteps.length > 0 && (
+          <Field label="Déplacer vers étape wizard">
+            <select
+              className="neo-input"
+              value=""
+              onChange={e => {
+                const v = e.target.value
+                if (!v) return
+                const targetIdx = v === '-1' ? -1 : Number(v)
+                if (targetIdx < 0) {
+                  setWizardSteps(prev => prev.map(s => ({
+                    ...s,
+                    fieldIds: s.fieldIds.filter(id => !selectedIds.includes(id)),
+                  })))
+                  toast.success(`✓ ${selectedFields.length} champs retirés du wizard`)
+                } else {
+                  setWizardSteps(prev => prev.map((s, i) => {
+                    if (i === targetIdx) {
+                      const merged = Array.from(new Set([...s.fieldIds, ...selectedIds]))
+                      return { ...s, fieldIds: merged }
+                    }
+                    return { ...s, fieldIds: s.fieldIds.filter(id => !selectedIds.includes(id)) }
+                  }))
+                  toast.success(`✓ ${selectedFields.length} champs déplacés`)
+                }
+                // Reset le select à vide pour pouvoir re-sélectionner
+                e.target.value = ''
+              }}
+            >
+              <option value="">— Choisir une étape —</option>
+              <option value="-1">⚠️ Retirer du wizard (orphelins)</option>
+              {wizardSteps.map((s, si) => {
+                const role = s.recipientOrder ?? 1
+                const stepNum = wizardSteps.filter((x, xi) => xi <= si && (x.recipientOrder ?? 1) === role).length
+                return (
+                  <option key={s.id} value={si}>
+                    Rôle {role} · Étape {stepNum} · {s.title} ({s.fieldIds.length} champs)
+                  </option>
+                )
+              })}
+            </select>
+          </Field>
+        )}
+
         <button
           type="button"
           onClick={onDelete}
@@ -2311,6 +2638,239 @@ function SelectedFieldsPanel({
         </div>
       </div>
     </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// v2.7.6 — MultiSelectConditionForm — mini-éditeur de condition inline
+// dans le panneau multi-sélection. Permet d'appliquer la même condition
+// à N champs sélectionnés en 1 clic.
+// ─────────────────────────────────────────────────────────────────
+function MultiSelectConditionForm({
+  selectedFields, allFields, onApply, onRemoveCondition, onClearAll,
+}: {
+  selectedFields: SignField[]
+  allFields: SignField[]
+  onApply: (cond: SignFieldCondition, mode: 'append' | 'replace') => void
+  onRemoveCondition: (condKey: string) => void
+  onClearAll: () => void
+}) {
+  const selectedIds = new Set(selectedFields.map(f => f.id))
+
+  // v2.7.6 — Agrège les conditions communes / variées sur la sélection
+  // Key unique par condition = JSON triggerFieldId|operator|value|action
+  const condIndex = new Map<string, { cond: SignFieldCondition; fieldsWithIt: number }>()
+  for (const f of selectedFields) {
+    for (const c of (f.conditions || [])) {
+      const key = `${c.triggerFieldId}|${c.operator}|${c.value || ''}|${c.action}`
+      const ex = condIndex.get(key)
+      if (ex) ex.fieldsWithIt++
+      else condIndex.set(key, { cond: c, fieldsWithIt: 1 })
+    }
+  }
+  const aggregatedConditions = Array.from(condIndex.entries())
+  const totalConditionsAcrossFields = selectedFields.reduce((sum, f) => sum + (f.conditions?.length || 0), 0)
+  // Trigger candidates = tous les fields SAUF ceux sélectionnés (un field ne peut pas
+  // se déclencher lui-même)
+  const triggerCandidates = allFields.filter(f => !selectedIds.has(f.id))
+  const [open, setOpen] = useState(false)
+  const [triggerFieldId, setTriggerFieldId] = useState('')
+  const [operator, setOperator] = useState<SignConditionOperator>('equals')
+  const [value, setValue] = useState('')
+  const [action, setAction] = useState<SignConditionAction>('hide')
+
+  if (triggerCandidates.length === 0) return null
+
+  const handleApply = (mode: 'append' | 'replace', closeAfter: boolean) => {
+    if (!triggerFieldId) {
+      toast.error('Choisis un champ déclencheur')
+      return
+    }
+    onApply({ triggerFieldId, operator, value: value || undefined, action }, mode)
+    if (closeAfter) {
+      setOpen(false)
+      setTriggerFieldId('')
+      setValue('')
+    } else {
+      // v2.7.6 — Garde le formulaire ouvert pour permettre d'enchaîner plusieurs conditions.
+      // On reset juste la valeur, l'utilisateur peut adapter le reste.
+      setValue('')
+    }
+  }
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em',
+    textTransform: 'uppercase', color: 'var(--muted)',
+    marginBottom: 4,
+  }
+
+  // Petit panneau "Conditions actives sur la sélection" affiché TOUJOURS (que le form soit ouvert ou non)
+  const activeConditionsBlock = totalConditionsAcrossFields > 0 && (
+    <div style={{ padding: 10, border: '1px dashed #7C3AED', borderRadius: 8, background: 'rgba(124,58,237,0.04)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#7C3AED', display: 'flex', alignItems: 'center', gap: 6 }}>
+        ⚙ Conditions actives ({aggregatedConditions.length})
+      </div>
+      {aggregatedConditions.map(([key, { cond, fieldsWithIt }]) => {
+        const trigger = allFields.find(f => f.id === cond.triggerFieldId)
+        const triggerLabel = (trigger?.tooltip || trigger?.label || 'Champ ?').slice(0, 24)
+        const opLabel = CONDITION_OPERATOR_LABELS[cond.operator]
+        const actionLabel = CONDITION_ACTION_LABELS[cond.action]
+        const valuePart = (cond.operator === 'isEmpty' || cond.operator === 'isNotEmpty')
+          ? ''
+          : ` "${cond.value || ''}"`
+        return (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 11.5 }}>
+            <div style={{ flex: 1, lineHeight: 1.35 }}>
+              <div style={{ fontWeight: 600, color: 'var(--foreground)' }}>
+                Si <span style={{ color: '#7C3AED' }}>{triggerLabel}</span> {opLabel}{valuePart}
+              </div>
+              <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+                → {actionLabel} · sur {fieldsWithIt} / {selectedFields.length} champ{selectedFields.length > 1 ? 's' : ''}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm(`Supprimer cette règle de ${fieldsWithIt} champ${fieldsWithIt > 1 ? 's' : ''} ?`)) {
+                  onRemoveCondition(key)
+                }
+              }}
+              className="neo-btn-ghost"
+              style={{ padding: '4px 6px', color: 'var(--destructive)', flexShrink: 0 }}
+              title="Supprimer cette règle des champs concernés"
+            >
+              <Trash2 size={11} />
+            </button>
+          </div>
+        )
+      })}
+      <button
+        type="button"
+        onClick={() => {
+          if (confirm(`Effacer TOUTES les ${totalConditionsAcrossFields} conditions de ces ${selectedFields.length} champs ?`)) {
+            onClearAll()
+          }
+        }}
+        className="neo-btn-ghost neo-btn-sm"
+        style={{ alignSelf: 'flex-start', color: 'var(--destructive)', fontSize: 11 }}
+      >
+        <Trash2 size={11} /> Tout effacer ({totalConditionsAcrossFields} règles)
+      </button>
+    </div>
+  )
+
+  if (!open) {
+    return (
+      <>
+        {activeConditionsBlock}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="neo-btn-ghost neo-btn-sm"
+          style={{ justifyContent: 'center', background: 'var(--primary-soft, #FEF3C7)', color: '#A16207', fontWeight: 600 }}
+        >
+          ⚙ Ajouter une condition à ces {selectedFields.length} champs
+        </button>
+      </>
+    )
+  }
+
+  return (
+    <>
+      {activeConditionsBlock}
+    <div style={{ padding: 10, border: '1.5px solid #EAB308', borderRadius: 8, background: 'var(--card)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={labelStyle}>Condition pour {selectedFields.length} champs</div>
+
+      <Field label="Si ce champ">
+        <select
+          className="neo-input"
+          value={triggerFieldId}
+          onChange={e => setTriggerFieldId(e.target.value)}
+        >
+          <option value="">— Choisir un champ —</option>
+          {triggerCandidates.map(f => (
+            <option key={f.id} value={f.id}>
+              {(f.tooltip || f.label || f.type).slice(0, 50)} ({f.type})
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label="…est">
+        <select
+          className="neo-input"
+          value={operator}
+          onChange={e => setOperator(e.target.value as SignConditionOperator)}
+        >
+          {Object.entries(CONDITION_OPERATOR_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+      </Field>
+
+      {operator !== 'isEmpty' && operator !== 'isNotEmpty' && (
+        <Field label="Valeur">
+          <input
+            type="text"
+            className="neo-input"
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            placeholder="Ex: Marié, Suisse, Oui, true…"
+          />
+        </Field>
+      )}
+
+      <Field label="Alors">
+        <select
+          className="neo-input"
+          value={action}
+          onChange={e => setAction(e.target.value as SignConditionAction)}
+        >
+          {Object.entries(CONDITION_ACTION_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+      </Field>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+        <button
+          type="button"
+          onClick={() => handleApply('append', true)}
+          className="neo-btn-ghost neo-btn-sm"
+          style={{ flex: '1 1 100px', justifyContent: 'center', background: '#EAB308', color: '#1C1A14', border: 'none', fontWeight: 700 }}
+          title="Ajoute cette condition et ferme le formulaire"
+        >
+          + Ajouter & Fermer
+        </button>
+        <button
+          type="button"
+          onClick={() => handleApply('append', false)}
+          className="neo-btn-ghost neo-btn-sm"
+          style={{ flex: '1 1 100px', justifyContent: 'center' }}
+          title="Ajoute cette condition et garde le formulaire ouvert pour en ajouter une autre"
+        >
+          + Ajouter & Continuer
+        </button>
+        <button
+          type="button"
+          onClick={() => handleApply('replace', true)}
+          className="neo-btn-ghost neo-btn-sm"
+          style={{ flex: '1 1 100px', justifyContent: 'center' }}
+          title="Remplace toutes les conditions existantes par celle-ci"
+        >
+          ↻ Remplacer tout
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="neo-btn-ghost neo-btn-sm"
+          style={{ color: 'var(--muted)' }}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+    </>
   )
 }
 
@@ -2505,9 +3065,42 @@ function TypeSpecificOptions({
         </label>
       )}
 
+      {/* v2.7.6 — Verrouiller un champ auto-fill identité (lecture seule) */}
+      {['firstname', 'lastname', 'fullname', 'email', 'company', 'title'].includes(t) && (
+        <label style={checkboxLabelStyle}>
+          <input
+            type="checkbox"
+            checked={!!field.autoFillLocked}
+            onChange={e => onPatch({ autoFillLocked: e.target.checked || undefined })}
+          />
+          Verrouiller (lecture seule — sinon le candidat peut corriger)
+        </label>
+      )}
+
       {/* NUMÉRO */}
       {t === 'number' && (
         <>
+          {/* v2.7.6 — Source auto-fill : téléphone candidat */}
+          <Field label="Auto-remplir avec">
+            <select
+              className="neo-input"
+              value={field.autoFillSource || ''}
+              onChange={e => onPatch({ autoFillSource: (e.target.value || undefined) as 'phone' | undefined })}
+            >
+              <option value="">— Aucun —</option>
+              <option value="phone">📱 Téléphone du candidat</option>
+            </select>
+          </Field>
+          {field.autoFillSource === 'phone' && (
+            <label style={checkboxLabelStyle}>
+              <input
+                type="checkbox"
+                checked={!!field.autoFillLocked}
+                onChange={e => onPatch({ autoFillLocked: e.target.checked || undefined })}
+              />
+              Verrouiller (lecture seule — sinon le candidat peut corriger)
+            </label>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <Field label="Min">
               <input

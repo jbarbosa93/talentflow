@@ -17,7 +17,7 @@ import fs from 'fs'
 import path from 'path'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { stampPdf } from './pdf-stamp'
+import { stampPdf, stampTalentflowEnvelopeId } from './pdf-stamp'
 import { uploadSignDocument, SIGN_BUCKET } from './storage'
 import type {
   SignEnvelope, SignRecipient, SignTemplate, SignDocument,
@@ -116,15 +116,17 @@ export async function generateAndPersistSignedPdfs(
     }
     if (!senderCompanyName) senderCompanyName = 'L-Agence SA'
   } catch { /* silencieux */ }
+  let candidateTelephone = ''
   if (envelope.candidate_id) {
     try {
       const { data: cand } = await supabase
         .from('candidats')
-        .select('metier_recherche')
+        .select('metier_recherche, telephone')
         .eq('id', envelope.candidate_id)
         .maybeSingle()
-      const c = cand as unknown as { metier_recherche?: string | null } | null
+      const c = cand as unknown as { metier_recherche?: string | null; telephone?: string | null } | null
       if (c?.metier_recherche) candidateTitle = c.metier_recherche
+      if (c?.telephone) candidateTelephone = c.telephone
     } catch { /* silencieux */ }
   }
 
@@ -145,8 +147,10 @@ export async function generateAndPersistSignedPdfs(
       // Hash SHA-256 du PDF SOURCE pré-stamp (preuve ZertES "tu as signé CE document")
       const sha256 = createHash('sha256').update(sourceBuf).digest('hex')
 
-      // Multi-pass stamp : 1 passe par recipient avec ses fields
-      let currentBuf: Uint8Array = sourceBuf
+      // v2.7.6 — Couvre le header "Docusign Envelope ID: ..." des PDFs importés DocuSign
+      // et stamp notre Envelope ID. Appliqué AVANT les passes de signature pour que le
+      // PDF final ne contienne plus de référence DocuSign.
+      let currentBuf: Uint8Array = await stampTalentflowEnvelopeId(sourceBuf, envelope.id)
       for (let recIdx = 0; recIdx < recipients.length; recIdx++) {
         const rec = recipients[recIdx]
         const recipientOrder = recIdx + 1
@@ -170,6 +174,7 @@ export async function generateAndPersistSignedPdfs(
           autoFill: {
             firstName, lastName, fullName: rec.name, email: rec.email, today,
             companyName: senderCompanyName, title: candidateTitle,
+            telephone: candidateTelephone,
           },
           envelopeId: envelope.id,
           recipientName: rec.name,
