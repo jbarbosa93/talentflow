@@ -114,7 +114,7 @@ export default function TemplateEditPage({ params }: PageProps) {
   )
 
   return (
-    <div className="d-page" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+    <div className="d-page" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif', paddingBottom: 64 /* v2.8.0 — espace pour TemplateAssistantBar fixed */ }}>
       {/* Bouton retour */}
       <div style={{ marginBottom: 8 }}>
         <Link

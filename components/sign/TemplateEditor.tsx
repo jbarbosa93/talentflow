@@ -43,6 +43,9 @@ const PDFViewer = dynamic(() => import('./PDFViewer'), {
 const FieldsCanvas = dynamic(() => import('./FieldsCanvas'), { ssr: false })
 // v2.7.6 — Tailles + libellés par défaut, partagés avec FieldsCanvas pour le double-clic palette
 import { DEFAULT_FIELD_SIZE_PCT, PLACEHOLDER } from './FieldsCanvas'
+// v2.8.0 — Assistant IA template (chatbot bas de page)
+const TemplateAssistantBar = dynamic(() => import('./TemplateAssistantBar'), { ssr: false })
+import type { TemplateChange } from './TemplateAssistantBar'
 
 interface Props {
   templateId: string
@@ -1702,8 +1705,162 @@ export default function TemplateEditor({
           onClose={() => { setOrphanModalOpen(false); setOrphanLocatedFieldId(null) }}
         />
       )}
+
+      {/* v2.8.0 — Assistant IA template (chatbot bas de page) */}
+      <TemplateAssistantBar
+        templateId={templateId}
+        selectedFieldId={selectedIds.length === 1 ? selectedIds[0] : null}
+        currentMode="document"
+        onApplyChanges={(changes) => applyTemplateChanges(changes)}
+      />
     </div>
   )
+
+  // ───────────────────────────────────────────────────────────────────
+  // v2.8.0 — Applique les changements proposés par l'assistant IA.
+  // Mute le state local (docs + wizardSteps). L'auto-save 800ms persiste.
+  // Note : NE PAS hoist en dehors du composant (utilise closures de state).
+  // ───────────────────────────────────────────────────────────────────
+  function applyTemplateChanges(changes: TemplateChange[]) {
+    // Collecte les mutations puis applique en 1 fois pour éviter les batchs perdus
+    const fieldPatches = new Map<string, Partial<SignField>>()
+    const newSteps: WizardStep[] = []
+    const stepsFieldMoves = new Map<string, string>()  // fieldId → targetStepId
+    let sectionDescUpdates: Array<{ section: string; description: string }> = []
+
+    for (const ch of changes) {
+      switch (ch.op) {
+        case 'set_required':
+          fieldPatches.set(ch.fieldId, { ...(fieldPatches.get(ch.fieldId) || {}), required: ch.value })
+          break
+        case 'set_label':
+          // Sync label + tooltip (cohérent avec v2.7.6 Bug 8)
+          fieldPatches.set(ch.fieldId, { ...(fieldPatches.get(ch.fieldId) || {}), label: ch.label, tooltip: ch.label })
+          break
+        case 'set_help_text':
+          fieldPatches.set(ch.fieldId, { ...(fieldPatches.get(ch.fieldId) || {}), helpText: ch.helpText || undefined })
+          break
+        case 'set_section':
+          fieldPatches.set(ch.fieldId, { ...(fieldPatches.get(ch.fieldId) || {}), wizardSection: ch.section || undefined })
+          break
+        case 'set_section_description':
+          sectionDescUpdates.push({ section: ch.section, description: ch.description })
+          break
+        case 'set_default_checked': {
+          const existing = fieldPatches.get(ch.fieldId) || {}
+          const allFields = docs.flatMap(d => d.fields || [])
+          const f = allFields.find(ff => ff.id === ch.fieldId)
+          const meta = { ...(f?.metadata || {}), ...(existing.metadata || {}), selected: ch.value }
+          fieldPatches.set(ch.fieldId, { ...existing, metadata: meta })
+          break
+        }
+        case 'add_condition': {
+          const existing = fieldPatches.get(ch.fieldId) || {}
+          const allFields = docs.flatMap(d => d.fields || [])
+          const f = allFields.find(ff => ff.id === ch.fieldId)
+          const currentConditions = (existing.conditions || f?.conditions || []) as SignFieldCondition[]
+          const newCond: SignFieldCondition = {
+            triggerFieldId: ch.condition.triggerFieldId,
+            operator: ch.condition.operator as SignConditionOperator,
+            value: ch.condition.value,
+            action: ch.condition.action as SignConditionAction,
+          }
+          fieldPatches.set(ch.fieldId, { ...existing, conditions: [...currentConditions, newCond] })
+          break
+        }
+        case 'remove_condition': {
+          const existing = fieldPatches.get(ch.fieldId) || {}
+          const allFields = docs.flatMap(d => d.fields || [])
+          const f = allFields.find(ff => ff.id === ch.fieldId)
+          const currentConditions = (existing.conditions || f?.conditions || []) as SignFieldCondition[]
+          const filtered = currentConditions.filter((_, i) => i !== ch.conditionIndex)
+          fieldPatches.set(ch.fieldId, { ...existing, conditions: filtered.length === 0 ? undefined : filtered })
+          break
+        }
+        case 'group_fields': {
+          const groupId = `g_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+          const groupName = ch.groupName || `G${(docs.flatMap(d => d.fields || []).filter(f => f.groupId).length) + 1}`
+          for (let i = 0; i < ch.fieldIds.length; i++) {
+            const fid = ch.fieldIds[i]
+            const existing = fieldPatches.get(fid) || {}
+            fieldPatches.set(fid, {
+              ...existing,
+              groupId,
+              groupName,
+              groupRule: ch.rule,
+              groupMin: ch.rule === 'SelectAtMost' ? undefined : ch.count,
+              groupMax: ch.rule === 'SelectAtLeast' ? undefined : ch.count,
+            })
+          }
+          break
+        }
+        case 'move_to_step':
+          stepsFieldMoves.set(ch.fieldId, ch.stepId)
+          break
+        case 'create_step': {
+          const newStep: WizardStep = {
+            id: `wstep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            title: ch.title,
+            fieldIds: ch.fieldIds,
+            docOrder: 1,
+            recipientOrder: ch.recipientOrder ?? 1,
+          }
+          newSteps.push(newStep)
+          // Retire les fieldIds des autres steps pour éviter doublons
+          for (const fid of ch.fieldIds) stepsFieldMoves.set(fid, newStep.id)
+          break
+        }
+      }
+    }
+
+    // 1. Applique les patches sur docs
+    if (fieldPatches.size > 0 || sectionDescUpdates.length > 0) {
+      const newDocs = docs.map(d => {
+        const newFields = (d.fields || []).map(f => {
+          let updated = f
+          const patch = fieldPatches.get(f.id)
+          if (patch) updated = { ...updated, ...patch }
+          // Section description sync (toutes les fields de la section)
+          for (const sd of sectionDescUpdates) {
+            if ((updated.wizardSection || '').trim() === sd.section.trim()) {
+              updated = { ...updated, sectionDescription: sd.description || undefined }
+            }
+          }
+          return updated
+        })
+        return { ...d, fields: newFields }
+      })
+      setDocs(newDocs)
+    }
+
+    // 2. Applique les nouvelles steps + moves
+    if (newSteps.length > 0 || stepsFieldMoves.size > 0) {
+      if (setWizardSteps) {
+        setWizardSteps(prev => {
+          // Move des fields existants
+          let next = prev.map(s => ({
+            ...s,
+            fieldIds: s.fieldIds.filter(fid => {
+              const targetStepId = stepsFieldMoves.get(fid)
+              return !targetStepId || targetStepId === s.id
+            }),
+          }))
+          // Ajoute les fields aux steps cibles (existantes)
+          for (const [fid, targetStepId] of stepsFieldMoves.entries()) {
+            next = next.map(s => {
+              if (s.id !== targetStepId) return s
+              if (s.fieldIds.includes(fid)) return s
+              return { ...s, fieldIds: [...s.fieldIds, fid] }
+            })
+          }
+          // Ajoute les nouvelles steps (création)
+          return [...next, ...newSteps]
+        })
+      }
+    }
+
+    setDirty(true)
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────

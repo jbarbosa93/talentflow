@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.7.9'
+export const APP_VERSION = '2.8.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.0 — Assistant IA chatbot dans l'éditeur de templates Sign
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.0',
+    date: '2026-05-14',
+    label: 'Sign — Assistant IA template (chatbot)',
+    features: [
+      'FEATURE — Sign : barre de chat IA en bas de l\'éditeur de template. Configure les champs par commande naturelle ("Rends Email obligatoire", "Cache ce champ si Suisse", etc.).',
+      'UX — Sign : barre réduite 48px (toujours visible), expand au clic avec historique des 6 derniers messages et suggestions contextuelles selon le champ sélectionné.',
+      'UX — Sign : modal de confirmation portalisé avant d\'appliquer les changements (montre le détail de chaque modification proposée).',
+      'API — Nouvelle route /api/sign/templates/[id]/assistant : Claude Sonnet 4.6 reçoit le contexte template + commande → retourne JSON typé (action / explanation / unsupported). Anti-hallucination : validation des fieldId/stepId côté serveur.',
+      'API — Nouvelle route /api/feedback/feature-request + table feature_requests (RLS user-isolated) pour collecter les demandes bloquées par l\'IA ("cette feature n\'existe pas encore").',
+      'Capacités assistant : set_required, set_label, set_help_text, set_section, set_section_description, set_default_checked, add_condition, remove_condition, move_to_step, create_step, group_fields.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.7.9 — Dropdowns conditions lisibles (fin des UUIDs DocuSign)
   // ─────────────────────────────────────────────────────────────────────
