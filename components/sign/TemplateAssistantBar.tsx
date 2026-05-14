@@ -178,9 +178,14 @@ export default function TemplateAssistantBar({
     }
   }
 
+  // v2.8.0 — Portalisé via document.body pour échapper au motion.div parent
+  // de DashboardShell qui applique filter/transform pendant les animations et
+  // CASSE position: fixed (cf. CLAUDE.md pattern #10).
+  if (typeof window === 'undefined') return null
+
   // ─── Rendu RÉDUIT (48px) ────────────────────────────────────────
   if (!expanded) {
-    return (
+    return createPortal(
       <div style={collapsedStyle}>
         <button
           type="button"
@@ -194,13 +199,15 @@ export default function TemplateAssistantBar({
           </span>
           <ChevronUp size={14} style={{ color: 'var(--muted)' }} />
         </button>
-      </div>
+      </div>,
+      document.body,
     )
   }
 
   // ─── Rendu EXPAND (auto height, max 320px) ──────────────────────
   return (
     <>
+      {createPortal(
       <div style={expandedStyle}>
         {/* Header */}
         <div style={headerStyle}>
@@ -308,10 +315,12 @@ export default function TemplateAssistantBar({
             Envoyer
           </button>
         </div>
-      </div>
+      </div>,
+      document.body,
+      )}
 
       {/* Modal portalisé : confirmation des changements */}
-      {pendingChanges && typeof window !== 'undefined' && createPortal(
+      {pendingChanges && createPortal(
         <PendingChangesModal
           pending={pendingChanges}
           onApply={applyPending}
