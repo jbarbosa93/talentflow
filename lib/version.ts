@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.8.1'
+export const APP_VERSION = '2.8.2'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.2 — Chatbot template : modal de confirmation lisible et éditable
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.2',
+    date: '2026-05-14',
+    label: 'Sign — Modal de confirmation chatbot lisible + éditable',
+    features: [
+      'UX — Modal "Confirmer les modifications" : noms HUMAINS des champs (via getFieldDisplayLabel) au lieu des UUIDs DocuSign tronqués.',
+      'UX — Chaque modification proposée peut être DÉCOCHÉE individuellement (checkbox jaune) avant d\'appliquer.',
+      'UX — Toutes les modifications peuvent être ÉDITÉES inline avant apply : libellé, annotation, section, valeur de condition, opérateur, action, triggerField (dropdown avec optgroup), règle de groupe, etc.',
+      'UX — Le bouton "Appliquer (N)" affiche le compteur de modifications actives. Si l\'assistant s\'est trompé sur une assomption, tu corriges sans re-prompter.',
+      'UX — Si l\'assistant indique "Hypothèse" (champ ambigü), le warning amber s\'affiche en haut du modal pour t\'inviter à vérifier.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.8.1 — Chatbot template : panneau flottant déplaçable + redimensionnable
   // ─────────────────────────────────────────────────────────────────────

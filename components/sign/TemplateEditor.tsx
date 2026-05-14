@@ -1706,11 +1706,13 @@ export default function TemplateEditor({
         />
       )}
 
-      {/* v2.8.0 — Assistant IA template (chatbot bas de page) */}
+      {/* v2.8.0 — Assistant IA template (panneau flottant déplaçable) */}
       <TemplateAssistantBar
         templateId={templateId}
         selectedFieldId={selectedIds.length === 1 ? selectedIds[0] : null}
         currentMode="document"
+        allFields={allTemplateFields}
+        wizardSteps={wizardSteps}
         onApplyChanges={(changes) => applyTemplateChanges(changes)}
       />
     </div>
