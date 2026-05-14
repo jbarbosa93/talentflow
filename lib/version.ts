@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.7.8'
+export const APP_VERSION = '2.7.9'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.7.9 — Dropdowns conditions lisibles (fin des UUIDs DocuSign)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.7.9',
+    date: '2026-05-14',
+    label: 'Sign — Dropdowns conditions lisibles',
+    features: [
+      'UX — Sign : les dropdowns "Si ce champ" dans l\'éditeur de conditions affichent maintenant un nom lisible (section + tooltip) au lieu des UUIDs DocuSign ("Case à cocher d109a26e-..." → "Permis de conduire — Oui").',
+      'UX — Sign : options groupées par section (optgroup HTML) pour retrouver facilement les champs.',
+      'UX — Sign : helper `getFieldDisplayLabel` partagé entre tous les éditeurs de conditions (Mode Document, Mode Wizard, multi-select).',
+      'UX — Sign : bloc "Conditions actives" affiche également les noms lisibles.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.7.8 — Auto-cochage conditionnel checkboxes
   // ─────────────────────────────────────────────────────────────────────

@@ -27,6 +27,8 @@ import type {
 import type { WizardStep } from '@/lib/sign/wizard-builder'
 // v2.2.4 — Composant partagé Mode Wizard ↔ Mode Document pour éditer les options Formule
 import FieldFormulaOptions from './FieldFormulaOptions'
+// v2.7.8 — Helpers pour afficher des noms lisibles dans les dropdowns conditions
+import { getFieldDisplayLabel, groupFieldsBySection } from '@/lib/sign/field-helpers'
 import {
   RECIPIENT_COLORS, FIELD_TYPE_LABELS, FIELD_TYPE_CATEGORIES,
   CONDITION_OPERATOR_LABELS, CONDITION_ACTION_LABELS,
@@ -2712,7 +2714,7 @@ function MultiSelectConditionForm({
       </div>
       {aggregatedConditions.map(([key, { cond, fieldsWithIt }]) => {
         const trigger = allFields.find(f => f.id === cond.triggerFieldId)
-        const triggerLabel = (trigger?.tooltip || trigger?.label || 'Champ ?').slice(0, 24)
+        const triggerLabel = (trigger ? getFieldDisplayLabel(trigger, FIELD_TYPE_LABELS[trigger.type]) : 'Champ ?').slice(0, 40)
         const opLabel = CONDITION_OPERATOR_LABELS[cond.operator]
         const actionLabel = CONDITION_ACTION_LABELS[cond.action]
         const valuePart = (cond.operator === 'isEmpty' || cond.operator === 'isNotEmpty')
@@ -2788,10 +2790,15 @@ function MultiSelectConditionForm({
           onChange={e => setTriggerFieldId(e.target.value)}
         >
           <option value="">— Choisir un champ —</option>
-          {triggerCandidates.map(f => (
-            <option key={f.id} value={f.id}>
-              {(f.tooltip || f.label || f.type).slice(0, 50)} ({f.type})
-            </option>
+          {/* v2.7.8 — Groupé par section + label lisible */}
+          {groupFieldsBySection(triggerCandidates).map((g, gi) => (
+            <optgroup key={`s-${gi}`} label={g.section || '(sans section)'}>
+              {g.fields.map(f => (
+                <option key={f.id} value={f.id}>
+                  {getFieldDisplayLabel(f, FIELD_TYPE_LABELS[f.type])} ({f.type})
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </Field>
@@ -3624,7 +3631,7 @@ function ConditionalLogicEditor({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {conditions.map((c, idx) => {
             const trigger = allFields.find(f => f.id === c.triggerFieldId)
-            const triggerLabel: string = trigger?.label || (typeof trigger?.metadata?.tabType === 'string' ? trigger.metadata.tabType : '') || 'Champ supprimé'
+            const triggerLabel: string = trigger ? getFieldDisplayLabel(trigger, FIELD_TYPE_LABELS[trigger.type]) : 'Champ supprimé'
             const triggerType = trigger?.type
             const needsValue = c.operator !== 'isEmpty' && c.operator !== 'isNotEmpty'
             // Si le trigger est un select, on propose ses listItems comme valeurs
@@ -3653,10 +3660,25 @@ function ConditionalLogicEditor({
                   value={c.triggerFieldId}
                   onChange={e => updateCondition(idx, { triggerFieldId: e.target.value })}
                 >
-                  {allFields.map(f => (
-                    <option key={f.id} value={f.id}>
-                      {(f.label || `${FIELD_TYPE_LABELS[f.type]}`).slice(0, 60)}
-                    </option>
+                  {/* v2.7.8 — Groupé par section + label lisible (plus de UUIDs DocuSign) */}
+                  {groupFieldsBySection(allFields).map((g, gi) => (
+                    g.section ? (
+                      <optgroup key={`s-${gi}`} label={g.section}>
+                        {g.fields.map(f => (
+                          <option key={f.id} value={f.id}>
+                            {getFieldDisplayLabel(f, FIELD_TYPE_LABELS[f.type])} ({f.type})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : (
+                      <optgroup key={`s-${gi}`} label="(sans section)">
+                        {g.fields.map(f => (
+                          <option key={f.id} value={f.id}>
+                            {getFieldDisplayLabel(f, FIELD_TYPE_LABELS[f.type])} ({f.type})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )
                   ))}
                 </select>
                 <div style={{ display: 'flex', gap: 4 }}>

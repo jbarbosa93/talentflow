@@ -283,3 +283,62 @@ export function effectiveCheckedState(
   }
   return result
 }
+
+/**
+ * v2.7.8 — Détecte si une chaîne ressemble à un label DocuSign auto-généré
+ * (ex: "Case à cocher d109a26e-ffbe-4d9c-9f6e-24f34c0ede36").
+ * Ces labels viennent de l'import JSON DocuSign et sont illisibles.
+ */
+const UUID_LIKE_LABEL_RE = /^(?:Texte|Date|Liste|Signature|Case à cocher|Annotation|Liste déroulante|E.?mail|Prénom|Nom|Société|Fonction|Numéro)\s+[0-9a-fA-F-]{8,}/
+
+/**
+ * v2.7.8 — Retourne un nom lisible pour un field, utilisable dans les dropdowns
+ * (éditeurs de conditions, sélecteurs de champ déclencheur, etc.).
+ *
+ * Priorité :
+ *   1. tooltip (le nom humain, prioritaire)
+ *   2. label s'il n'est pas UUID-like
+ *   3. type label (Texte / Date / etc.) en fallback
+ *
+ * Si une `wizardSection` est définie, elle est préfixée pour disambigüer
+ * (ex: "Permis de conduire — Oui" au lieu de juste "Oui").
+ *
+ * @example
+ *   getFieldDisplayLabel({type:'checkbox', wizardSection:'Permis de conduire', tooltip:'Oui'})
+ *   → "Permis de conduire — Oui"
+ */
+export function getFieldDisplayLabel(
+  field: SignField,
+  typeFallback?: string,
+): string {
+  const section = (field.wizardSection || '').trim()
+  const tooltip = (field.tooltip || '').trim()
+  const lbl = (field.label || '').trim()
+  let name: string
+  if (tooltip) name = tooltip
+  else if (lbl && !UUID_LIKE_LABEL_RE.test(lbl)) name = lbl
+  else name = typeFallback || field.type
+  return section ? `${section} — ${name}` : name
+}
+
+/**
+ * v2.7.8 — Groupe des fields par wizardSection pour afficher dans un dropdown
+ * avec optgroups. Les fields sans section sont dans le bucket null.
+ */
+export function groupFieldsBySection(
+  fields: SignField[],
+): Array<{ section: string | null; fields: SignField[] }> {
+  const map = new Map<string | null, SignField[]>()
+  for (const f of fields) {
+    const sec = (f.wizardSection || '').trim() || null
+    const arr = map.get(sec) || []
+    arr.push(f)
+    map.set(sec, arr)
+  }
+  // Sections en premier (tri alpha FR), puis null à la fin
+  const sections = Array.from(map.keys()).filter(s => s !== null).sort((a, b) => a!.localeCompare(b!, 'fr'))
+  const result: Array<{ section: string | null; fields: SignField[] }> = []
+  for (const s of sections) result.push({ section: s, fields: map.get(s)! })
+  if (map.has(null)) result.push({ section: null, fields: map.get(null)! })
+  return result
+}

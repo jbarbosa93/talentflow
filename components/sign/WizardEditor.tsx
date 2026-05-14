@@ -43,6 +43,8 @@ import { toast } from 'sonner'
 import type { SignDocument, SignField, SignFieldType, SignFieldCondition, SignRecipientSchema } from '@/lib/sign/types'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { WizardStep, WizardStepAttachment } from '@/lib/sign/wizard-builder'
+// v2.7.8 — Helpers pour dropdowns conditions lisibles
+import { getFieldDisplayLabel, groupFieldsBySection } from '@/lib/sign/field-helpers'
 // v2.7.6 — buildWizardSteps/ForAllRoles supprimés des imports (handleRegenerate retiré).
 // Toujours dispo côté serveur si besoin (lib/sign/wizard-builder.ts).
 
@@ -1882,8 +1884,13 @@ function ConditionsEditor({
                   onChange={e => update(i, { triggerFieldId: e.target.value })}
                   style={{ ...editInputStyle, padding: '4px 6px', fontSize: 11, flex: 1, minWidth: 140 }}
                 >
-                  {otherFields.map(f => (
-                    <option key={f.id} value={f.id}>{f.tooltip || f.label || `(${f.type})`}</option>
+                  {/* v2.7.8 — Groupé par section + nom lisible (fini les UUIDs DocuSign) */}
+                  {groupFieldsBySection(otherFields).map((g, gi) => (
+                    <optgroup key={`s-${gi}`} label={g.section || '(sans section)'}>
+                      {g.fields.map(f => (
+                        <option key={f.id} value={f.id}>{getFieldDisplayLabel(f)}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
                 <select
