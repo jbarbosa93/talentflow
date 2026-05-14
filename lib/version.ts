@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.8.0'
+export const APP_VERSION = '2.8.1'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.1 — Chatbot template : panneau flottant déplaçable + redimensionnable
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.1',
+    date: '2026-05-14',
+    label: 'Sign — Chatbot panneau flottant',
+    features: [
+      'UX — Chatbot IA passe d\'une barre fixed bottom à un panneau FLOTTANT déplaçable (header drag) et redimensionnable (corner bas-droit).',
+      'UX — Bouton "minimiser" → réduit le panneau en bulle 56×56 cliquable n\'importe où.',
+      'UX — Position + taille + état (minimisé/ouvert) persistés en localStorage (clé tf-assistant-window-v1).',
+      'UX — Clamp automatique de la position quand le viewport change (resize fenêtre).',
+      'UX — Largeur min 320 / max 900, hauteur min 280 / max 800.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.8.0 — Assistant IA chatbot dans l'éditeur de templates Sign
   // ─────────────────────────────────────────────────────────────────────
