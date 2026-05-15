@@ -458,8 +458,28 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                     <Mail size={14} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--foreground)' }}>
-                      {r.name}
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {/* v2.8.0 — Badge ÉTAPE (1-based) + nom du rôle (Candidat/Consultant) */}
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center',
+                        padding: '2px 8px', borderRadius: 999,
+                        background: 'var(--primary)', color: 'var(--primary-foreground)',
+                        fontSize: 10, fontWeight: 800, letterSpacing: '0.04em',
+                      }}>
+                        ÉTAPE {(r.order ?? 0) + 1}
+                      </span>
+                      {r.roleName && (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center',
+                          padding: '2px 8px', borderRadius: 999,
+                          background: 'var(--surface-2)', color: 'var(--foreground)',
+                          border: '1px solid var(--border)',
+                          fontSize: 11, fontWeight: 700,
+                        }}>
+                          {r.roleName}
+                        </span>
+                      )}
+                      <span>{r.name}</span>
                     </div>
                     <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                       {r.email}

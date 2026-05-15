@@ -1,9 +1,10 @@
 // TalentFlow Sign — Zone drag&drop + liste documents (réutilisable)
 // v2.2.1
+// v2.8.0 — Toggle "Papier à en-tête L-Agence" (stamp logo + footer page 1 à l'upload)
 'use client'
 
 import { useState, useCallback } from 'react'
-import { Upload, FileText, Trash2, Loader2, GripVertical, ChevronUp, ChevronDown, Lock } from 'lucide-react'
+import { Upload, FileText, Trash2, Loader2, GripVertical, ChevronUp, ChevronDown, Lock, FileBadge } from 'lucide-react'
 import { toast } from 'sonner'
 import type { SignDocument } from '@/lib/sign/types'
 
@@ -12,12 +13,19 @@ interface Props {
   onChange: (docs: SignDocument[]) => void
   /** Si true, lecture seule (template sélectionné par exemple) */
   readOnly?: boolean
+  /** v2.8.0 — Mode "template contrat" : affiche la zone d'upload + le toggle
+   *  stamp en temps réel (par doc). Sinon comportement classique. */
+  contractMode?: boolean
 }
 
-export default function DocumentUploader({ documents, onChange, readOnly }: Props) {
+export default function DocumentUploader({ documents, onChange, readOnly, contractMode }: Props) {
   const [uploading, setUploading] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
+  // v2.8.0 — En mode contrat, on upload TOUJOURS avec letterhead=lagence pour
+  // créer les 2 versions Storage (original + stampé). Le toggle par doc swap
+  // ensuite localement entre storage_path_original et storage_path_stamped,
+  // sans nouvel appel serveur.
 
   const upload = async (file: File) => {
     if (file.type !== 'application/pdf') {
@@ -32,17 +40,40 @@ export default function DocumentUploader({ documents, onChange, readOnly }: Prop
     fd.append('file', file)
     fd.append('folder', 'envelopes')
     fd.append('ownerId', 'draft')
+    // En mode contrat : génère les 2 versions Storage à chaque upload
+    if (contractMode) fd.append('letterhead', 'lagence')
     const r = await fetch('/api/sign/upload', { method: 'POST', body: fd })
     const data = await r.json()
     if (!r.ok) throw new Error(data.error || 'Erreur upload')
-    onChange([
-      ...documents,
-      {
-        name: file.name,
-        storage_path: data.path,
-        order: documents.length,
-      },
-    ])
+    const doc: SignDocument = {
+      name: file.name,
+      storage_path: data.path,
+      order: documents.length,
+      // v2.8.0 — En mode contrat, on track les 2 paths + flag letterhead pour
+      // toggle temps réel. data.path = stamped par défaut quand letterhead OK.
+      ...(contractMode && data.path_original ? {
+        storage_path_original: data.path_original,
+        storage_path_stamped: data.path_stamped,
+        ...(data.path_stamped ? { letterhead: 'lagence' as const } : {}),
+      } : {}),
+    }
+    onChange([...documents, doc])
+  }
+
+  // v2.8.0 — Toggle stamp en temps réel sur un doc déjà uploadé.
+  // Swap storage_path entre original ↔ stamped (les 2 versions sont déjà en
+  // Storage depuis l'upload initial). Si stamped pas dispo (échec upload),
+  // ne fait rien.
+  const toggleStamp = (idx: number) => {
+    const d = documents[idx]
+    if (!d.storage_path_original) return // pas en mode contrat, ignore
+    const isStamped = d.letterhead === 'lagence'
+    const next = isStamped
+      ? { ...d, storage_path: d.storage_path_original, letterhead: undefined as undefined }
+      : d.storage_path_stamped
+        ? { ...d, storage_path: d.storage_path_stamped, letterhead: 'lagence' as const }
+        : d
+    onChange(documents.map((doc, i) => i === idx ? next : doc))
   }
 
   const handleFiles = useCallback(async (files: FileList | File[]) => {
@@ -113,6 +144,34 @@ export default function DocumentUploader({ documents, onChange, readOnly }: Prop
                 }}>
                   {d.name}
                 </span>
+                {/* v2.8.0 — Toggle stamp en temps réel (mode contrat uniquement).
+                    Click sur le badge → swap entre original ↔ stamped (déjà en Storage). */}
+                {contractMode && d.storage_path_original && (
+                  <button
+                    type="button"
+                    onClick={() => toggleStamp(idx)}
+                    title={d.letterhead === 'lagence'
+                      ? 'Cliquer pour retirer le papier à en-tête L-Agence'
+                      : 'Cliquer pour ajouter le papier à en-tête L-Agence'}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '4px 10px',
+                      fontSize: 11, fontWeight: 700,
+                      background: d.letterhead === 'lagence' ? 'var(--primary-soft)' : 'var(--surface-2)',
+                      color: d.letterhead === 'lagence' ? 'var(--primary, #A16207)' : 'var(--muted)',
+                      border: `1px solid ${d.letterhead === 'lagence' ? 'rgba(234,179,8,0.45)' : 'var(--border)'}`,
+                      borderRadius: 999,
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      transition: 'all 0.12s',
+                    }}
+                  >
+                    <FileBadge size={11} />
+                    {d.letterhead === 'lagence' ? 'Stamp L-Agence ✓' : '+ Stamp L-Agence'}
+                  </button>
+                )}
                 {readOnly ? (
                   <span style={{
                     fontSize: 10.5, color: 'var(--muted)',
@@ -137,6 +196,29 @@ export default function DocumentUploader({ documents, onChange, readOnly }: Prop
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* v2.8.0 — En mode contrat, info banner simple. Le toggle stamp est
+          par doc dans la liste ci-dessus (click sur le pill "Stamp L-Agence"). */}
+      {!readOnly && contractMode && documents.length === 0 && (
+        <div style={{
+          padding: '10px 14px',
+          marginBottom: 10,
+          background: 'var(--primary-soft)',
+          border: '1px solid rgba(234,179,8,0.35)',
+          borderRadius: 10,
+          fontSize: 12.5,
+          color: 'var(--foreground)',
+          lineHeight: 1.4,
+          display: 'flex', alignItems: 'flex-start', gap: 8,
+        }}>
+          <FileBadge size={14} style={{ color: 'var(--primary, #A16207)', flexShrink: 0, marginTop: 2 }} />
+          <span>
+            <strong>Template contrat de travail</strong> — Upload le contrat du jour.
+            Après upload, click sur le pill <strong>« + Stamp L-Agence »</strong> pour
+            ajouter / retirer le logo + footer en temps réel.
+          </span>
         </div>
       )}
 

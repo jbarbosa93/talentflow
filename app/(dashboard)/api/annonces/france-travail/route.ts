@@ -201,7 +201,12 @@ export async function POST(request: NextRequest) {
     const filename = `Annonce_${(data.titre || 'poste').replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.docx`
 
     const subject = `Dépôt d'offre — ${data.titre} (${data.nombre_postes || 2} postes) — L-Agence SA`
+    // v2.8.0 — Logo L-Agence officiel ajouté en header (cohérent avec tous les
+    // autres templates email TalentFlow / L-Agence).
     const htmlBody = `
+      <div style="text-align:center;padding:20px 0 24px 0;border-bottom:1px solid #E5E7EB;margin-bottom:24px;">
+        <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence — Emplois fixes & temporaires" width="200" style="height:42px;width:auto;display:inline-block;border:0;" />
+      </div>
       <p>Bonjour,</p>
       <p>Veuillez trouver ci-joint notre formulaire de dépôt d'offre pour le poste de <strong>${data.titre}</strong>
       (${data.nombre_postes || 2} postes) — ${data.lieu}.</p>

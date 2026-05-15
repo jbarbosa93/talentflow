@@ -10,6 +10,10 @@ export async function GET() {
   if (authError) return authError
 
   const supabase = createAdminClient()
+  // v2.8.0 — On RENVOIE tous les templates (ad-hoc inclus) pour que le lookup
+  // côté front (templates.find(...)) trouve aussi les ad-hoc liés à un brouillon
+  // en cours d'édition. Le FILTRAGE pour masquer les ad-hoc se fait côté front
+  // (dropdown /sign/new + liste /sign/templates) via `parent_template_id`.
   const { data, error } = await supabase
     .from('sign_templates' as any)
     .select('*')
@@ -51,6 +55,16 @@ export async function POST(request: NextRequest) {
             ]
           : [])
 
+    // v2.8.0 — Catégorie fonctionnelle (mappe / contrat / report). Détermine
+    // les comportements UX spécifiques (ex: contrat → header L-Agence auto à
+    // l'upload des PDFs source, géré côté CreateTemplateModal qui passe le flag
+    // letterhead='lagence' à /api/sign/upload).
+    const VALID_CATEGORIES = ['mappe', 'contrat', 'report'] as const
+    const templateCategory = typeof body.template_category === 'string'
+      && (VALID_CATEGORIES as readonly string[]).includes(body.template_category)
+        ? body.template_category
+        : null
+
     const supabase = createAdminClient()
     const { data, error } = await supabase
       .from('sign_templates' as any)
@@ -61,6 +75,7 @@ export async function POST(request: NextRequest) {
         recipients_schema: recipientsSchema,
         created_by: user?.id || null,
         kind,
+        template_category: templateCategory,
       })
       .select()
       .single()

@@ -1504,10 +1504,10 @@ export default function TemplateEditor({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {recipients.map((r, idx) => {
-              // ⚠️ Clamp r.order ≥ 1 — si r.order=0, (0-1)%5 = -1 en JS (modulo négatif autorisé)
-              // → RECIPIENT_COLORS[-1] = undefined → crash sur c.stroke
-              const safeOrder = Math.max(1, r.order || 1)
-              const c = RECIPIENT_COLORS[(safeOrder - 1) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
+              // v2.8.0 — Avant : `Math.max(1, r.order || 1) - 1` mappait order=0 ET
+              // order=1 au même index → 2 rôles distincts affichés en bleu. Fix :
+              // utiliser order direct (mod palette pour éviter index hors borne).
+              const c = RECIPIENT_COLORS[Math.max(0, r.order ?? 0) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
               const active = activeRecipientOrder === r.order
               const fieldCount = countFieldsForRecipient(docs, r.order)
               return (
@@ -2234,8 +2234,8 @@ function SelectedFieldsPanel({
           <Field label="Destinataire">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {recipients.map(r => {
-                const safeOrder = Math.max(1, r.order || 1)
-                const c = RECIPIENT_COLORS[(safeOrder - 1) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
+                // v2.8.0 — Voir commentaire fix couleurs RECIPIENT_COLORS
+                const c = RECIPIENT_COLORS[Math.max(0, r.order ?? 0) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
                 const isActive = f.recipientOrder === r.order
                 return (
                   <button
@@ -2638,8 +2638,8 @@ function SelectedFieldsPanel({
         <Field label="Réassigner au destinataire">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {recipients.map(r => {
-              const safeOrder = Math.max(1, r.order || 1)
-              const c = RECIPIENT_COLORS[(safeOrder - 1) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
+              // v2.8.0 — Voir commentaire fix couleurs RECIPIENT_COLORS
+              const c = RECIPIENT_COLORS[Math.max(0, r.order ?? 0) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
               return (
                 <button
                   key={r.order}

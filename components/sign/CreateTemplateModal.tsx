@@ -63,6 +63,9 @@ export default function CreateTemplateModal({ open, onClose, onCreated }: Props)
       fd.append('file', file)
       fd.append('folder', 'templates')
       fd.append('ownerId', 'draft')
+      // v2.8.0 — Le stamp L-Agence se fait au moment de l'ENVOI (DocumentUploader
+      // sur /sign/new) et non à la création du template, pour permettre au user
+      // de choisir au cas par cas (contrat brut vs contrat déjà imprimé+signé).
 
       const r = await fetch('/api/sign/upload', { method: 'POST', body: fd })
       const data = await r.json()
@@ -157,6 +160,8 @@ export default function CreateTemplateModal({ open, onClose, onCreated }: Props)
           documents,
           recipients_schema: recipientsSchema,
           kind,
+          // v2.8.0 — Persiste la catégorie fonctionnelle (mappe/contrat/report)
+          template_category: type,
         }),
       })
       const data = await r.json()
@@ -324,6 +329,22 @@ export default function CreateTemplateModal({ open, onClose, onCreated }: Props)
                 ℹ️ Ce template apparaîtra dans <strong>Rapports hebdomadaires</strong>.
                 Les rôles Candidat + Client sont pré-configurés. Tu peux uploader le PDF
                 directement ici ou plus tard depuis l&apos;éditeur.
+              </div>
+            )}
+            {type === 'contrat' && (
+              <div style={{
+                marginTop: 8,
+                padding: '8px 12px',
+                background: 'var(--primary-soft)',
+                borderRadius: 8,
+                fontSize: 11.5,
+                color: 'var(--foreground)',
+                lineHeight: 1.5,
+                border: '1px solid rgba(234,179,8,0.25)',
+              }}>
+                📄 À chaque <strong>nouvel envoi</strong> avec ce template, tu pourras
+                choisir d&apos;ajouter le papier à en-tête L-Agence (logo + footer)
+                sur le contrat uploadé. Pratique pour les contrats bruts non imprimés.
               </div>
             )}
           </div>

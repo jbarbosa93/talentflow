@@ -165,7 +165,8 @@ export async function POST(req: NextRequest) {
       }
 
       // Phase 4c — Notif email sender (final : "tous ont signé")
-      if (senderInfo.email) {
+      // v2.8.0 — Skip si le sender EST le signataire (sait déjà qu'il a signé).
+      if (senderInfo.email && senderInfo.email.toLowerCase() !== lcEmail) {
         await sendSenderNotif({
           envelope,
           senderEmail: senderInfo.email,
@@ -200,7 +201,8 @@ export async function POST(req: NextRequest) {
       }
 
       // Phase 4c — Notif email sender ("X a signé, en attente de Y")
-      if (senderInfo.email) {
+      // v2.8.0 — Skip si le sender EST le signataire (sait déjà qu'il a signé).
+      if (senderInfo.email && senderInfo.email.toLowerCase() !== lcEmail) {
         const nextSigner = findNextPendingSigner(updatedRecipients, lcEmail)
         await sendSenderNotif({
           envelope,

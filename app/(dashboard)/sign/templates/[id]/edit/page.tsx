@@ -1,10 +1,12 @@
 // TalentFlow Sign — Éditeur visuel de template (page)
 // v2.2.0 — Phase 2
+// v2.8.0 — Support ?envelopeDraft={id} (édition pour un envoi en cours)
 'use client'
 
-import { use, useCallback, useEffect, useRef, useState } from 'react'
+import { use, useCallback, useEffect, useRef, useState, Suspense } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Loader2, Sparkles, FileText, ListChecks } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { ChevronLeft, Loader2, Sparkles, FileText, ListChecks, ArrowLeftCircle } from 'lucide-react'
 import TemplateEditor from '@/components/sign/TemplateEditor'
 import WizardEditor from '@/components/sign/WizardEditor'
 import type { SignTemplate, SignDocument, SignRecipientSchema } from '@/lib/sign/types'
@@ -16,8 +18,21 @@ interface PageProps {
 
 type TabId = 'document' | 'wizard'
 
-export default function TemplateEditPage({ params }: PageProps) {
+// v2.8.0 — Wrapper Suspense pour useSearchParams (Next.js 15 prerendering)
+export default function TemplateEditPageWrapper(props: PageProps) {
+  return (
+    <Suspense fallback={null}>
+      <TemplateEditPage {...props} />
+    </Suspense>
+  )
+}
+
+function TemplateEditPage({ params }: PageProps) {
   const { id } = use(params)
+  // v2.8.0 — Si présent, on édite ce template POUR un envoi en cours
+  // (template ad-hoc cloné depuis le parent au moment du brouillon).
+  const searchParams = useSearchParams()
+  const envelopeDraft = searchParams.get('envelopeDraft') || ''
   const [template, setTemplate] = useState<SignTemplate | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -116,15 +131,41 @@ export default function TemplateEditPage({ params }: PageProps) {
   return (
     <div className="d-page" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
       {/* Bouton retour */}
-      <div style={{ marginBottom: 8 }}>
-        <Link
-          href="/sign/templates"
-          className="neo-btn-ghost neo-btn-sm"
-          style={{ padding: '4px 10px' }}
-        >
-          <ChevronLeft size={14} />
-          Templates
-        </Link>
+      <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {envelopeDraft ? (
+          // v2.8.0 — Édition pour un envoi en cours : retour direct au brouillon /sign/new
+          <>
+            <Link
+              href={`/sign/new?draft=${envelopeDraft}`}
+              className="neo-btn-yellow neo-btn-sm"
+              style={{ padding: '4px 12px', fontWeight: 700 }}
+            >
+              <ArrowLeftCircle size={14} />
+              Retour à l&apos;envoi en cours
+            </Link>
+            <span style={{
+              padding: '4px 10px',
+              fontSize: 11.5,
+              fontWeight: 700,
+              background: 'var(--primary-soft)',
+              color: 'var(--primary, #A16207)',
+              borderRadius: 999,
+              border: '1px solid rgba(234,179,8,0.35)',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}>
+              📐 Édition pour un envoi
+            </span>
+          </>
+        ) : (
+          <Link
+            href="/sign/templates"
+            className="neo-btn-ghost neo-btn-sm"
+            style={{ padding: '4px 10px' }}
+          >
+            <ChevronLeft size={14} />
+            Templates
+          </Link>
+        )}
       </div>
 
       {/* Header */}

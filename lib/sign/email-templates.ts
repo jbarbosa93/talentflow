@@ -74,15 +74,10 @@ export function buildSignInviteHtml(p: SignEmailParams): string {
 
         <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; width:100%; background:#ffffff; border:1px solid ${BORDER}; border-radius:14px; overflow:hidden;">
 
-          <!-- Header sobre L-AGENCE (crème + serif foncé) -->
+          <!-- v2.8.0 — Logo officiel L-Agence (PNG transparent, même que compliance/report/etc) -->
           <tr>
             <td style="padding:28px 32px 18px 32px; background:${HEADER_BG}; text-align:center; border-bottom:1px solid ${BORDER};">
-              <div style="font-family:Georgia,'Times New Roman',serif; font-size:30px; font-weight:400; letter-spacing:.06em; color:${HEADER_FG}; line-height:1;">
-                L&#8209;AGENCE
-              </div>
-              <div style="font-size:10.5px; color:${MUTED}; letter-spacing:.08em; margin-top:6px; text-transform:uppercase;">
-                Emplois fixes &amp; temporaires
-              </div>
+              <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence — Emplois fixes & temporaires" width="200" style="height:42px;width:auto;display:inline-block;border:0;" />
             </td>
           </tr>
 
@@ -267,21 +262,15 @@ export function buildSignReminderHtml(p: SignEmailParams): string {
 
         <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; width:100%; background:#ffffff; border:1px solid ${BORDER}; border-radius:14px; overflow:hidden;">
 
-          <!-- Header sobre L-AGENCE + badge rouge "RAPPEL" -->
+          <!-- v2.8.0 — Logo officiel L-Agence (PNG transparent) + badge rouge "RAPPEL" -->
           <tr>
             <td style="padding:28px 32px 18px 32px; background:${HEADER_BG}; text-align:center; position:relative; border-bottom:1px solid ${BORDER};">
-              <!-- Badge RAPPEL coin haut-droit -->
-              <div style="text-align:right; margin-bottom:6px;">
+              <div style="text-align:right; margin-bottom:10px;">
                 <span style="display:inline-block; padding:3px 10px; background:${REMINDER_RED}; color:#ffffff; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; border-radius:4px;">
                   Rappel
                 </span>
               </div>
-              <div style="font-family:Georgia,'Times New Roman',serif; font-size:30px; font-weight:400; letter-spacing:.06em; color:${HEADER_FG}; line-height:1;">
-                L&#8209;AGENCE
-              </div>
-              <div style="font-size:10.5px; color:${MUTED}; letter-spacing:.08em; margin-top:6px; text-transform:uppercase;">
-                Emplois fixes &amp; temporaires
-              </div>
+              <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence — Emplois fixes & temporaires" width="200" style="height:42px;width:auto;display:inline-block;border:0;" />
             </td>
           </tr>
 

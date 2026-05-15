@@ -23,7 +23,10 @@ export default function SignTemplatesPage() {
     try {
       const r = await fetch('/api/sign/templates')
       const d = await r.json()
-      setTemplates(d.templates || [])
+      // v2.8.0 — Exclure les templates ad-hoc (parent_template_id défini) de la
+      // liste UI : ce sont des containers techniques créés à chaque envoi.
+      const all: SignTemplate[] = d.templates || []
+      setTemplates(all.filter(t => !(t as { parent_template_id?: string | null }).parent_template_id))
     } catch {
       setTemplates([])
     } finally {

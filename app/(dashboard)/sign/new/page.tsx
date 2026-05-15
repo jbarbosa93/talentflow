@@ -11,7 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   X, Save, Send, Loader2, FileSignature, Users, FileText,
-  MessageSquare, ListOrdered, Plus, Sparkles,
+  MessageSquare, ListOrdered, Plus, Sparkles, Move,
 } from 'lucide-react'
 import DocumentUploader from '@/components/sign/DocumentUploader'
 import { type RecipientCandidat, FirstNameAutocomplete, PhoneInput } from '@/components/sign/RecipientCard'
@@ -19,7 +19,7 @@ import { normalizePhoneE164 } from '@/lib/sign/phone-format'
 import RecipientsGroup from '@/components/sign/RecipientsGroup'
 import AdvancedOptions, { DEFAULT_OPTIONS, type AdvancedOptionsValue } from '@/components/sign/AdvancedOptions'
 import type { SignCategory, SignDocument, SignTemplate } from '@/lib/sign/types'
-import { CATEGORY_LABELS, RECIPIENT_COLORS } from '@/lib/sign/types'
+import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import { looksLikeCompanyField } from '@/lib/sign/field-helpers'
 import { Edit3 } from 'lucide-react'
 
@@ -53,7 +53,7 @@ function SignNewPage() {
   const [emailSubject, setEmailSubject] = useState('')
   const [message, setMessage] = useState('')
   const [advanced, setAdvanced] = useState<AdvancedOptionsValue>(DEFAULT_OPTIONS)
-  const [submitting, setSubmitting] = useState<'send' | 'draft' | null>(null)
+  const [submitting, setSubmitting] = useState<'send' | 'draft' | 'preview' | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   // v2.2.1 — Mode "rôles fixés" du template (default true si template a un schema avec ≥1 rôle)
   const [useTemplateRoles, setUseTemplateRoles] = useState(true)
@@ -145,32 +145,50 @@ function SignNewPage() {
     () => templates.find(t => t.id === templateId) || null,
     [templates, templateId],
   )
+  // v2.8.0 — Template "contrat" : upload override autorisé (PDF différent à
+  // chaque envoi). Les fields signature du template sont copiés sur le PDF
+  // uploadé au moment du submit, en gardant les coords proportionnelles A4.
+  const isContractTemplate = selectedTemplate?.template_category === 'contrat'
+
   useEffect(() => {
     if (!selectedTemplate) return
+    // v2.8.0 — On charge toujours les docs du template (vide ou pas) :
+    // - Template contrat vierge → documents = [] → user upload son PDF du jour
+    // - Template contrat ad-hoc (chargé via ?draft=) → contient déjà le PDF du jour
+    // - Autre template → ses PDFs modèles (comportement historique)
+    // Le user peut supprimer + ré-uploader dans le DocumentUploader si besoin.
     setDocuments(selectedTemplate.documents || [])
+
+    // v2.8.0 — Déduire la catégorie de l'enveloppe depuis template_category.
+    // Mapping : 'contrat' → 'contrat', 'mappe' → 'mappe', sinon 'autres'.
+    const tplCat = selectedTemplate.template_category
+    if (tplCat === 'contrat') setCategory('contrat')
+    else if (tplCat === 'mappe') setCategory('mappe')
+    else setCategory('autres')
 
     // v2.2.2 — Dérivation des rôles depuis l'union de TROIS sources :
     //   1. recipients_schema (rôles déclarés par l'admin)
     //   2. documents[].fields[].recipientOrder (rôles utilisés par des champs)
     //   3. wizard_steps[].recipientOrder (rôles utilisés par des étapes wizard)
-    // Cas réel : template avec schema=[{order:1}] mais fields/steps avec recipientOrder=2
-    //   → bug avant : le rôle 2 invisible dans /sign/new. Maintenant : détecté auto.
+    // v2.8.0 — Bug fix : avant `s.order > 0` excluait order=0 → si l'user
+    // ajoutait des rôles dans l'éditeur (order 0, 1, 2...), seuls 1+ étaient
+    // visibles dans /sign/new. Maintenant on accepte order >= 0.
     const derivedOrders = new Set<number>()
     for (const s of (selectedTemplate.recipients_schema || [])) {
-      if (s.order && s.order > 0) derivedOrders.add(s.order)
+      if (typeof s.order === 'number' && s.order >= 0) derivedOrders.add(s.order)
     }
     for (const d of (selectedTemplate.documents || [])) {
       for (const f of (d.fields || [])) {
-        if (f.recipientOrder && f.recipientOrder > 0) derivedOrders.add(f.recipientOrder)
+        if (typeof f.recipientOrder === 'number' && f.recipientOrder >= 0) derivedOrders.add(f.recipientOrder)
       }
     }
     const wSteps = (selectedTemplate as unknown as { wizard_steps?: { recipientOrder?: number }[] }).wizard_steps || []
     for (const s of wSteps) {
-      if (s.recipientOrder && s.recipientOrder > 0) derivedOrders.add(s.recipientOrder)
+      if (typeof s.recipientOrder === 'number' && s.recipientOrder >= 0) derivedOrders.add(s.recipientOrder)
     }
     const sortedOrders = Array.from(derivedOrders).sort((a, b) => a - b)
-    // Fallback : aucun rôle détecté → 1 rôle par défaut
-    if (sortedOrders.length === 0) sortedOrders.push(1)
+    // Fallback : aucun rôle détecté → 1 rôle par défaut (order=0)
+    if (sortedOrders.length === 0) sortedOrders.push(0)
 
     setUseTemplateRoles(true)
     setTemplateRoleCount(sortedOrders.length)
@@ -208,7 +226,8 @@ function SignNewPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title])
 
-  const isTemplateLocked = !!selectedTemplate
+  // v2.8.0 — Le lock n'est PAS appliqué aux templates contrat (upload override autorisé)
+  const isTemplateLocked = !!selectedTemplate && !isContractTemplate
 
   // v2.2.4 — Détecte si le template sélectionné contient un field destiné à
   // recevoir le nom d'une société cliente (type=company ou label/tooltip matchant).
@@ -254,9 +273,19 @@ function SignNewPage() {
   }
 
   // ── Submit ──
-  const submit = async (mode: 'send' | 'draft') => {
-    const err = validate()
-    if (err) { toast.error(err); return }
+  // v2.8.0 — Mode 'preview' : crée le brouillon puis redirige vers l'éditeur
+  // visuel du template ad-hoc lié pour ajuster les positions des fields, avant
+  // de revenir finaliser/envoyer l'enveloppe.
+  const submit = async (mode: 'send' | 'draft' | 'preview') => {
+    // En mode preview, on ne bloque pas sur l'absence de destinataires :
+    // l'admin pourra les ajouter au retour avant d'envoyer.
+    if (mode !== 'preview') {
+      const err = validate()
+      if (err) { toast.error(err); return }
+    } else {
+      if (!title.trim()) { toast.error('Titre requis avant de prévisualiser'); return }
+      if (documents.length === 0) { toast.error('Upload un PDF avant de prévisualiser'); return }
+    }
     setSubmitting(mode)
     try {
       // Lien candidat si 1er signer linké
@@ -269,7 +298,28 @@ function SignNewPage() {
         .filter(r => r.name.trim() && r.email.trim())
         .map(({ candidat_id, ...r }, i) => ({ ...r, order: i }))
 
+      // v2.8.0 — Template "contrat" : transfère les fields du template (signatures,
+      // dates, etc.) sur les docs uploadés (override). Coords proportionnelles 0-1
+      // → marchent tant que le PDF override est en A4 comme le template.
+      let finalDocuments = documents
+      if (isContractTemplate && selectedTemplate && documents.length > 0) {
+        const tplDocs = selectedTemplate.documents || []
+        finalDocuments = documents.map((d, idx) => {
+          const tplDoc = tplDocs[idx] || tplDocs[0]  // mappe par index, fallback doc[0]
+          if (!tplDoc) return d
+          return {
+            ...d,
+            // Copie les fields + page_count + dimensions du template
+            fields: tplDoc.fields ? [...tplDoc.fields] : d.fields,
+            page_count: tplDoc.page_count ?? d.page_count,
+            pdf_dimensions: tplDoc.pdf_dimensions ?? d.pdf_dimensions,
+          }
+        })
+      }
+
       // v2.2.2 — Si on édite un brouillon existant : PATCH au lieu de POST
+      // v2.8.0 — Pour les templates contrat, on envoie les documents (override)
+      // même si template_id est présent.
       const payload = {
         title: title.trim(),
         template_id: templateId || null,
@@ -278,7 +328,8 @@ function SignNewPage() {
         recipients: cleanRecipients,
         message: message.trim() || null,
         // V1 : on stocke aussi les docs uploadés direct (pas dans template) dans l'enveloppe
-        documents: !templateId ? documents : undefined,
+        // v2.8.0 : pour template contrat, on envoie aussi les documents override
+        documents: (!templateId || isContractTemplate) ? finalDocuments : undefined,
         // Options avancées
         expires_in_days: advanced.expiresInDays,
         reminder_frequency_days: advanced.reminderFrequencyDays,
@@ -315,6 +366,19 @@ function SignNewPage() {
         if (!sendR.ok) throw new Error(sendData.error || 'Erreur envoi')
         toast.success('Enveloppe envoyée')
         router.push(`/sign/${envelopeId}`)
+      } else if (mode === 'preview') {
+        // v2.8.0 — Récupère le template_id (ad-hoc cloné côté serveur quand
+        // template contrat + docs override) pour ouvrir son éditeur visuel.
+        const envR = await fetch(`/api/sign/envelopes/${envelopeId}`)
+        const envData = await envR.json()
+        const adHocTplId = envData?.envelope?.template_id as string | undefined
+        if (!adHocTplId) {
+          toast.error('Impossible d\'ouvrir l\'éditeur — template ad-hoc introuvable')
+          router.push(`/sign/${envelopeId}`)
+        } else {
+          toast.success('Brouillon créé — ajuste les positions de signature')
+          router.push(`/sign/templates/${adHocTplId}/edit?envelopeDraft=${envelopeId}`)
+        }
       } else {
         toast.success(isEditingDraft ? 'Brouillon mis à jour' : 'Brouillon enregistré')
         router.push(isEditingDraft ? `/sign/${envelopeId}` : '/sign')
@@ -422,45 +486,105 @@ function SignNewPage() {
                 style={{ height: 42, fontSize: 14 }}
               />
             </Field>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.4fr', gap: 12 }}>
-              <Field label="Catégorie">
-                <select
-                  value={category}
-                  onChange={e => setCategory(e.target.value as SignCategory)}
-                  className="neo-input"
-                  style={{ height: 42, cursor: 'pointer' }}
-                >
-                  {(Object.keys(CATEGORY_LABELS) as SignCategory[]).map(k => (
-                    <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Template (optionnel)" hint="Pré-remplit les PDFs et destinataires">
-                <select
-                  value={templateId}
-                  onChange={e => {
-                    setTemplateId(e.target.value)
-                    if (!e.target.value) setDocuments([])  // unlock + clear si on désélectionne
-                  }}
-                  className="neo-input"
-                  style={{ height: 42, cursor: 'pointer' }}
-                >
-                  <option value="">— Sans template —</option>
-                  {templates.map(t => (
+            {/* v2.8.0 — Champ Catégorie retiré : déduit automatiquement du template
+                choisi (template.template_category → enveloppe.document_category). */}
+            <Field label="Template (optionnel)" hint="Pré-remplit les PDFs et destinataires">
+              <select
+                value={templateId}
+                onChange={e => {
+                  setTemplateId(e.target.value)
+                  if (!e.target.value) setDocuments([])  // unlock + clear si on désélectionne
+                }}
+                className="neo-input"
+                style={{ height: 42, cursor: 'pointer' }}
+              >
+                <option value="">— Sans template —</option>
+                {/* v2.8.0 — Filtrer les templates ad-hoc (parent_template_id) du
+                    dropdown. Ils sont récupérés par l'API pour le lookup interne
+                    mais NE doivent PAS apparaître dans le menu déroulant. */}
+                {templates
+                  .filter(t => !(t as { parent_template_id?: string | null }).parent_template_id)
+                  .map(t => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
-                </select>
-              </Field>
-            </div>
+              </select>
+            </Field>
           </Section>
 
           {/* SECTION 2 : Documents */}
-          <Section title="Documents" icon={FileText} subtitle={isTemplateLocked ? 'Documents du template (lecture seule)' : 'Glissez vos PDFs ou cliquez pour parcourir'}>
+          <Section title="Documents" icon={FileText} subtitle={
+            isTemplateLocked
+              ? 'Documents du template (lecture seule)'
+              : isContractTemplate
+                ? 'Upload le contrat du jour — les positions de signature du template seront appliquées automatiquement'
+                : 'Glissez vos PDFs ou cliquez pour parcourir'
+          }>
+            {/* v2.8.0 — Bandeau explicatif pour template contrat */}
+            {isContractTemplate && documents.length === 0 && (
+              <div style={{
+                marginBottom: 12,
+                padding: '12px 14px',
+                background: 'var(--primary-soft)',
+                border: '1px solid rgba(234,179,8,0.35)',
+                borderRadius: 10,
+                fontSize: 12.5,
+                color: 'var(--foreground)',
+                lineHeight: 1.5,
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+              }}>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>📄</span>
+                <div style={{ flex: 1 }}>
+                  <strong>Template « Contrat de travail »</strong> — Upload le contrat du jour (PDF brut ou
+                  déjà imprimé+signé). Les <strong>positions de signature</strong> définies dans le template
+                  seront appliquées automatiquement (format A4 requis).<br/>
+                  ✓ Coche <strong>« Ajouter le papier à en-tête L-Agence »</strong> si ton PDF est brut.<br/>
+                  ✗ Décoche si ton PDF a déjà le logo (contrat scanné).
+                </div>
+              </div>
+            )}
             <DocumentUploader
               documents={documents}
               onChange={setDocuments}
               readOnly={isTemplateLocked}
+              contractMode={isContractTemplate}
             />
+            {/* v2.8.0 — Bouton "Voir et ajuster les positions" pour template contrat
+                quand au moins 1 PDF uploadé. Crée le brouillon + ouvre l'éditeur visuel
+                sur le template ad-hoc (cloné serveur-side avec les fields hérités). */}
+            {isContractTemplate && documents.length > 0 && (
+              <button
+                type="button"
+                onClick={() => submit('preview')}
+                disabled={submitting !== null}
+                style={{
+                  marginTop: 12,
+                  width: '100%',
+                  padding: '12px 16px',
+                  background: 'var(--card)',
+                  border: '1.5px dashed var(--primary, #EAB308)',
+                  borderRadius: 10,
+                  color: 'var(--foreground)',
+                  fontFamily: 'inherit',
+                  fontSize: 13.5,
+                  fontWeight: 700,
+                  cursor: submitting !== null ? 'wait' : 'pointer',
+                  opacity: submitting !== null ? 0.7 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  transition: 'all 0.15s',
+                }}
+                title="Sauvegarde un brouillon et ouvre l'éditeur visuel sur ce PDF pour vérifier/déplacer les zones de signature avant l'envoi"
+              >
+                {submitting === 'preview' ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Move size={15} style={{ color: 'var(--primary, #A16207)' }} />
+                )}
+                📐 Voir et ajuster les positions de signature sur ce PDF
+              </button>
+            )}
             {isTemplateLocked && (
               <div style={{
                 marginTop: 10,
@@ -731,9 +855,11 @@ function RoleFixedRecipients({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {recipients.map((r, idx) => {
-          // v2.2.2 — Garde-fou : order=0 ou négatif (legacy) → palette[0] (bleu)
-          const safeOrder = Math.max(1, r.order || 1)
-          const palette = RECIPIENT_COLORS[(safeOrder - 1) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
+          // v2.8.0 — Avant : `Math.max(1, r.order || 1) - 1` mappait order=0 ET
+          // order=1 au même index 0 → 2 rôles distincts affichés en bleu. Fix :
+          // utiliser order direct (mod palette pour éviter index hors borne).
+          const palette = RECIPIENT_COLORS[Math.max(0, r.order ?? 0) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
+          const safeOrder = r.order ?? idx
           const isCC = r.role === 'cc'
           // v2.2.2 — Destinataire ajouté en plus des rôles du template (= supprimable)
           const isExtra = idx >= templateRoleCount
@@ -762,12 +888,27 @@ function RoleFixedRecipients({
                 }}>
                   {safeOrder}
                 </div>
-                <div style={{
-                  fontSize: 14, fontWeight: 700, color: 'var(--foreground)',
-                  display: 'flex', alignItems: 'center', gap: 8,
-                }}>
-                  {r.roleName || `Rôle ${safeOrder}`}
-                </div>
+                {/* v2.8.0 — RoleName éditable (synchronise au template ad-hoc via PATCH) */}
+                <input
+                  type="text"
+                  value={r.roleName || ''}
+                  placeholder={`Rôle ${safeOrder} (ex: Candidat, Consultant…)`}
+                  onChange={e => updateRecipient(idx, { roleName: e.target.value })}
+                  style={{
+                    flex: '0 1 220px',
+                    fontSize: 14, fontWeight: 700,
+                    color: 'var(--foreground)',
+                    background: 'transparent',
+                    border: '1px dashed transparent',
+                    borderRadius: 6,
+                    padding: '3px 6px',
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = palette.stroke; e.currentTarget.style.background = palette.fill }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent' }}
+                  title="Renommer ce rôle — synchronisé avec l'éditeur de template"
+                />
                 <span style={{ flex: 1 }} />
                 <span style={{
                   padding: '3px 10px',

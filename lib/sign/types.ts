@@ -270,6 +270,15 @@ export interface SignDocument {
   page_count?: number
   pdf_dimensions?: PdfPageDimensions[]
   fields?: SignField[]
+  // v2.8.0 — Marqueur "papier à en-tête L-Agence appliqué à l'upload".
+  // Persisté dans sign_envelopes.documents jsonb. Sert au badge UI ; le PDF
+  // dans Storage contient déjà le logo+footer stampés (pas re-stampé à l'envoi).
+  letterhead?: 'lagence'
+  // v2.8.0 — Paths des 2 versions stockées (original + stampée) pour le toggle
+  // stamp en temps réel côté UI sans nouvel appel serveur. `storage_path`
+  // pointe sur l'une des deux selon le state du toggle.
+  storage_path_original?: string
+  storage_path_stamped?: string
 }
 
 export type SignViewMode = 'wizard' | 'document' | 'auto'
@@ -328,6 +337,10 @@ export interface SignTemplate {
   /** Phase 5 — 'envelope' (Sign classique) ou 'report' (rapport hebdo récurrent
    *  avec PDF L-Agence + 2 signataires fixes Candidat+Client). */
   kind?: SignTemplateKind
+  /** v2.8.0 — Catégorie fonctionnelle : 'mappe' (général), 'contrat' (contrat
+   *  de travail : permet d'uploader un PDF override à chaque envoi + toggle
+   *  papier à en-tête L-Agence dans /sign/new), 'report' (rapport hebdo). */
+  template_category?: 'mappe' | 'contrat' | 'report' | null
 }
 
 export interface SignEnvelope {

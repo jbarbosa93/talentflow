@@ -123,7 +123,10 @@ export default function PublicFieldsLayer({
         //   - belongsToCurrent : field du destinataire courant → éditable
         //   - belongsToPrevious : field d'un destinataire antérieur → read-only avec valeur affichée
         //   - belongsToFuture : field d'un destinataire postérieur → masqué (pas pertinent ici)
-        const fieldOrder = f.recipientOrder || 1
+        // v2.8.0 — Avant : `f.recipientOrder || 1` traitait 0 comme falsy →
+        // fields avec recipientOrder=0 devenaient 1 → mismatch avec curOrder
+        // et le 1er destinataire voyait tous les fields. Maintenant : ?? 1.
+        const fieldOrder = f.recipientOrder ?? 1
         const belongsToCurrent = fieldOrder === curOrder
         const belongsToPrevious = fieldOrder < curOrder
         const belongsToFuture = fieldOrder > curOrder

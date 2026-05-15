@@ -32,9 +32,9 @@ export async function POST(req: NextRequest) {
 
     const html = `
       <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 32px; color: #111;">
-        <div style="display: flex; align-items: center; margin-bottom: 24px;">
-          <span style="font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">L-AGENCE</span>
-          <span style="margin-left: 10px; font-size: 13px; color: #888;">Agence de placement</span>
+        <!-- v2.8.0 — Logo L-Agence officiel (cohérent avec tous les autres templates email) -->
+        <div style="text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #E5E7EB;">
+          <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence — Emplois fixes & temporaires" width="200" style="height:42px;width:auto;display:inline-block;border:0;" />
         </div>
 
         <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 16px 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">

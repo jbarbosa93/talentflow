@@ -55,6 +55,94 @@ export async function stampTalentflowEnvelopeId(
   }
 }
 
+// ─── Stamp papier à en-tête L-Agence (v2.8.0) ─────────────────────────────
+
+/**
+ * v2.8.0 — Reproduit le papier à en-tête L-Agence sur la page 1 d'un PDF.
+ * Avant : João imprimait le contrat sur du papier pré-imprimé (logo + footer)
+ * puis le scannait → DocuSign. Désormais : on upload le PDF brut, ce helper
+ * stampe directement logo (top-left) + footer texte (bottom centré).
+ *
+ * Page 1 uniquement (un contrat = 1 page chez L-Agence).
+ * Couvre la zone 0-22pt du haut utilisée par stampTalentflowEnvelopeId : on
+ * positionne le logo à partir de y=H-30 pour rester sous ce header runtime.
+ *
+ * Fail-safe : retourne le buffer original en cas d'erreur (jamais bloquant).
+ */
+export async function stampLAgenceLetterhead(
+  pdfBuffer: Uint8Array | ArrayBuffer | Buffer,
+  logoPngBuffer: Uint8Array,
+): Promise<Uint8Array> {
+  try {
+    const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
+    const helv = await pdfDoc.embedFont(StandardFonts.Helvetica)
+    const helvBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+    const logo = await pdfDoc.embedPng(logoPngBuffer)
+
+    const firstPage = pdfDoc.getPages()[0]
+    if (!firstPage) return await pdfDoc.save()
+    const { width: pw, height: ph } = firstPage.getSize()
+
+    // Header : logo carré L-Agence en haut-gauche.
+    // Position en BL : y = ph - topMargin - LOGO_H
+    const LOGO_W = 175
+    const LOGO_H = 175
+    const LOGO_X = 42
+    const LOGO_TOP_MARGIN = 30
+    firstPage.drawImage(logo, {
+      x: LOGO_X,
+      y: ph - LOGO_TOP_MARGIN - LOGO_H,
+      width: LOGO_W,
+      height: LOGO_H,
+    })
+
+    // Footer ligne 1 — "024 552 18 70 ■ info@l-agence.ch ■ Avenue des Alpes 3, 1870 Monthey"
+    // Helvetica ne supporte pas ▪ (U+25AA) → on dessine 2 petits carrés noirs entre les segments.
+    const seg1 = '024 552 18 70'
+    const seg2 = 'info@l-agence.ch'
+    const seg3 = 'Avenue des Alpes 3, 1870 Monthey'
+    const SIZE1 = 10
+    const SEP_GAP = 14
+    const SEP_BOX = 4
+
+    const w1 = helv.widthOfTextAtSize(seg1, SIZE1)
+    const w2 = helv.widthOfTextAtSize(seg2, SIZE1)
+    const w3 = helv.widthOfTextAtSize(seg3, SIZE1)
+    const totalW = w1 + w2 + w3 + (SEP_GAP * 2 + SEP_BOX) * 2
+
+    const LINE1_Y = 52
+    let x = (pw - totalW) / 2
+
+    firstPage.drawText(seg1, { x, y: LINE1_Y, size: SIZE1, font: helv, color: rgb(0, 0, 0) })
+    x += w1 + SEP_GAP
+    firstPage.drawRectangle({ x, y: LINE1_Y + 1.5, width: SEP_BOX, height: SEP_BOX, color: rgb(0, 0, 0) })
+    x += SEP_BOX + SEP_GAP
+    firstPage.drawText(seg2, { x, y: LINE1_Y, size: SIZE1, font: helv, color: rgb(0, 0, 0) })
+    x += w2 + SEP_GAP
+    firstPage.drawRectangle({ x, y: LINE1_Y + 1.5, width: SEP_BOX, height: SEP_BOX, color: rgb(0, 0, 0) })
+    x += SEP_BOX + SEP_GAP
+    firstPage.drawText(seg3, { x, y: LINE1_Y, size: SIZE1, font: helv, color: rgb(0, 0, 0) })
+
+    // Footer ligne 2 — "www.l-agence.ch" centré, gras, plus bas
+    const SIZE2 = 12
+    const www = 'www.l-agence.ch'
+    const wwwW = helvBold.widthOfTextAtSize(www, SIZE2)
+    firstPage.drawText(www, {
+      x: (pw - wwwW) / 2,
+      y: 26,
+      size: SIZE2,
+      font: helvBold,
+      color: rgb(0, 0, 0),
+    })
+
+    return await pdfDoc.save()
+  } catch (e) {
+    console.warn('[sign/pdf-stamp] stampLAgenceLetterhead failed', e)
+    if (pdfBuffer instanceof Uint8Array) return pdfBuffer
+    return new Uint8Array(pdfBuffer as ArrayBuffer)
+  }
+}
+
 // ─── Stamp final post-signature (Phase 4b) ───────────────────────────────
 
 interface AutoFill {

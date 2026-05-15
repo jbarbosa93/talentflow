@@ -59,7 +59,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (body.candidate_id === null || typeof body.candidate_id === 'string') {
       allowed.candidate_id = body.candidate_id || null
     }
-    if (Array.isArray(body.documents)) allowed.documents = body.documents
+    // v2.8.0 — `documents` n'est PAS une colonne de sign_envelopes (les docs
+    // sont stockés sur le template ad-hoc référencé par template_id). On
+    // ignore silencieusement la prop ici pour ne pas crasher la query Supabase.
+    // Si besoin de modifier les docs d'un brouillon, PATCH le template via
+    // /api/sign/templates/[id] (l'éditeur visuel le fait déjà sur l'ad-hoc).
+    // if (Array.isArray(body.documents)) allowed.documents = body.documents
     if (typeof body.expires_in_days === 'number') allowed.expires_in_days = body.expires_in_days
     if (typeof body.reminder_frequency_days === 'number') allowed.reminder_frequency_days = body.reminder_frequency_days
     if (typeof body.expiry_warning_days === 'number') allowed.expiry_warning_days = body.expiry_warning_days
@@ -80,6 +85,42 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       .single()
 
     if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+
+    // v2.8.0 — Si recipients fournis ET l'enveloppe pointe vers un template
+    // ad-hoc (parent_template_id IS NOT NULL), propager les rôles au schema
+    // du template ad-hoc. Garantit que l'éditeur visuel affiche les bons noms
+    // de rôles (Candidat, Consultant) au lieu de "Rôle 0/1" génériques.
+    if (Array.isArray(body.recipients) && body.recipients.length > 0) {
+      const env = data as unknown as { template_id?: string | null } | null
+      const tplId = env?.template_id
+      if (tplId) {
+        const { data: tpl } = await supabase
+          .from('sign_templates' as any)
+          .select('id, parent_template_id, recipients_schema')
+          .eq('id', tplId)
+          .single()
+        const tplRow = tpl as unknown as {
+          parent_template_id?: string | null
+          recipients_schema?: Array<{ role?: string; order?: number; roleName?: string }>
+        } | null
+        // Uniquement sur template ad-hoc (parent_template_id défini)
+        if (tplRow?.parent_template_id) {
+          const newSchema = body.recipients.map((r: { role?: string; order?: number; roleName?: string }, idx: number) => {
+            const order = r.order ?? idx
+            return {
+              role: r.role || 'signer',
+              order,
+              roleName: r.roleName || `Rôle ${order + 1}`,
+            }
+          })
+          await supabase
+            .from('sign_templates' as any)
+            .update({ recipients_schema: newSchema })
+            .eq('id', tplId)
+        }
+      }
+    }
+
     return NextResponse.json({ envelope: data })
   } catch {
     return NextResponse.json({ error: 'Données invalides' }, { status: 400 })

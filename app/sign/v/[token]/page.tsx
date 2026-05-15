@@ -31,6 +31,7 @@ import PublicFieldsLayer, { areAllRequiredFieldsFilled, isFieldFilledExt } from 
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
 import { getDayOffsetFromSection, dateForDayOfWeek } from '@/lib/sign/field-helpers'
+import LogoLAgence from '@/components/report/LogoLAgence'
 
 interface PageProps {
   params: Promise<{ token: string }>
@@ -473,25 +474,14 @@ export default function PublicSignPage({ params }: PageProps) {
   // Sidebar contenu (réutilisé desktop + mobile drawer)
   const sidebarContent = (
     <>
-      {/* Header TalentFlow Sign — l'application (pas l'entreprise) */}
-      <div style={{ padding: '20px 18px 16px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: 8,
-          background: '#EAB308',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          <FileSignature size={17} style={{ color: '#1C1A14' }} />
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{
-            fontSize: 14, fontWeight: 700, color: '#1C1A14', lineHeight: 1.1,
-          }}>
-            TalentFlow Sign
-          </div>
-          <div style={{ fontSize: 10.5, color: '#6B7280', letterSpacing: '0.04em', marginTop: 2 }}>
-            Signature électronique
-          </div>
+      {/* v2.8.0 — Header logo L-Agence officiel (au lieu du badge jaune
+          TalentFlow Sign abstrait). Le destinataire voit immédiatement de qui
+          vient le document. Sous-titre discret "Signature électronique". */}
+      <div style={{ padding: '22px 18px 18px', borderBottom: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+        <LogoLAgence height={32} />
+        <div style={{ fontSize: 10.5, color: '#6B7280', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <FileSignature size={11} style={{ color: '#A16207' }} />
+          Signature électronique · TalentFlow Sign
         </div>
       </div>
 
@@ -1101,9 +1091,12 @@ function CenteredCard({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
       minHeight: '100vh',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 24, background: '#FAFAF7',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: 24, background: '#FAFAF7', gap: 24,
     }}>
+      {/* v2.8.0 — Logo L-Agence officiel (texte noir, fond transparent) en haut.
+          Même asset que tous les emails L-Agence pour cohérence visuelle. */}
+      <LogoLAgence height={48} />
       <div style={{
         maxWidth: 460, width: '100%', padding: 32,
         background: '#fff', border: '1px solid #E5E7EB',

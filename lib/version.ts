@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.8.3'
+export const APP_VERSION = '2.8.4'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,30 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.4 — Sign : Pipeline contrat L-Agence (stamp letterhead temps réel)
+  //          + audit logo emails + sync rôles + fixes signature multi-destinataires
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.4',
+    date: '2026-05-15',
+    label: 'Sign — Pipeline contrat L-Agence (stamp temps réel) + audit logo emails',
+    features: [
+      'FEATURE — Sign : nouveau pipeline « Contrat de travail ». Upload du PDF brut → 2 versions stockées Storage (original + stampé logo+adresse L-Agence page 1). Toggle pill par doc « + Stamp L-Agence ↔ ✓ Stamp L-Agence » en temps réel, sans nouvel appel serveur. Zone upload + toggle visibles uniquement pour template catégorie contrat. Plus de warning rouge.',
+      'FIX CRITIQUE — Sign : `PublicFieldsLayer` traitait `recipientOrder=0` comme falsy via `|| 1`. Le 1er destinataire (curOrder=1) voyait TOUS les fields recipientOrder=0 + signait 2 zones d\'un coup. Corrigé en `?? 1`. + `verify-token` utilise désormais `recipient.order` réel (0-based ou 1-based) au lieu de forcer `idx+1`.',
+      'FIX — Sign : brouillon vide au retour de l\'éditeur. Cause : mon filtre `parent_template_id IS NULL` côté GET /api/sign/templates excluait les templates ad-hoc nécessaires au lookup du brouillon. Solution : l\'API renvoie tout, le filtrage des ad-hoc se fait côté front (dropdown + liste templates).',
+      'FIX — Sign : rôles ajoutés dans l\'éditeur n\'apparaissaient pas dans /sign/new. Cause : `s.order > 0` excluait order=0. Corrigé en `>= 0`.',
+      'FEATURE — Sign : sync bidirectionnelle rôles. `roleName` éditable dans /sign/new (input avec dashed border au focus). PATCH /api/sign/envelopes propage recipients → recipients_schema du template ad-hoc lié. POST création template ad-hoc copie les roleName du parent.',
+      'UX — Sign : affichage rôles dans /sign/[envelopeId]. Badges colorés `ÉTAPE 1` (jaune brand) + `Candidat`/`Consultant` (surface) à côté du nom destinataire, au lieu de juste « Signataire ».',
+      'UX — Sign : « ÉTAPE 0 » → « ÉTAPE 1 » (affichage 1-based humain au lieu du 0-based interne) dans RecipientsGroup.',
+      'UX — Sign : champ « Catégorie » supprimé de /sign/new. Auto-déduit depuis template (`template_category` → `document_category` : contrat/mappe/autres).',
+      'UX — Sign : skip auto-notification « ✍️ X a signé » quand le sender EST le signataire (cas le plus fréquent : consultant qui signe son propre envoi). Skip aux 2 endroits dans /api/sign/finalize (signature finale + signature séquentielle intermédiaire).',
+      'UX — Sign : page /sign/v/[token] affiche le logo L-Agence officiel (1) en haut des écrans loading/erreur (CenteredCard) et (2) en haut de la sidebar à la place du badge ⚡ TalentFlow.',
+      'SÉCURITÉ — Templates email : audit exhaustif + uniformisation logo L-Agence officiel (logo-agence-officiel-noir.png, 200×42) dans les 11 templates email TalentFlow/L-Agence. Avant : Sign emails utilisaient texte Georgia, auth/admin utilisaient badge ⚡ TalentFlow sur fond noir, france-travail/rapport-heures sans logo. Maintenant : tous cohérents. Liste documentée en mémoire pour éviter régression.',
+      'DB — Migration v280_template_parent_id : `sign_templates.parent_template_id UUID REFERENCES sign_templates(id)` + index partiel. Distingue les templates ad-hoc (créés auto à chaque envoi pour stocker docs override) des vrais templates réutilisables. Backfill rétro des templates « [Envoi]... » existants. Filtrage UI uniquement, les ad-hoc restent fetchables par ID pour le lookup brouillon.',
+      'PATTERN — Stamp PDF papier à en-tête : nouvelle fonction `stampLAgenceLetterhead()` dans `lib/sign/pdf-stamp.ts`. Embed logo carré noir (branding/l-agence-logo-noir.png) en haut-gauche + barre footer noire (tel/email/adresse + URL) en bas. Appliqué via `/api/sign/upload` quand letterhead=lagence. NE PAS confondre avec le logo officiel emails (logo-agence-officiel-noir.png transparent) — le stamp PDF imite le papier imprimé.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.8.3 — Feedback "Créer le groupe" + default SelectExactly
   // ─────────────────────────────────────────────────────────────────────

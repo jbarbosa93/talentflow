@@ -37,6 +37,11 @@ export async function GET(
     //   définition scopé à ce template car l'upload-url l'a préfixé avec ownerId=templateId.
     //   Pour les uploads depuis CreateTemplateModal on a `templates/draft/...` qui ne
     //   matche aucun cas → reste interdit (déjà persisté à ce stade).
+    //
+    // v2.8.0 — Cas C : template ad-hoc créé pour un envoi (template contrat
+    //   avec PDF override). Le doc référencé peut avoir un préfixe `envelopes/`
+    //   ou `signed/`. On accepte si le path est dans documents[] de CE template
+    //   ET commence par un préfixe Sign autorisé.
     const supabase = createAdminClient()
     const { data: tpl } = await supabase
       .from('sign_templates' as any)
@@ -50,9 +55,9 @@ export async function GET(
     if (!inTemplate && !scopedToTemplate) {
       return NextResponse.json({ error: 'Document hors template' }, { status: 403 })
     }
-    // Garde un préfixe `templates/` minimum pour éviter qu'un attaquant injecte
-    // un path arbitraire (ex: `signed/...` d'une autre enveloppe).
-    if (!path.startsWith('templates/')) {
+    // Garde-fou anti-injection : un préfixe Sign reconnu (jamais hors du bucket).
+    const ALLOWED_PREFIXES = ['templates/', 'envelopes/', 'signed/']
+    if (!ALLOWED_PREFIXES.some(p => path.startsWith(p))) {
       return NextResponse.json({ error: 'Path non autorisé' }, { status: 403 })
     }
 

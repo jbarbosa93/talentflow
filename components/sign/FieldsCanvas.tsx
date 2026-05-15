@@ -98,9 +98,12 @@ const SNAP_THRESHOLD_PX = 6
 
 const PEN_PATH = 'M3 21l3-1 11-11-2-2L4 18l-1 3zm14-14l2-2 2 2-2 2-2-2z'
 
+// v2.8.0 — Avant : `Math.max(1, order) - 1` mappait order=0 ET order=1 au même
+// index 0 → 2 rôles affichés en même couleur. Maintenant on utilise order direct
+// (modulo la palette pour éviter le crash sur index hors borne).
 function colorFor(order: number) {
-  const idx = Math.max(1, order) - 1
-  return RECIPIENT_COLORS[idx % RECIPIENT_COLORS.length]
+  const idx = Math.max(0, order ?? 0) % RECIPIENT_COLORS.length
+  return RECIPIENT_COLORS[idx] || RECIPIENT_COLORS[0]
 }
 
 

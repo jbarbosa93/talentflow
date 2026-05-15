@@ -59,15 +59,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Phase 4a-bis — Détermine recipientOrder du destinataire courant pour filtrer ses fields
-    // ⚠️ Décalage 0-based vs 1-based : CreateEnvelopeModal pose `order: 0, 1, 2...`
-    // alors que le parser DocuSign assigne `field.recipientOrder = 1, 2, 3...` (1-based,
-    // cohérent avec recipients_schema). Pour matcher correctement les fields, on calcule
-    // recipientOrder depuis la POSITION dans envelope.recipients[] (1-based), pas depuis r.order.
+    // v2.8.0 — Avant : on forçait `idx + 1` (1-based) en pensant que les fields
+    // DocuSign étaient toujours en 1-based. Bug : si les rôles du template sont
+    // en 0-based (création via éditeur visuel TF Sign), les fields ont
+    // recipientOrder=0 mais on cherchait recipientOrder=1 → no match → soit
+    // tous fields visibles, soit aucun. Fix : on utilise le `order` réel du
+    // recipient (0 ou 1+), avec fallback idx+1 si absent.
     const lcRecipientEmail = result.token.recipient_email.toLowerCase().trim()
     const envRecipients = (envelope.recipients || []) as SignRecipient[]
     const currentRecipientIdx = envRecipients.findIndex(r => r.email.toLowerCase().trim() === lcRecipientEmail)
     const currentRecipient = currentRecipientIdx >= 0 ? envRecipients[currentRecipientIdx] : undefined
-    const currentRecipientOrder = currentRecipientIdx >= 0 ? currentRecipientIdx + 1 : 1
+    const currentRecipientOrder = typeof currentRecipient?.order === 'number'
+      ? currentRecipient.order
+      : (currentRecipientIdx >= 0 ? currentRecipientIdx + 1 : 1)
     const isCC = currentRecipient?.role === 'cc'
 
     // Récup info expéditeur (pour afficher "X vous invite à signer")

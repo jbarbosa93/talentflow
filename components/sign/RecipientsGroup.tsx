@@ -327,7 +327,8 @@ function GroupContainer({
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           letterSpacing: '0.04em',
         }}>
-          ÉTAPE {order}
+          {/* v2.8.0 — Affichage 1-based (humain) au lieu du 0-based interne */}
+          ÉTAPE {order + 1}
         </div>
         <span style={{
           fontSize: 11.5, color: 'var(--muted)',

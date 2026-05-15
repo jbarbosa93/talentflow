@@ -125,9 +125,71 @@ export async function POST(req: NextRequest) {
         ? body.context_data
         : null,
     }
-    // Si pas de template ET docs uploadés direct dans l'enveloppe → on les stocke
-    // dans un template ad-hoc (réutilise le mécanisme template_id pour servir les PDFs)
-    if (!body.template_id && Array.isArray(body.documents) && body.documents.length > 0) {
+    // v2.8.0 — Si template_id présent ET documents override fournis (cas template
+    // "contrat" : le PDF du jour remplace celui du template), on clone le
+    // template parent dans un template ad-hoc avec les nouveaux docs + on hérite
+    // recipients_schema + wizard_steps + wizard_enabled. Pas de colonne
+    // `documents` sur sign_envelopes → on passe par un template ad-hoc.
+    if (body.template_id && Array.isArray(body.documents) && body.documents.length > 0) {
+      const { data: parentTpl } = await supabase
+        .from('sign_templates' as any)
+        .select('*')
+        .eq('id', body.template_id)
+        .single()
+      const parent = parentTpl as unknown as {
+        name?: string
+        recipients_schema?: Array<{ role?: string; order?: number; roleName?: string }>
+        wizard_enabled?: boolean
+        wizard_steps?: unknown
+        template_category?: string | null
+      } | null
+
+      // v2.8.0 — Construire le recipients_schema du template ad-hoc à partir
+      // des destinataires fournis (qui ont les vrais roleName "Candidat",
+      // "Consultant") au lieu de cloner le schema générique du parent.
+      // Fallback : si recipients vide, on prend celui du parent.
+      const parentSchema = parent?.recipients_schema || []
+      let adHocSchema: Array<{ role: string; order: number; roleName: string }>
+      if (normalizedRecipients.length > 0) {
+        adHocSchema = normalizedRecipients.map((r, idx) => {
+          const order = r.order ?? idx
+          const parentItem = parentSchema.find(p => p.order === order)
+          return {
+            role: r.role || parentItem?.role || 'signer',
+            order,
+            roleName: r.roleName || parentItem?.roleName || `Rôle ${order + 1}`,
+          }
+        })
+      } else {
+        adHocSchema = (parentSchema as Array<{ role?: string; order?: number; roleName?: string }>)
+          .map((p, idx) => ({
+            role: p.role || 'signer',
+            order: p.order ?? idx,
+            roleName: p.roleName || `Rôle ${(p.order ?? idx) + 1}`,
+          }))
+      }
+
+      const { data: tplAdHoc } = await supabase
+        .from('sign_templates' as any)
+        .insert({
+          name: `[Envoi] ${body.title.trim()}`,
+          description: `Override du template ${parent?.name || body.template_id}`,
+          documents: body.documents,
+          recipients_schema: adHocSchema,
+          wizard_enabled: parent?.wizard_enabled ?? false,
+          wizard_steps: parent?.wizard_steps ?? null,
+          template_category: parent?.template_category ?? null,
+          created_by: user?.id || null,
+          // v2.8.0 — Marque ce template comme ad-hoc → masqué des listes UI
+          parent_template_id: body.template_id,
+        })
+        .select('id')
+        .single()
+      const tplId = (tplAdHoc as unknown as { id?: string } | null)?.id
+      if (tplId) insertPayload.template_id = tplId
+    } else if (!body.template_id && Array.isArray(body.documents) && body.documents.length > 0) {
+      // Si pas de template ET docs uploadés direct dans l'enveloppe → on les stocke
+      // dans un template ad-hoc (réutilise le mécanisme template_id pour servir les PDFs)
       const { data: tplAdHoc } = await supabase
         .from('sign_templates' as any)
         .insert({
