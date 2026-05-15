@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.8.7'
+export const APP_VERSION = '2.8.8'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.8 — Portail client : « Bientôt disponible » sur Rapports
+  //          + Notes partagées candidat (consultant ↔ client)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.8',
+    date: '2026-05-15',
+    label: 'Portail client — Rapports « Bientôt disponible » + Notes partagées',
+    features: [
+      'FEATURE — Notes partagées sur un candidat (visibles consultant L-Agence + client via portail). Bouton « 📝 Notes » sur card candidat portail public + sur header fiche candidat dashboard. Compteur de notes affiché en badge. Modal lisible avec différenciation visuelle (bleu = client, jaune = consultant). Composer avec ⌘+Enter pour envoyer. Le consultant peut supprimer ses propres notes. Migration DB : table candidat_notes_partagees + 2 endpoints API (admin + portail public, 3-checks ownership pattern #60).',
+      'UX — Onglet « Rapports » du portail client affiché comme « Bientôt disponible ». Évite qu\'un client tombe sur un module pas encore finalisé. Le bouton « Rapports » sur les cards candidat reste visible mais arrive sur un écran d\'attente avec message « Cette fonctionnalité arrive prochainement ». Badge « Bientôt » sur l\'onglet. RapportsTab existant préservé (commenté), réactivable en une ligne.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.8.7 — Sign : Email cleanup (Objet supprimé, "L-Agence" au lieu de
   //          "L-AGENCE SA", pluriel/singulier docs) + bouton Moi auto-fill

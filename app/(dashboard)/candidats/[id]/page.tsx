@@ -30,6 +30,7 @@ import { toWaPhone } from '@/lib/phone-format'
 import PhotoCropModal from '@/components/PhotoCropModal'
 import DocumentsPanel from '@/components/DocumentsSection'
 import CompliancePanel from '@/components/compliance/CompliancePanel'
+import SharedNotesModal from '@/components/portal/SharedNotesModal'
 import DeleteConfirmModal from '@/components/DeleteConfirmModal'
 import { MetierPopover } from '@/components/CandidatsList'
 
@@ -194,8 +195,19 @@ export default function CandidatDetailPage() {
       const m = data.user?.user_metadata || {}
       const p = (m.prenom || m.first_name || '').toString().trim()
       if (p) setConsultantPrenom(p)
+      if (data.user?.id) setCurrentUserId(data.user.id)
     })
   }, [])
+  // v2.8.8 — Fetch count notes partagées au mount candidat
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+    fetch(`/api/candidats/${id}/notes-partagees`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setSharedNotesCount(Array.isArray(d.notes) ? d.notes.length : 0) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [id])
   const [note, setNote]                   = useState('')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editingNoteText, setEditingNoteText] = useState('')
@@ -219,6 +231,10 @@ export default function CandidatDetailPage() {
   const [showMenu, setShowMenu]           = useState(false)
   const [showDocuments, setShowDocuments] = useState(false)
   const [showCompliance, setShowCompliance] = useState(false)
+  // v2.8.8 — Notes partagées (visibles aussi côté portail client)
+  const [showSharedNotes, setShowSharedNotes] = useState(false)
+  const [sharedNotesCount, setSharedNotesCount] = useState(0)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [showCvCustomizer, setShowCvCustomizer] = useState(false)
   const [showMergeSearch, setShowMergeSearch] = useState(false)
   const [showActivityHistory, setShowActivityHistory] = useState(false)
@@ -950,6 +966,24 @@ export default function CandidatDetailPage() {
           >
             <ShieldCheck size={13} />
             Conformité
+          </button>
+          {/* v2.8.8 — Bouton Notes partagées (visible client + consultant) */}
+          <button
+            onClick={() => setShowSharedNotes(true)}
+            className="neo-btn-ghost neo-btn-sm"
+            title="Notes partagées entre L-Agence et le client"
+            style={{ position: 'relative' }}
+          >
+            <MessageSquare size={13} />
+            Notes
+            {sharedNotesCount > 0 && (
+              <span style={{
+                fontSize: 10, fontWeight: 800,
+                background: '#1E40AF', color: '#fff',
+                borderRadius: 99, padding: '0 5px',
+                minWidth: 16, textAlign: 'center', marginLeft: 4,
+              }}>{sharedNotesCount}</span>
+            )}
           </button>
           {!isEditing ? (
             <button onClick={startEdit} className="neo-btn-ghost neo-btn-sm">
@@ -3176,6 +3210,17 @@ export default function CandidatDetailPage() {
         onClose={() => setShowCompliance(false)}
         candidatId={candidat.id}
         candidatName={formatFullName(candidat.prenom, candidat.nom)}
+      />
+
+      {/* v2.8.8 — Modal notes partagées (visibles côté portail client) */}
+      <SharedNotesModal
+        open={showSharedNotes}
+        onClose={() => setShowSharedNotes(false)}
+        mode="admin"
+        candidatId={candidat.id}
+        candidatName={formatFullName(candidat.prenom, candidat.nom)}
+        currentUserId={currentUserId || undefined}
+        onCountChange={setSharedNotesCount}
       />
 
       {/* ── Panneau Documents (slide-in) ── */}

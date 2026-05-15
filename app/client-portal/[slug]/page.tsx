@@ -8,12 +8,14 @@ import { use, useEffect, useState } from 'react'
 import {
   Loader2, AlertTriangle, Phone, ShieldCheck, Calendar, FileText,
   MessageCircle, Mail, MapPin, Cake, AlertCircle, CheckCircle2, Users, ClipboardList, FileClock,
+  MessageSquare,
 } from 'lucide-react'
 import { formatExpiryDate } from '@/lib/compliance/document-status'
 import type { CandidatDocumentWithStatus } from '@/lib/compliance/types'
 import PortalDocumentsModal from '@/components/portal/PortalDocumentsModal'
 import ClientLogo from '@/components/ClientLogo'
 import RapportsTab from '@/components/portal/RapportsTab'
+import SharedNotesModal from '@/components/portal/SharedNotesModal'
 
 type TabKey = 'collaborateurs' | 'rapports'
 
@@ -45,6 +47,10 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
   const [data, setData] = useState<PortalData | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'invalid' | 'revoked' | 'error'>('loading')
   const [openDocsFor, setOpenDocsFor] = useState<string | null>(null)
+  // v2.8.8 — Notes partagées candidat (modal portail public)
+  const [openNotesFor, setOpenNotesFor] = useState<string | null>(null)
+  // Cache du compteur de notes par candidat (pour afficher badge)
+  const [notesCounts, setNotesCounts] = useState<Record<string, number>>({})
   // v2.7.2 — Onglets : lecture initiale du ?tab=... + sync URL sur changement
   const [tab, setTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') return 'collaborateurs'
@@ -206,7 +212,7 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
             onClick={() => switchTab('rapports')}
             icon={<ClipboardList size={16} />}
             label="Rapports"
-            badge={pendingCount && pendingCount > 0 ? pendingCount : null}
+            badge="Bientôt"
           />
         </div>
       </nav>
@@ -234,11 +240,14 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
                     key={c.id}
                     candidat={c}
                     delayMs={idx * 60}
+                    slug={slug}
+                    notesCount={notesCounts[c.id]}
                     onOpenDocs={() => setOpenDocsFor(c.id)}
                     onOpenRapports={() => {
                       switchTab('rapports')
                       window.scrollTo({ top: 0, behavior: 'smooth' })
                     }}
+                    onOpenNotes={() => setOpenNotesFor(c.id)}
                   />
                 ))}
               </div>
@@ -246,7 +255,40 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
           )
         )}
         {tab === 'rapports' && (
-          <RapportsTab slug={slug} />
+          /* v2.8.8 — Onglet Rapports affiché comme « Bientôt disponible »
+             pour éviter qu'un client tombe sur un module pas encore finalisé.
+             Pour réactiver : remplacer le bloc par <RapportsTab slug={slug} /> */
+          <div style={{
+            padding: '60px 24px', textAlign: 'center',
+            background: '#fff', border: '1px dashed #E5E7EB', borderRadius: 14,
+            maxWidth: 540, margin: '0 auto',
+          }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '5px 12px', borderRadius: 999,
+              background: '#FEF3C7', color: '#A16207',
+              fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.06em', marginBottom: 18,
+            }}>
+              <ClipboardList size={11} />
+              Bientôt disponible
+            </div>
+            <h2 style={{
+              margin: '0 0 10px',
+              fontFamily: 'Georgia, "Times New Roman", serif',
+              fontSize: 22, fontWeight: 400, color: '#1C1A14',
+            }}>
+              Rapports d&apos;heures
+            </h2>
+            <p style={{ margin: 0, fontSize: 14, color: '#6B7280', lineHeight: 1.55 }}>
+              Cette fonctionnalité arrive prochainement. Vous pourrez consulter et valider
+              les rapports d&apos;heures hebdomadaires de vos collaborateurs directement depuis
+              ce portail.
+            </p>
+            <p style={{ margin: '14px 0 0', fontSize: 13, color: '#9CA3AF' }}>
+              En attendant, contactez votre interlocuteur L-Agence pour toute question.
+            </p>
+          </div>
         )}
       </main>
 
@@ -284,19 +326,52 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
           onClose={() => setOpenDocsFor(null)}
         />
       )}
+
+      {/* v2.8.8 — Modal notes partagées (mode portail public) */}
+      {openNotesFor && (() => {
+        const c = data.candidats.find(x => x.id === openNotesFor)
+        if (!c) return null
+        const fullName = `${c.prenom || ''} ${c.nom || ''}`.trim()
+        return (
+          <SharedNotesModal
+            open={true}
+            onClose={() => setOpenNotesFor(null)}
+            mode="public"
+            slug={slug}
+            candidatId={c.id}
+            candidatName={fullName}
+            onCountChange={(n) => setNotesCounts(prev => ({ ...prev, [c.id]: n }))}
+          />
+        )
+      })()}
     </div>
   )
 }
 
 // ─── Card candidat ─────────────────────────────────────────────────────────────
 
-function CandidatCard({ candidat: c, delayMs, onOpenDocs, onOpenRapports }: {
+function CandidatCard({ candidat: c, delayMs, slug, notesCount, onOpenDocs, onOpenRapports, onOpenNotes }: {
   candidat: PortalCandidat
   delayMs: number
+  slug: string
+  notesCount?: number
   onOpenDocs: () => void
   onOpenRapports: () => void
+  onOpenNotes: () => void
 }) {
   const [imgError, setImgError] = useState(false)
+  const [localNotesCount, setLocalNotesCount] = useState<number | null>(typeof notesCount === 'number' ? notesCount : null)
+  // v2.8.8 — Fetch count notes au mount (1 fetch léger par card)
+  useEffect(() => {
+    if (typeof notesCount === 'number') { setLocalNotesCount(notesCount); return }
+    let cancelled = false
+    fetch(`/api/client-portal/${slug}/candidats/${c.id}/notes`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setLocalNotesCount(Array.isArray(d.notes) ? d.notes.length : 0) })
+      .catch(() => { if (!cancelled) setLocalNotesCount(0) })
+    return () => { cancelled = true }
+  }, [slug, c.id, notesCount])
+  const displayCount = typeof notesCount === 'number' ? notesCount : (localNotesCount ?? 0)
   const fullName = `${c.prenom || ''} ${c.nom || ''}`.trim() || 'Collaborateur'
   const initials = `${(c.prenom?.[0] || '').toUpperCase()}${(c.nom?.[0] || '').toUpperCase()}` || '?'
   const phoneDigits = (c.telephone || '').replace(/\D/g, '')
@@ -469,6 +544,30 @@ function CandidatCard({ candidat: c, delayMs, onOpenDocs, onOpenRapports }: {
             <span><strong style={{ color: '#1C1A14' }}>{totalDocs}</strong> document{totalDocs > 1 ? 's' : ''}</span>
           )}
         </div>
+        {/* v2.8.8 — Bouton Notes partagées avec compteur */}
+        <button
+          onClick={onOpenNotes}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '7px 10px', borderRadius: 99,
+            background: displayCount > 0 ? '#DBEAFE' : '#F3F4F6',
+            border: `1.5px solid ${displayCount > 0 ? '#BFDBFE' : '#E5E7EB'}`,
+            color: displayCount > 0 ? '#1E40AF' : '#4B5563',
+            fontSize: 11.5, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit', position: 'relative',
+          }}
+          title={displayCount > 0 ? `${displayCount} note${displayCount > 1 ? 's' : ''} partagée${displayCount > 1 ? 's' : ''}` : 'Ajouter une note partagée'}
+        >
+          <MessageSquare size={11} /> Notes
+          {displayCount > 0 && (
+            <span style={{
+              fontSize: 10, fontWeight: 800,
+              background: '#1E40AF', color: '#fff',
+              borderRadius: 99, padding: '0 5px',
+              minWidth: 16, textAlign: 'center', marginLeft: 2,
+            }}>{displayCount}</span>
+          )}
+        </button>
         {/* v2.7.3 — Bouton compact "Rapports" : bascule vers l'onglet Rapports du portail */}
         <button
           onClick={onOpenRapports}
@@ -643,7 +742,7 @@ function TabButton({ active, onClick, icon, label, count, badge }: {
   icon: React.ReactNode
   label: string
   count?: number
-  badge?: number | null
+  badge?: number | string | null
 }) {
   return (
     <button
@@ -669,11 +768,19 @@ function TabButton({ active, onClick, icon, label, count, badge }: {
           background: '#F3F4F6', padding: '1px 7px', borderRadius: 99,
         }}>{count}</span>
       )}
-      {badge && badge > 0 && (
+      {/* v2.8.8 — Badge supporte number (count) ou string (ex: "Bientôt") */}
+      {typeof badge === 'number' && badge > 0 && (
         <span style={{
           fontSize: 11, color: '#fff', fontWeight: 800,
           background: '#DC2626', padding: '1px 7px', borderRadius: 99,
           minWidth: 18, textAlign: 'center',
+        }}>{badge}</span>
+      )}
+      {typeof badge === 'string' && badge && (
+        <span style={{
+          fontSize: 10, color: '#A16207', fontWeight: 700,
+          background: '#FEF3C7', padding: '2px 8px', borderRadius: 99,
+          textTransform: 'uppercase', letterSpacing: '0.04em',
         }}>{badge}</span>
       )}
       {active && (
