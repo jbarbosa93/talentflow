@@ -1,10 +1,10 @@
-// v2.8.5 — Endpoint pour gérer la signature pré-enregistrée du user
+// v2.8.6 — Endpoint preset signature avec stockage en table dédiée
 //
-// Stocke un data URL PNG (signature dessinée 1×) dans
-// auth.users.raw_user_meta_data.preset_signature_data_url.
+// IMPORTANT : avant v2.8.6 on stockait dans auth.users.raw_user_meta_data,
+// mais Supabase embarque TOUT le user_metadata dans le cookie JWT auth-token.
+// Un data URL PNG (~50KB) → cookie de 17 chunks (70KB) → 494 Vercel.
 //
-// Utilisé par /api/sign/envelopes pour auto-apposer la signature du créateur
-// si présente (skip l'étape de signature manuelle pour les consultants).
+// Solution : table user_preset_signatures séparée, lookup par user_id.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -12,8 +12,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
 
-// Limite anti-DoS : signature PNG dessinée fait typiquement 10-80 KB en base64.
-// 500 KB = ~365 KB binaire, large marge tout en bloquant uploads abusifs.
 const MAX_SIGNATURE_SIZE_BYTES = 500_000
 
 /** GET — Récupère la signature pré-enregistrée du user courant */
@@ -22,10 +20,17 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-  const presetSig = (user.user_metadata as { preset_signature_data_url?: string })?.preset_signature_data_url
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('user_preset_signatures' as any)
+    .select('data_url')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const row = data as unknown as { data_url?: string } | null
   return NextResponse.json({
-    hasSignature: !!presetSig,
-    dataUrl: presetSig || null,
+    hasSignature: !!row?.data_url,
+    dataUrl: row?.data_url || null,
   })
 }
 
@@ -53,17 +58,16 @@ export async function POST(req: NextRequest) {
     }, { status: 413 })
   }
 
-  // Update via service role pour pouvoir modifier raw_user_meta_data
   const admin = createAdminClient()
-  const { error } = await admin.auth.admin.updateUserById(user.id, {
-    user_metadata: {
-      ...user.user_metadata,
-      preset_signature_data_url: dataUrl,
-      preset_signature_set_at: new Date().toISOString(),
-    },
-  })
+  const { error } = await admin
+    .from('user_preset_signatures' as any)
+    .upsert({
+      user_id: user.id,
+      data_url: dataUrl,
+      set_at: new Date().toISOString(),
+    })
   if (error) {
-    console.error('[preset-signature] update failed', error)
+    console.error('[preset-signature] upsert failed', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
   return NextResponse.json({ ok: true })
@@ -76,10 +80,10 @@ export async function DELETE() {
   if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
   const admin = createAdminClient()
-  const meta = { ...user.user_metadata } as Record<string, unknown>
-  delete meta.preset_signature_data_url
-  delete meta.preset_signature_set_at
-  const { error } = await admin.auth.admin.updateUserById(user.id, { user_metadata: meta })
+  const { error } = await admin
+    .from('user_preset_signatures' as any)
+    .delete()
+    .eq('user_id', user.id)
   if (error) {
     console.error('[preset-signature] delete failed', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

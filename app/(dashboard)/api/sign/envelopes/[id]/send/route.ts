@@ -76,12 +76,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   const ttlDays = (env as unknown as { expires_in_days?: number | null }).expires_in_days || undefined
 
-  // v2.8.5 — AUTO-SIGN du créateur si preset_signature enregistrée.
+  // v2.8.5 / v2.8.6 — AUTO-SIGN du créateur si preset_signature enregistrée.
   // Si le user qui envoie est lui-même destinataire (cas classique : consultant
   // qui s'envoie un contrat candidat→consultant) ET qu'il a une signature
   // pré-enregistrée dans /parametres/profil → on appose sa signature
   // automatiquement et on skip son étape. Le candidat reçoit l'email direct.
-  const presetSig = (user?.user_metadata as { preset_signature_data_url?: string } | null)?.preset_signature_data_url
+  //
+  // v2.8.6 — Signature lue depuis table user_preset_signatures (avant : dans
+  // user_metadata du cookie JWT → cookie 70KB → 494 Vercel).
+  let presetSig: string | null = null
+  if (user?.id) {
+    const { data: sigRow } = await supabase
+      .from('user_preset_signatures' as any)
+      .select('data_url')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    const sigData = sigRow as unknown as { data_url?: string } | null
+    presetSig = sigData?.data_url || null
+  }
   let autoSignedCreator = false
   if (presetSig && user?.email) {
     const userEmailLc = user.email.toLowerCase().trim()
