@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
     try {
       const { data: priorTokens } = await supabase
         .from('sign_tokens' as any)
-        .select('id, recipient_email, recipient_name, field_values, signed_at')
+        .select('id, recipient_email, recipient_name, field_values, signed_at, signature_data_url')
         .eq('envelope_id', envelope.id)
         .neq('id', result.token.id)  // exclut le token courant
       const tokensList = (priorTokens || []) as unknown as Array<{
@@ -159,9 +159,9 @@ export async function POST(req: NextRequest) {
         recipient_name: string
         field_values: Record<string, unknown> | null
         signed_at: string | null
+        signature_data_url: string | null
       }>
       for (const t of tokensList) {
-        if (!t.field_values) continue
         // Trouve le recipient correspondant dans envelope.recipients
         const matchingRecipient = envRecipients.find(r =>
           r.email.toLowerCase().trim() === t.recipient_email.toLowerCase().trim()
@@ -170,11 +170,30 @@ export async function POST(req: NextRequest) {
         // Ne garde que les valeurs des SIGNERS antérieurs (order < currentOrder)
         // Les ordres parallèles (= current) et postérieurs (> current) sont exclus.
         if (otherOrder >= currentRecipientOrder) continue
-        for (const [fieldId, value] of Object.entries(t.field_values)) {
-          // Ne pas écraser une valeur déjà présente (ordre déterministe : 1er rempli gagne)
-          if (previousFieldValues[fieldId] !== undefined) continue
-          previousFieldValues[fieldId] = value
-          previousSignerNames[fieldId] = t.recipient_name
+
+        // Field values
+        if (t.field_values) {
+          for (const [fieldId, value] of Object.entries(t.field_values)) {
+            if (previousFieldValues[fieldId] !== undefined) continue
+            previousFieldValues[fieldId] = value
+            previousSignerNames[fieldId] = t.recipient_name
+          }
+        }
+
+        // v2.8.5 — Inject signature_data_url du previous signer sur ses fields
+        // signature/initial pour que le destinataire courant voie la vraie
+        // signature (au lieu du placeholder "✓ Signé").
+        if (t.signature_data_url && t.signed_at) {
+          for (const doc of (documents as SignDocument[])) {
+            for (const f of (doc.fields || [])) {
+              const fOrder = f.recipientOrder ?? 1
+              if (fOrder !== otherOrder) continue
+              if (f.type !== 'signature' && f.type !== 'initial') continue
+              if (previousFieldValues[f.id] !== undefined) continue
+              previousFieldValues[f.id] = t.signature_data_url
+              previousSignerNames[f.id] = t.recipient_name
+            }
+          }
         }
       }
     } catch { /* silencieux */ }

@@ -153,12 +153,17 @@ export async function generateAndPersistSignedPdfs(
       let currentBuf: Uint8Array = await stampTalentflowEnvelopeId(sourceBuf, envelope.id)
       for (let recIdx = 0; recIdx < recipients.length; recIdx++) {
         const rec = recipients[recIdx]
-        const recipientOrder = recIdx + 1
+        // v2.8.5 — Avant : `recIdx + 1` forçait 1-based → les fields des rôles
+        // 0-based (éditeur TF Sign) n'étaient JAMAIS stampés. Maintenant on
+        // utilise le `rec.order` réel (cohérent avec PublicFieldsLayer `?? 1`
+        // et verify-token `recipient.order`).
+        const recipientOrder = typeof rec.order === 'number' ? rec.order : (recIdx + 1)
         const tok = allTokens.find(t =>
           t.recipient_email.toLowerCase().trim() === rec.email.toLowerCase().trim(),
         )
         if (!tok) continue
-        const recFields = (doc.fields || []).filter(f => f.recipientOrder === recipientOrder)
+        // Fallback `?? 1` pour les fields sans recipientOrder explicite.
+        const recFields = (doc.fields || []).filter(f => (f.recipientOrder ?? 1) === recipientOrder)
         if (recFields.length === 0) continue
 
         const nameParts = (rec.name || '').trim().split(/\s+/)
@@ -186,19 +191,12 @@ export async function generateAndPersistSignedPdfs(
         })
       }
 
-      // 5. Page certificat (en plus du footer 30pt — coexistence demandée)
-      currentBuf = await appendCertificatePage({
-        pdfBuffer: currentBuf,
-        envelope,
-        recipients,
-        tokens: allTokens,
-        documentName: doc.name,
-        documentSha256: sha256,
-        senderCompanyName,
-        signedAt,
-      })
+      // v2.8.5 — Le certificat est désormais un PDF SÉPARÉ (plus append au
+      // contrat). Le contrat signé contient juste les signatures + footer 30pt
+      // ZertES. Le certificat complet (tableau signataires, hash, mention RS)
+      // est généré en PDF distinct et ajouté à signed_pdf_paths.
 
-      // 6. Upload final
+      // 5. Upload du CONTRAT signé (sans page certificat)
       const blobOut = new Blob([currentBuf as BlobPart], { type: 'application/pdf' })
       const signedPath = await uploadSignDocument('signed', envelope.id, blobOut, doc.name)
       const pdfBase64 = Buffer.from(currentBuf).toString('base64')
@@ -208,6 +206,31 @@ export async function generateAndPersistSignedPdfs(
         sha256,
         pdfBase64,
       })
+
+      // 6. Génère + upload le CERTIFICAT en PDF distinct
+      try {
+        const certBuf = await generateCertificatePdf({
+          envelope,
+          recipients,
+          tokens: allTokens,
+          documentName: doc.name,
+          documentSha256: sha256,
+          senderCompanyName,
+          signedAt,
+        })
+        const certName = `Certificat de signature - ${doc.name.replace(/\.pdf$/i, '')}.pdf`
+        const certBlob = new Blob([certBuf as BlobPart], { type: 'application/pdf' })
+        const certPath = await uploadSignDocument('signed', envelope.id, certBlob, certName)
+        const certBase64 = Buffer.from(certBuf).toString('base64')
+        generatedDocs.push({
+          name: certName,
+          path: certPath,
+          sha256,  // même SHA que le contrat (preuve d'intégrité liée)
+          pdfBase64: certBase64,
+        })
+      } catch (certErr) {
+        console.error('[pdf-generator] certificate generation failed for', doc.name, certErr)
+      }
     } catch (e) {
       console.error('[pdf-generator] stamp failed for', doc.name, e)
     }
@@ -260,6 +283,35 @@ interface CertificateArgs {
   documentSha256: string
   senderCompanyName: string
   signedAt: Date
+}
+
+/**
+ * v2.8.5 — Génère un PDF certificat STANDALONE (1 seule page A4 portrait).
+ *
+ * Crée un PDF vide via PDFDocument.create(), puis réutilise
+ * appendCertificatePage qui ajoute une page sur le PDF existant.
+ * Résultat : PDF avec 1 page (= la page certificat).
+ *
+ * Permet de séparer le certificat du contrat signé pour distribution
+ * indépendante (créateur reçoit cert, autres reçoivent uniquement contrat).
+ */
+export async function generateCertificatePdf(
+  args: Omit<CertificateArgs, 'pdfBuffer'>,
+): Promise<Uint8Array> {
+  const blankPdf = await PDFDocument.create()
+  const blankBuf = await blankPdf.save()
+  const result = await appendCertificatePage({ ...args, pdfBuffer: blankBuf })
+  // v2.8.5 — PDFDocument.create() + save crée une page blanche implicite côté
+  // viewers (Aperçu macOS, etc.). On retire toutes les pages sauf la dernière
+  // (= la vraie page certificat ajoutée par appendCertificatePage).
+  const finalPdf = await PDFDocument.load(result, { ignoreEncryption: true })
+  const pageCount = finalPdf.getPageCount()
+  if (pageCount > 1) {
+    for (let i = pageCount - 2; i >= 0; i--) {
+      finalPdf.removePage(i)
+    }
+  }
+  return new Uint8Array(await finalPdf.save())
 }
 
 async function appendCertificatePage(args: CertificateArgs): Promise<Uint8Array> {

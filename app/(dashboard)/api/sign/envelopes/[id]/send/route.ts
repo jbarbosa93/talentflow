@@ -74,6 +74,61 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     } catch { /* silencieux */ }
   }
 
+  const ttlDays = (env as unknown as { expires_in_days?: number | null }).expires_in_days || undefined
+
+  // v2.8.5 — AUTO-SIGN du créateur si preset_signature enregistrée.
+  // Si le user qui envoie est lui-même destinataire (cas classique : consultant
+  // qui s'envoie un contrat candidat→consultant) ET qu'il a une signature
+  // pré-enregistrée dans /parametres/profil → on appose sa signature
+  // automatiquement et on skip son étape. Le candidat reçoit l'email direct.
+  const presetSig = (user?.user_metadata as { preset_signature_data_url?: string } | null)?.preset_signature_data_url
+  let autoSignedCreator = false
+  if (presetSig && user?.email) {
+    const userEmailLc = user.email.toLowerCase().trim()
+    const creatorRecipient = (env.recipients as SignRecipient[])
+      .find(r => r.email.toLowerCase().trim() === userEmailLc && r.role !== 'cc' && r.status !== 'signed')
+    if (creatorRecipient) {
+      const nowIso = new Date().toISOString()
+      // 1. Génère un token pour le créateur (single)
+      const [creatorToken] = await generateTokensForEnvelope(id, [creatorRecipient], ttlDays)
+      if (creatorToken) {
+        // 2. Marque le token comme signé directement avec la preset signature
+        await supabase
+          .from('sign_tokens' as any)
+          .update({
+            signature_data_url: presetSig,
+            signature_method: 'drawn',
+            signed_at: nowIso,
+            signed_ip: extractIp(req),
+            used_at: nowIso,
+          })
+          .eq('token', creatorToken.token)
+        // 3. Marque le recipient comme signé dans l'enveloppe
+        const updatedRecipients = (env.recipients as SignRecipient[]).map(r => {
+          if (r.email.toLowerCase().trim() !== userEmailLc) return r
+          return { ...r, status: 'signed' as const, signed_at: nowIso }
+        })
+        await supabase
+          .from('sign_envelopes' as any)
+          .update({ recipients: updatedRecipients })
+          .eq('id', id)
+        // Met à jour env.recipients en local pour la suite de la route
+        env.recipients = updatedRecipients
+        autoSignedCreator = true
+        // 4. Audit log
+        await logAuditEvent(id, 'signed', {
+          recipientEmail: creatorRecipient.email,
+          ip: extractIp(req),
+          metadata: {
+            signed_via: 'preset_signature',
+            auto_signed_at_envelope_send: true,
+            role: 'Signataire',
+          },
+        })
+      }
+    }
+  }
+
   // v2.2.1 — Workflow séquentiel + PARALLÈLE :
   // Plusieurs destinataires peuvent partager le MÊME `order` → ils reçoivent
   // leur lien EN MÊME TEMPS (étape parallèle). Le passage à l'étape suivante
@@ -82,13 +137,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   //
   // À l'envoi initial : on envoie à TOUS les signers ayant order = min(orders)
   // CC : pas de token initial, ils reçoivent juste la copie complète à la fin.
+  // v2.8.5 — On exclut les signers déjà signés (cas preset_signature) du calcul.
   const allRecipients = env.recipients as SignRecipient[]
   const allSigners = allRecipients.filter(r => r.role !== 'cc')
-  const minOrder = allSigners.length > 0
-    ? Math.min(...allSigners.map(r => r.order ?? 0))
+  const pendingSigners = allSigners.filter(r => r.status !== 'signed')
+  const minOrder = pendingSigners.length > 0
+    ? Math.min(...pendingSigners.map(r => r.order ?? 0))
     : 0
-  const recipientsToSendNow: SignRecipient[] = allSigners.filter(r => (r.order ?? 0) === minOrder)
-  const ttlDays = (env as unknown as { expires_in_days?: number | null }).expires_in_days || undefined
+  const recipientsToSendNow: SignRecipient[] = pendingSigners.filter(r => (r.order ?? 0) === minOrder)
   const tokens = await generateTokensForEnvelope(id, recipientsToSendNow, ttlDays || undefined)
 
   // Envoi par dispatchInvite (gère email + whatsapp selon channel)
@@ -148,5 +204,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     tokens: tokens.length,
     sentOk,
     sentErrors: sentErr,
+    // v2.8.5 — Indique si le créateur a été auto-signé via preset signature.
+    // Utile pour le front qui peut afficher un toast spécifique.
+    autoSignedCreator,
   })
 }

@@ -45,16 +45,17 @@ export default function DocumentUploader({ documents, onChange, readOnly, contra
     const r = await fetch('/api/sign/upload', { method: 'POST', body: fd })
     const data = await r.json()
     if (!r.ok) throw new Error(data.error || 'Erreur upload')
+    // v2.8.5 — En mode contrat, on upload TOUJOURS les 2 versions (original
+     // + stamped) mais le storage_path INITIAL pointe sur l'ORIGINAL (stamp
+     // OFF par défaut). L'utilisateur active manuellement via le pill.
     const doc: SignDocument = {
       name: file.name,
-      storage_path: data.path,
+      storage_path: contractMode && data.path_original ? data.path_original : data.path,
       order: documents.length,
-      // v2.8.0 — En mode contrat, on track les 2 paths + flag letterhead pour
-      // toggle temps réel. data.path = stamped par défaut quand letterhead OK.
       ...(contractMode && data.path_original ? {
         storage_path_original: data.path_original,
         storage_path_stamped: data.path_stamped,
-        ...(data.path_stamped ? { letterhead: 'lagence' as const } : {}),
+        // Pas de `letterhead` ici → toggle UI affiche "+ Stamp L-Agence" (OFF)
       } : {}),
     }
     onChange([...documents, doc])

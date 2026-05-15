@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.8.4'
+export const APP_VERSION = '2.8.5'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,35 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.5 — Sign : Signature pré-enregistrée consultant + page Merci
+  //          + certificat séparé + 12 fixes UX post-déploiement v2.8.4
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.5',
+    date: '2026-05-15',
+    label: 'Sign — Signature pré-enregistrée + page Merci + certificat séparé',
+    features: [
+      'FEATURE — Signature manuscrite pré-enregistrée (TalentFlow Sign). Page /parametres/profil : nouvelle card "Ma signature manuscrite" → SignaturePad → stockée dans auth.users.raw_user_meta_data.preset_signature_data_url. À l\'envoi /api/sign/envelopes/[id]/send : si le créateur est dans les destinataires ET a une preset signature → auto-appose + skip son étape + déclenche email candidat direct. Skippe le flow secrétaire (qui n\'est pas dans les destinataires). Toast spécifique "Ta signature a été apposée automatiquement".',
+      'FEATURE — Page Merci instantanée après finalize sur /sign/v/[token]. Avant : on restait sur le viewer avec bandeau vert → user devait hard-refresh pour voir l\'état complet. Maintenant : transition immédiate vers une page CenteredCard avec logo L-Agence + check vert + "Merci pour votre signature !" (cohérent avec l\'écran "Document déjà signé"). Évite aussi les bugs de modal qui se rouvrait sur le viewer en arrière-plan.',
+      'FEATURE — Certificat séparé du contrat. Avant : appendCertificatePage ajoutait une page certificat en fin de chaque PDF signé. Maintenant : nouvelle fonction generateCertificatePdf() produit un PDF certificat STANDALONE. signed_pdf_paths contient désormais [contrat.pdf, Certificat de signature - contrat.pdf]. Téléchargeables indépendamment via la page détail enveloppe (bouton ZIP ou par doc).',
+      'UX — Certificat exclu des emails completed. Avant : tous les destinataires recevaient contrat + certificat → pollution boîte candidat. Maintenant : filter `!d.name.startsWith("Certificat de signature")` dans attachments. Le certificat reste accessible UNIQUEMENT via la page détail /sign/[envelopeId] pour le créateur / admin L-Agence.',
+      'UX — Plus de double email pour le consultant. Avant : consultant recevait "Toutes les signatures collectées" (sendSenderNotif) + "Documents signés" (sendSignCompletedEmail) → doublon. Maintenant : skip sendSenderNotif si le sender est DANS les recipients (il reçoit déjà le completed email avec PDF en PJ).',
+      'FIX CRITIQUE — PDF generator stampait MAL les signers 0-based. recipientOrder = recIdx + 1 forçait 1-based alors que les fields de l\'éditeur TF Sign sont 0-based. Conséquence : la signature du consultant (rôle 0) n\'était JAMAIS stampée sur le PDF final. Fix : utilise rec.order réel + fallback `f.recipientOrder ?? 1` (cohérent avec PublicFieldsLayer + verify-token).',
+      'FIX — Vraies signatures previous signers (vue candidat). verify-token n\'injectait pas signature_data_url des previous signers dans previousFieldValues → le candidat voyait juste "✓ Signé" texte au lieu de l\'image. Maintenant : pour chaque field signature/initial du previous signer, on injecte le data URL → le candidat voit la vraie signature consultant.',
+      'FIX — Modal Terminer ne s\'ouvre plus 2× (race condition sign-field POST). handleFinalize check étendu : state local OU signature persistée en DB (data.recipient.signature_data_url). Rehydrate state local si seule la version DB est connue.',
+      'FIX — Brouillon vide au retour de l\'éditeur. Le filtre parent_template_id côté API GET excluait les ad-hoc nécessaires au lookup brouillon. Maintenant : API renvoie tout, filtrage côté front. Dropdown /sign/new affiche l\'ad-hoc actuel avec son nom propre (sans "[Envoi] ").',
+      'FIX — Stamp OFF par défaut sur upload contrat. Avant : pill orange "Stamp L-Agence ✓" cochée par défaut → user devait décocher. Maintenant : storage_path initial = path_original (OFF). User active manuellement via le pill.',
+      'FIX — Rôles ajoutés dans éditeur invisibles dans /sign/new. Filtre s.order > 0 excluait order=0. Corrigé en `>= 0`.',
+      'UX — Footer audit ZertES PDF réduit (50% plus fin). Hauteur 30→16pt, textes 7pt/6pt → 5.5pt/5pt. Lisible mais ne cache plus les mentions du contrat en bas de page.',
+      'FIX — Page blanche en tête du PDF certificat (PDFDocument.create() crée page implicite côté viewers macOS Aperçu). Solution : remove pages préliminaires après load.',
+      'UX — Champ Catégorie supprimé de /sign/new (auto-déduit depuis template_category). "ÉTAPE 0" → "ÉTAPE 1" (1-based humain). Page détail enveloppe affiche badges [ÉTAPE 1] [Candidat] au lieu de juste "Signataire".',
+      'UX — Page /sign/v/[token] : logo L-Agence officiel sidebar header (remplace badge ⚡ TalentFlow noir) + écrans loading/erreur (CenteredCard).',
+      'SÉCURITÉ — Audit logo emails : 11 templates uniformisés sur logo-agence-officiel-noir.png (200×42 PNG transparent). Avant : Sign emails utilisaient texte Georgia, auth/admin utilisaient badge ⚡ noir, france-travail/rapport-heures sans logo. Liste documentée + script audit bash en mémoire.',
+      'DB — Migration v280_template_parent_id : sign_templates.parent_template_id distingue ad-hoc des vrais templates. Backfill rétro des "[Envoi] ..." existants.',
+      'DEV — .env.local : NEXT_PUBLIC_APP_URL repassé en http://localhost:3001 (était 192.168.1.228 → liens cassés sur Mac dev).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.8.4 — Sign : Pipeline contrat L-Agence (stamp letterhead temps réel)
   //          + audit logo emails + sync rôles + fixes signature multi-destinataires

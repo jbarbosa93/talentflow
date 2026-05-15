@@ -463,6 +463,27 @@ export default function PublicSignPage({ params }: PageProps) {
     )
   }
 
+  // v2.8.5 — Page Merci instantanée après finalize. Avant : on restait sur le
+  // viewer avec juste un bandeau vert → le user devait hard-refresh pour voir
+  // l'état "déjà signé". Maintenant : transition immédiate vers une vraie page
+  // de confirmation (style cohérent avec l'écran 'used'). Évite aussi les bugs
+  // de modal qui se rouvrait sur le viewer en arrière-plan.
+  if (completed) {
+    return (
+      <CenteredCard>
+        <div style={iconWrap('#D1FAE5', '#059669')}><CheckCircle2 size={32} /></div>
+        <h1 style={titleStyle}>Merci pour votre signature !</h1>
+        <p style={textStyle}>
+          Votre signature a bien été enregistrée. Une copie complète signée
+          vous a été envoyée par email.
+        </p>
+        <p style={{ ...textStyle, marginTop: 16, fontSize: 12, color: '#9CA3AF' }}>
+          Vous pouvez fermer cette fenêtre en toute sécurité.
+        </p>
+      </CenteredCard>
+    )
+  }
+
   // ── ÉTAT OK : layout principal ──────────────────────────────────────────────
   const envelope = data?.envelope
   const recipient = data?.recipient
@@ -660,10 +681,18 @@ export default function PublicSignPage({ params }: PageProps) {
   }
 
   const handleFinalize = async () => {
-    if (!signatureDataUrl) {
-      // Si pas encore signé, ouvre le SignaturePad
+    // v2.8.5 — Check étendu : state local OU rehydraté depuis verify-token.
+    // Évite le bug "modal s'ouvre à nouveau" si state local desync (race
+    // condition entre adoption + sign-field POST).
+    const persistedSig = data?.recipient?.signature_data_url
+    const hasSignature = signatureDataUrl || persistedSig
+    if (!hasSignature) {
       setSignaturePadOpen(true)
       return
+    }
+    // Rehydrate state local si seule la version DB est connue
+    if (!signatureDataUrl && persistedSig) {
+      setSignatureDataUrl(persistedSig)
     }
     if (finalizing) return
     if (!confirm('Finaliser la signature ? Cette action est définitive.')) return

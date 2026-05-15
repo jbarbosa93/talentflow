@@ -383,18 +383,20 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
     const footerText1 = `Signé électroniquement le ${formatDateTime(opts.signedAt)} par ${opts.recipientName} (${opts.recipientEmail})`
     const footerText2 = `IP ${opts.signedIp || 'non disponible'} · TalentFlow Sign · Envelope ID ${opts.envelopeId}`
 
+    // v2.8.5 — Footer réduit de 30→16pt + textes plus petits pour ne pas
+    // cacher le bas du contrat (signature, mentions, etc.).
     lastPage.drawRectangle({
-      x: 0, y: 0, width: pw, height: 30,
+      x: 0, y: 0, width: pw, height: 16,
       color: rgb(0.96, 0.94, 0.87),
-      opacity: 0.75,
+      opacity: 0.7,
     })
     lastPage.drawText(footerText1, {
-      x: 12, y: 18,
-      size: 7, font: helv, color: rgb(0.2, 0.2, 0.2),
+      x: 10, y: 9,
+      size: 5.5, font: helv, color: rgb(0.25, 0.25, 0.25),
     })
     lastPage.drawText(footerText2, {
-      x: 12, y: 8,
-      size: 6, font: helv, color: rgb(0.4, 0.4, 0.4),
+      x: 10, y: 2.5,
+      size: 5, font: helv, color: rgb(0.45, 0.45, 0.45),
     })
   }
 

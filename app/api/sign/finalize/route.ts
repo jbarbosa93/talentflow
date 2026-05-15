@@ -165,8 +165,13 @@ export async function POST(req: NextRequest) {
       }
 
       // Phase 4c — Notif email sender (final : "tous ont signé")
-      // v2.8.0 — Skip si le sender EST le signataire (sait déjà qu'il a signé).
-      if (senderInfo.email && senderInfo.email.toLowerCase() !== lcEmail) {
+      // v2.8.5 — Skip si le sender est DANS les recipients (il reçoit déjà le
+      // completed email avec PDF en PJ via sendSignCompletedEmail). Évite le
+      // doublon "Toutes les signatures collectées" + "Documents signés".
+      const senderInRecipients = senderInfo.email && updatedRecipients.some(
+        r => r.email.toLowerCase() === senderInfo.email!.toLowerCase(),
+      )
+      if (senderInfo.email && !senderInRecipients) {
         await sendSenderNotif({
           envelope,
           senderEmail: senderInfo.email,
@@ -283,10 +288,16 @@ async function stampAllAndSendEmails(args: {
     recipients.push({ email: adminEmail, name: 'L-Agence SA (admin)' })
   }
 
-  const attachments = stampedDocs.map(d => ({
-    filename: d.name,
-    content: d.pdfBase64,
-  }))
+  // v2.8.5 — Le certificat n'est PAS envoyé par email à TOUS les destinataires.
+  // Il reste accessible UNIQUEMENT via la page détail enveloppe /sign/[id] pour
+  // download par le créateur / admin L-Agence si besoin (audit, archive).
+  // Avant : tous recevaient contrat + certificat → pollution boîtes candidats.
+  const attachments = stampedDocs
+    .filter(d => !d.name.startsWith('Certificat de signature'))
+    .map(d => ({
+      filename: d.name,
+      content: d.pdfBase64,
+    }))
 
   for (const rec of recipients) {
     try {

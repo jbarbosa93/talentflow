@@ -4,11 +4,13 @@ import {
   Camera, Save, Lock, Mail, Phone, User, Briefcase,
   LogOut, Check, Loader2, AlertCircle, Calendar, MapPin,
   ShieldCheck, ShieldOff, QrCode, ZoomIn, ZoomOut, Move, Plug, XCircle,
+  PenLine, Trash2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import SignaturePad from '@/components/sign/SignaturePad'
 
 // v1.9.127 — Style V2 : labels lisibles (sans uppercase aggressif), inputs 1px Jakarta
 const labelStyle: React.CSSProperties = {
@@ -229,6 +231,12 @@ export default function ProfilPage() {
 
   // Signature email
   const [signatureHtml, setSignatureHtml] = useState('')
+
+  // v2.8.5 — Signature manuscrite (TalentFlow Sign) pré-enregistrée
+  const [presetSigDataUrl, setPresetSigDataUrl] = useState<string | null>(null)
+  const [presetSigLoaded, setPresetSigLoaded] = useState(false)
+  const [showSignaturePad, setShowSignaturePad] = useState(false)
+  const [savingPresetSig, setSavingPresetSig] = useState(false)
   const [savingSignature, setSavingSignature] = useState(false)
   // v2.1.16 — Mode HTML source par défaut (édition directe vs Aperçu read-only).
   // Le user voulait modifier directement, le bascule manuel vers HTML source était caché.
@@ -294,6 +302,58 @@ export default function ProfilPage() {
     if (m.avatar_url) setAvatarPreview(m.avatar_url)
     setSignatureHtml(m.signature_html || '')
   }, [user])
+
+  // ── v2.8.5 — Charger la signature manuscrite pré-enregistrée ────────────
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    fetch('/api/auth/preset-signature')
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        setPresetSigDataUrl(d.dataUrl || null)
+        setPresetSigLoaded(true)
+      })
+      .catch(() => { if (!cancelled) setPresetSigLoaded(true) })
+    return () => { cancelled = true }
+  }, [user])
+
+  // ── v2.8.5 — Adopter une nouvelle signature manuscrite ──────────────────
+  const handleAdoptPresetSignature = async (dataUrl: string) => {
+    setSavingPresetSig(true)
+    try {
+      const r = await fetch('/api/auth/preset-signature', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataUrl }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Erreur sauvegarde')
+      setPresetSigDataUrl(dataUrl)
+      setShowSignaturePad(false)
+      toast.success('Signature enregistrée ✓ Elle sera apposée automatiquement sur tes prochains envois où tu es destinataire.')
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur')
+    } finally {
+      setSavingPresetSig(false)
+    }
+  }
+
+  // ── v2.8.5 — Supprimer la signature manuscrite ──────────────────────────
+  const handleDeletePresetSignature = async () => {
+    if (!confirm('Supprimer ta signature pré-enregistrée ? Tu devras signer manuellement chaque envoi.')) return
+    setSavingPresetSig(true)
+    try {
+      const r = await fetch('/api/auth/preset-signature', { method: 'DELETE' })
+      if (!r.ok) throw new Error('Erreur suppression')
+      setPresetSigDataUrl(null)
+      toast.success('Signature supprimée')
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur')
+    } finally {
+      setSavingPresetSig(false)
+    }
+  }
 
   // ── Sauvegarder la signature email ────────────────────────────────────────
   const saveSignature = async () => {
@@ -699,6 +759,103 @@ export default function ProfilPage() {
           </button>
         </div>
       </div>
+
+      {/* ── v2.8.5 — Signature manuscrite (TalentFlow Sign) ── */}
+      <div className="neo-card" style={{ padding: 24, marginBottom: 16 }}>
+        <p style={sectionTitle}><PenLine size={15} style={{ color: '#EAB308' }} /> Ma signature manuscrite (TalentFlow Sign)</p>
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 }}>
+          Si tu enregistres ta signature ici, elle sera <strong>apposée automatiquement</strong> sur tous tes envois Sign où tu es destinataire — tu sautes l&apos;étape de signature manuelle. Pratique pour les consultants qui s&apos;auto-signent (ex: contrats de mission).
+          <br />
+          <span style={{ color: 'var(--muted)' }}>Si une secrétaire envoie un document pour ta signature, le flow normal s&apos;applique (tu reçois l&apos;email + signes manuellement).</span>
+        </p>
+
+        {!presetSigLoaded ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 20, color: 'var(--muted)', fontSize: 13 }}>
+            <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Chargement…
+          </div>
+        ) : presetSigDataUrl ? (
+          <>
+            <div style={{
+              padding: 20,
+              background: '#FFFFFF',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              minHeight: 140,
+            }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={presetSigDataUrl} alt="Ma signature" style={{ maxHeight: 100, maxWidth: '100%', objectFit: 'contain' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              <button
+                type="button"
+                onClick={() => setShowSignaturePad(true)}
+                disabled={savingPresetSig}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  padding: '0 14px', height: 38, borderRadius: 10,
+                  border: '1.5px solid var(--border)', background: 'var(--surface-2)',
+                  color: 'var(--foreground)', fontSize: 13, fontWeight: 700,
+                  cursor: savingPresetSig ? 'not-allowed' : 'pointer',
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                }}
+              >
+                <PenLine size={14} /> Modifier
+              </button>
+              <button
+                type="button"
+                onClick={handleDeletePresetSignature}
+                disabled={savingPresetSig}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  padding: '0 14px', height: 38, borderRadius: 10,
+                  border: '1.5px solid rgba(220,38,38,0.4)', background: 'rgba(220,38,38,0.08)',
+                  color: '#DC2626', fontSize: 13, fontWeight: 700,
+                  cursor: savingPresetSig ? 'not-allowed' : 'pointer',
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                }}
+              >
+                <Trash2 size={14} /> Supprimer
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={{
+            padding: 28,
+            background: 'var(--primary-soft)',
+            border: '1px dashed rgba(234,179,8,0.4)',
+            borderRadius: 10,
+            textAlign: 'center',
+          }}>
+            <PenLine size={28} style={{ color: '#A16207', marginBottom: 8 }} />
+            <p style={{ fontSize: 13, color: 'var(--foreground)', marginBottom: 14 }}>
+              Aucune signature enregistrée. Tu devras signer manuellement chaque envoi.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowSignaturePad(true)}
+              disabled={savingPresetSig}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                padding: '0 18px', height: 40, borderRadius: 10,
+                border: '1.5px solid var(--primary)', background: 'var(--primary)',
+                color: '#1C1A14', fontSize: 13, fontWeight: 700,
+                cursor: savingPresetSig ? 'not-allowed' : 'pointer',
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                boxShadow: '0 4px 12px -4px rgba(234,179,8,.45)',
+              }}
+            >
+              <PenLine size={14} /> Dessiner ma signature
+            </button>
+          </div>
+        )}
+      </div>
+
+      <SignaturePad
+        open={showSignaturePad}
+        onClose={() => setShowSignaturePad(false)}
+        onAdopt={(dataUrl) => handleAdoptPresetSignature(dataUrl)}
+      />
 
       {/* ── Changer l'email ── */}
       <div className="neo-card" style={{ padding: 24, marginBottom: 16 }}>

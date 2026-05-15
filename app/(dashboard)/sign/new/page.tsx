@@ -364,7 +364,12 @@ function SignNewPage() {
         const sendR = await fetch(`/api/sign/envelopes/${envelopeId}/send`, { method: 'POST' })
         const sendData = await sendR.json()
         if (!sendR.ok) throw new Error(sendData.error || 'Erreur envoi')
-        toast.success('Enveloppe envoyée')
+        // v2.8.5 — Toast spécifique si ta signature pré-enregistrée a été apposée
+        if (sendData.autoSignedCreator) {
+          toast.success('Enveloppe envoyée ✓ Ta signature a été apposée automatiquement.')
+        } else {
+          toast.success('Enveloppe envoyée')
+        }
         router.push(`/sign/${envelopeId}`)
       } else if (mode === 'preview') {
         // v2.8.0 — Récupère le template_id (ad-hoc cloné côté serveur quand
@@ -499,13 +504,20 @@ function SignNewPage() {
                 style={{ height: 42, cursor: 'pointer' }}
               >
                 <option value="">— Sans template —</option>
-                {/* v2.8.0 — Filtrer les templates ad-hoc (parent_template_id) du
-                    dropdown. Ils sont récupérés par l'API pour le lookup interne
-                    mais NE doivent PAS apparaître dans le menu déroulant. */}
+                {/* v2.8.5 — Inclure l'ad-hoc courant dans le dropdown pour qu'il
+                    s'affiche correctement quand on revient de l'éditeur (sinon
+                    "— Sans template —" trompeur). On strip "[Envoi] " et on
+                    n'affiche que l'ad-hoc lié au brouillon courant, pas les autres. */}
                 {templates
-                  .filter(t => !(t as { parent_template_id?: string | null }).parent_template_id)
+                  .filter(t => {
+                    const adHocParent = (t as { parent_template_id?: string | null }).parent_template_id
+                    if (!adHocParent) return true  // vrai template
+                    return t.id === templateId  // ad-hoc affiché uniquement si c'est celui du brouillon courant
+                  })
                   .map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
+                    <option key={t.id} value={t.id}>
+                      {t.name.replace(/^\[Envoi\]\s+/, '')}
+                    </option>
                   ))}
               </select>
             </Field>
