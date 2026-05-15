@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.8.5'
+export const APP_VERSION = '2.8.6'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.6 — Hotfix REQUEST_HEADER_TOO_LARGE (kill Service Worker corrompu)
+  //          + rename template inline + middleware auth sur 8 routes
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.6',
+    date: '2026-05-15',
+    label: 'Hotfix 494 (kill Service Worker) + rename template + middleware auth',
+    features: [
+      'HOTFIX CRITIQUE — REQUEST_HEADER_TOO_LARGE (494) sur talent-flow.ch. Cause : le Service Worker /sw.js avait stocké en Cache API des réponses contenant des cookies cumulés au fil des sessions Supabase Auth. Au prochain fetch, le SW servait ces caches → les cookies accumulés étaient renvoyés au serveur → dépassait la limite Vercel 16KB → 494 même en navigation privée (le SW persiste cross-session sur certaines configs). Solution : sw.js réécrit en KILL SWITCH (unregister + purge tous caches au prochain visit). Layout (landing) modifié pour unregister tout SW existant + clear caches.keys(). PWA temporairement désactivée — pourra être réactivée plus tard quand on aura besoin.',
+      'FEATURE — Renommer template inline depuis /sign/templates/{id}/edit. Click sur le nom (avec icône stylo en hover) → input éditable avec bordure pointillée. Enter ou blur → PATCH /api/sign/templates/{id} avec { name }. Escape → annule. Toast "Nom du template mis à jour ✓".',
+      'SÉCURITÉ — Middleware : 8 routes dashboard étaient accessibles sans auth (affichaient juste "introuvable" via RLS mais pas de redirect login). Ajout à isProtectedRoute : /sign (sauf /sign/v/[token] qui reste publique), /clients, /missions, /alertes, /activites, /outils, /import-masse. Maintenant : tout user non authentifié sur ces routes est redirigé vers /login?next=...',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.8.5 — Sign : Signature pré-enregistrée consultant + page Merci
   //          + certificat séparé + 12 fixes UX post-déploiement v2.8.4

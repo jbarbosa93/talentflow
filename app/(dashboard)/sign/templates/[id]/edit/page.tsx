@@ -6,7 +6,8 @@
 import { use, useCallback, useEffect, useRef, useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { ChevronLeft, Loader2, Sparkles, FileText, ListChecks, ArrowLeftCircle } from 'lucide-react'
+import { ChevronLeft, Loader2, Sparkles, FileText, ListChecks, ArrowLeftCircle, Pencil } from 'lucide-react'
+import { toast } from 'sonner'
 import TemplateEditor from '@/components/sign/TemplateEditor'
 import WizardEditor from '@/components/sign/WizardEditor'
 import type { SignTemplate, SignDocument, SignRecipientSchema } from '@/lib/sign/types'
@@ -37,6 +38,34 @@ function TemplateEditPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>('wizard')
+
+  // v2.8.6 — Édition inline du nom du template
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [savingName, setSavingName] = useState(false)
+  const handleSaveName = async () => {
+    const newName = nameDraft.trim()
+    if (!newName || !template || newName === template.name) {
+      setEditingName(false)
+      return
+    }
+    setSavingName(true)
+    try {
+      const r = await fetch(`/api/sign/templates/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      })
+      if (!r.ok) throw new Error('Erreur')
+      setTemplate(t => t ? { ...t, name: newName } : t)
+      setEditingName(false)
+      toast.success('Nom du template mis à jour ✓')
+    } catch {
+      toast.error('Erreur sauvegarde nom')
+    } finally {
+      setSavingName(false)
+    }
+  }
 
   // v2.2.2 — État partagé entre Mode Wizard et Mode Document.
   // Avant : chaque éditeur avait sa copie locale de documents/schema → switcher
@@ -172,7 +201,42 @@ function TemplateEditPage({ params }: PageProps) {
       <div className="d-page-header">
         <div style={{ minWidth: 0, flex: 1 }}>
           <h1 className="d-page-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
-            <span>{loading ? 'Chargement...' : (template?.name || 'Template')}</span>
+            {/* v2.8.6 — Nom du template éditable inline. Click → input, blur/Enter sauve. */}
+            {loading ? (
+              <span>Chargement...</span>
+            ) : editingName ? (
+              <input
+                type="text"
+                value={nameDraft}
+                autoFocus
+                disabled={savingName}
+                onChange={e => setNameDraft(e.target.value)}
+                onBlur={handleSaveName}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); handleSaveName() }
+                  if (e.key === 'Escape') { e.preventDefault(); setEditingName(false) }
+                }}
+                style={{
+                  font: 'inherit', color: 'inherit', background: 'transparent',
+                  border: '1px dashed var(--primary)', borderRadius: 6,
+                  padding: '2px 8px', minWidth: 320, outline: 'none',
+                }}
+              />
+            ) : (
+              <span
+                onClick={() => { setNameDraft(template?.name || ''); setEditingName(true) }}
+                title="Cliquer pour renommer le template"
+                style={{
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+                  borderRadius: 6, padding: '2px 6px', transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+              >
+                {template?.name || 'Template'}
+                <Pencil size={14} style={{ color: 'var(--muted)', opacity: 0.6 }} />
+              </span>
+            )}
             {isDocusignImport && (
               <span className="neo-tag" style={{ fontSize: 11, gap: 4, display: 'inline-flex', alignItems: 'center' }}>
                 <Sparkles size={11} />

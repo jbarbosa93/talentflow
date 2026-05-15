@@ -34,9 +34,21 @@ export default function LandingLayout({ children }: { children: React.ReactNode 
       <body className={jakarta.variable}>
         {children}
         <SpeedInsights />
+        {/* v2.8.6 — Service Worker DÉSACTIVÉ temporairement.
+            Cause : caches SW corrompus pouvaient servir des réponses avec
+            cookies énormes accumulés → REQUEST_HEADER_TOO_LARGE (494 Vercel).
+            Le script ci-dessous unregister tout SW existant + purge les caches
+            sur tous les browsers qui visitent talent-flow.ch. */}
         <script dangerouslySetInnerHTML={{ __html: `
           if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(() => {})
+            navigator.serviceWorker.getRegistrations().then((regs) => {
+              regs.forEach((reg) => reg.unregister().catch(() => {}))
+            }).catch(() => {})
+            if (window.caches) {
+              caches.keys().then((keys) => {
+                keys.forEach((k) => caches.delete(k).catch(() => {}))
+              }).catch(() => {})
+            }
           }
         `}} />
       </body>

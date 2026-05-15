@@ -81,17 +81,28 @@ export async function middleware(request: NextRequest) {
   const isPublicAsset = pathname.startsWith('/_next') || pathname.startsWith('/favicon')
   const isLandingPage = pathname === '/'
 
+  // v2.8.6 — Comblement de plusieurs trous : /sign, /clients, /missions,
+  // /alertes, /activites, /outils, /import-masse étaient accessibles sans auth
+  // (les pages affichaient juste "introuvable" via RLS mais pas de redirect login).
+  // /sign/v/[token] reste publique (signature destinataire avec token UUID).
   const isProtectedRoute =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/candidats') ||
+    pathname.startsWith('/clients') ||
     pathname.startsWith('/offres') ||
     pathname.startsWith('/pipeline') ||
     pathname.startsWith('/entretiens') ||
     pathname.startsWith('/messages') ||
     pathname.startsWith('/matching') ||
+    pathname.startsWith('/missions') ||
+    pathname.startsWith('/activites') ||
+    pathname.startsWith('/alertes') ||
+    pathname.startsWith('/outils') ||
+    pathname.startsWith('/import-masse') ||
     pathname.startsWith('/integrations') ||
     pathname.startsWith('/parametres') ||
-    pathname.startsWith('/secretariat')
+    pathname.startsWith('/secretariat') ||
+    (pathname.startsWith('/sign') && !pathname.startsWith('/sign/v/'))
 
   // Si pas authentifié et sur une route protégée → redirection login
   // (Dev : utiliser localhost:3001/admin pour poser une vraie session — voir app/admin/route.ts)
