@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const allowed: Record<string, unknown> = {}
     // v2.2.6 Phase 5 — `kind` ajouté pour pouvoir convertir un template existant
     // de 'envelope' à 'report' (ou inverse) depuis le menu actions /sign/templates.
-    for (const k of ['name', 'description', 'documents', 'recipients_schema', 'wizard_enabled', 'wizard_steps', 'kind'] as const) {
+    for (const k of ['name', 'description', 'documents', 'recipients_schema', 'wizard_enabled', 'wizard_steps', 'kind', 'default_message'] as const) {
       if (k in body) {
         // Validation kind : doit être 'envelope' ou 'report'
         if (k === 'kind' && body.kind !== 'envelope' && body.kind !== 'report') {

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.8.6'
+export const APP_VERSION = '2.8.7'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.7 — Sign : Email cleanup (Objet supprimé, "L-Agence" au lieu de
+  //          "L-AGENCE SA", pluriel/singulier docs) + bouton Moi auto-fill
+  //          + modal Paramètres template (nom/description/message défaut)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.7',
+    date: '2026-05-15',
+    label: 'Sign — Email cleanup + Moi auto-fill + modal Paramètres template',
+    features: [
+      'FEATURE — Bouton « 👤 Moi » sur chaque carte destinataire dans /sign/new. Click → auto-remplit prénom + nom + email + téléphone depuis ton user_metadata. Évite de retaper tes coordonnées à chaque envoi quand tu es signataire.',
+      'FEATURE — Modal « ⚙️ Paramètres » template (nouveau menu item dans le ⋮ de /sign/templates). Édite nom + description + message par défaut sans ouvrir l\'éditeur visuel. L\'ancien « Modifier » est devenu « 📝 Éditeur visuel » (pour fields/positions). Le message par défaut se pré-remplit auto dans le champ Message de /sign/new quand le template est sélectionné.',
+      'UX — « Objet » supprimé de /sign/new : champ jamais utilisé (code mort), le subject email est auto-généré depuis le Titre. Simplifie l\'UI.',
+      'UX — Email cleanup : « L-AGENCE SA » → « L-Agence » dans header + footer + sender notif + text fallback. Helper normalizeSenderName() retire suffixes juridiques (SA, SARL, GmbH, AG, etc.) + Capitalize si UPPERCASE.',
+      'UX — Pluriel/singulier cohérent dans tous les emails : 1 doc → « document à signer », 2+ docs → « documents à signer ». Appliqué partout : subject, headline, CTA bouton, body, fallback texte. 3 templates impactés : invite, rappel, completed.',
+      'DB — Migration v286_template_default_message : nouvelle colonne sign_templates.default_message TEXT (pré-fill optionnel du champ Message de /sign/new).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.8.6 — Hotfix REQUEST_HEADER_TOO_LARGE (kill Service Worker corrompu)
   //          + rename template inline + middleware auth sur 8 routes

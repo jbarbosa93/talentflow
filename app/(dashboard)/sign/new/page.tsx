@@ -19,6 +19,7 @@ import { normalizePhoneE164 } from '@/lib/sign/phone-format'
 import RecipientsGroup from '@/components/sign/RecipientsGroup'
 import AdvancedOptions, { DEFAULT_OPTIONS, type AdvancedOptionsValue } from '@/components/sign/AdvancedOptions'
 import type { SignCategory, SignDocument, SignTemplate } from '@/lib/sign/types'
+import { createClient } from '@/lib/supabase/client'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import { looksLikeCompanyField } from '@/lib/sign/field-helpers'
 import { Edit3 } from 'lucide-react'
@@ -50,8 +51,26 @@ function SignNewPage() {
     { name: '', email: '', role: 'signer', order: 0, status: 'pending', signed_at: null },
   ])
   const [orderEnabled, setOrderEnabled] = useState(true)
-  const [emailSubject, setEmailSubject] = useState('')
+  // v2.8.6 — Subject email auto-généré depuis le Titre + nombre de docs.
+  // Champ "Objet" UI supprimé (jamais utilisé, code mort).
   const [message, setMessage] = useState('')
+  // v2.8.6 — Profile du user courant (pour le bouton « Moi » auto-fill destinataire)
+  const [me, setMe] = useState<{ firstName: string; lastName: string; email: string; phone?: string } | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled || !user) return
+      const meta = (user.user_metadata || {}) as { prenom?: string; nom?: string; telephone?: string; phone?: string }
+      setMe({
+        firstName: meta.prenom || '',
+        lastName: meta.nom || '',
+        email: user.email || '',
+        phone: meta.telephone || meta.phone || '',
+      })
+    })
+    return () => { cancelled = true }
+  }, [])
   const [advanced, setAdvanced] = useState<AdvancedOptionsValue>(DEFAULT_OPTIONS)
   const [submitting, setSubmitting] = useState<'send' | 'draft' | 'preview' | null>(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -215,16 +234,13 @@ function SignNewPage() {
     if (!title.trim()) {
       setTitle(selectedTemplate.name)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTemplate])
-
-  // Auto-fill subject email
-  useEffect(() => {
-    if (title.trim() && !emailSubject.trim()) {
-      setEmailSubject(`${title.trim()} — Documents à signer`)
+    // v2.8.6 — Auto-fill Message si vide depuis default_message du template
+    const tplDefaultMessage = (selectedTemplate as unknown as { default_message?: string | null }).default_message
+    if (tplDefaultMessage && !message.trim()) {
+      setMessage(tplDefaultMessage)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title])
+  }, [selectedTemplate])
 
   // v2.8.0 — Le lock n'est PAS appliqué aux templates contrat (upload override autorisé)
   const isTemplateLocked = !!selectedTemplate && !isContractTemplate
@@ -645,6 +661,7 @@ function SignNewPage() {
                 templateRoleCount={templateRoleCount}
                 onSwitchToFreeMode={() => setUseTemplateRoles(false)}
                 requirePhone={advanced.channel === 'whatsapp' || advanced.channel === 'both'}
+                me={me}
               />
             ) : (
               <>
@@ -697,19 +714,10 @@ function SignNewPage() {
             )}
           </Section>
 
-          {/* SECTION 4 : Message */}
-          <Section title="Message" icon={MessageSquare} subtitle="Email envoyé aux destinataires">
-            <Field label="Objet">
-              <input
-                type="text"
-                value={emailSubject}
-                onChange={e => setEmailSubject(e.target.value)}
-                placeholder="Documents à signer"
-                className="neo-input"
-                style={{ height: 42, fontSize: 14 }}
-              />
-            </Field>
-            <Field label="Message (optionnel)">
+          {/* SECTION 4 : Message (v2.8.6 — Objet supprimé car jamais utilisé,
+              le subject email est auto-généré depuis le Titre de l'envoi) */}
+          <Section title="Message personnalisé (optionnel)" icon={MessageSquare} subtitle="Ajoute un mot personnel dans l'email envoyé aux destinataires">
+            <Field label="Message" hint="Affiché entre l'intro et le bouton de signature">
               <textarea
                 value={message}
                 onChange={e => setMessage(e.target.value)}
@@ -789,7 +797,7 @@ function Field({
 // Affiche 1 carte par rôle du template (read-only role + saisie nom/email)
 // Pas d'ajout/suppression — la structure est fixée par le template.
 function RoleFixedRecipients({
-  recipients, onChange, templateName, templateRoleCount, onSwitchToFreeMode, requirePhone,
+  recipients, onChange, templateName, templateRoleCount, onSwitchToFreeMode, requirePhone, me,
 }: {
   recipients: any[]
   onChange: (r: any[]) => void
@@ -800,6 +808,8 @@ function RoleFixedRecipients({
   onSwitchToFreeMode: () => void
   /** v2.2.5 Phase 4d — propagé à PhoneInput pour exiger un phone E.164 */
   requirePhone?: boolean
+  /** v2.8.6 — Profil du user connecté pour le bouton « Moi » auto-fill */
+  me?: { firstName: string; lastName: string; email: string; phone?: string } | null
 }) {
   const updateRecipient = (idx: number, patch: any) =>
     onChange(recipients.map((r, i) => (i === idx ? { ...r, ...patch } : r)))
@@ -921,6 +931,37 @@ function RoleFixedRecipients({
                   onBlur={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent' }}
                   title="Renommer ce rôle — synchronisé avec l'éditeur de template"
                 />
+                {/* v2.8.6 — Bouton « Moi » : auto-fill avec le profil du user connecté */}
+                {me && me.email && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fullName = `${me.firstName} ${me.lastName}`.trim() || me.email.split('@')[0]
+                      updateRecipient(idx, {
+                        name: fullName,
+                        firstName: me.firstName,
+                        lastName: me.lastName,
+                        email: me.email,
+                        ...(me.phone ? { phone: me.phone } : {}),
+                      })
+                    }}
+                    title={`Auto-remplir avec votre profil (${me.email})`}
+                    style={{
+                      padding: '3px 9px',
+                      fontSize: 11, fontWeight: 700,
+                      border: `1px solid ${palette.stroke}`,
+                      background: palette.fill,
+                      color: palette.stroke,
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      flexShrink: 0,
+                      display: 'inline-flex', alignItems: 'center', gap: 3,
+                    }}
+                  >
+                    👤 Moi
+                  </button>
+                )}
                 <span style={{ flex: 1 }} />
                 <span style={{
                   padding: '3px 10px',

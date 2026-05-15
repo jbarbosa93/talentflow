@@ -9,8 +9,9 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
+import TemplateSettingsModal from './TemplateSettingsModal'
 import {
-  Star, MoreVertical, Edit3, Copy, Trash2, Sparkles,
+  Star, MoreVertical, Edit3, Copy, Trash2, Sparkles, Settings,
   FolderOpen, Loader2, FileText, ClipboardList, Tag, Check, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -132,8 +133,11 @@ function TemplateRow({
   }
 
   const [busy, setBusy] = useState<string | null>(null)
+  // v2.8.6 — Modal léger pour éditer nom + description + message par défaut
+  const [showSettings, setShowSettings] = useState(false)
   const tplKind: SignTemplateKind = (tpl.kind === 'report' ? 'report' : 'envelope')
   const handleEdit = () => router.push(`/sign/templates/${tpl.id}/edit`)
+  const handleSettings = () => setShowSettings(true)
   const handleDuplicate = async () => {
     setBusy('dup')
     try {
@@ -292,6 +296,7 @@ function TemplateRow({
           Utiliser
         </button>
         <TplActionMenu
+          onSettings={handleSettings}
           onEdit={handleEdit}
           onDuplicate={handleDuplicate}
           onDelete={handleDelete}
@@ -300,14 +305,26 @@ function TemplateRow({
           busy={busy}
         />
       </div>
+
+      {/* v2.8.6 — Modal Paramètres template (nom + description + message défaut) */}
+      <TemplateSettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        templateId={tpl.id}
+        initialName={tpl.name}
+        initialDescription={tpl.description}
+        initialDefaultMessage={(tpl as unknown as { default_message?: string | null }).default_message}
+        onSaved={() => onChange()}
+      />
     </div>
   )
 }
 
 // ─── Action menu ⋮ ──────────────────────────────────────────────────
 function TplActionMenu({
-  onEdit, onDuplicate, onDelete, onChangeKind, currentKind, busy,
+  onSettings, onEdit, onDuplicate, onDelete, onChangeKind, currentKind, busy,
 }: {
+  onSettings: () => void
   onEdit: () => void
   onDuplicate: () => void
   onDelete: () => void
@@ -383,7 +400,9 @@ function TplActionMenu({
             color: 'var(--foreground)',
           }}
         >
-          <MenuItem icon={Edit3} label="Modifier" onClick={() => { setOpen(false); onEdit() }} />
+          {/* v2.8.6 — Paramètres léger (nom + description + message défaut) */}
+          <MenuItem icon={Settings} label="Paramètres" onClick={() => { setOpen(false); onSettings() }} />
+          <MenuItem icon={Edit3} label="Éditeur visuel" onClick={() => { setOpen(false); onEdit() }} />
           <MenuItem icon={Copy} label="Dupliquer" onClick={() => { setOpen(false); onDuplicate() }} />
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 6px' }} />
           {/* v2.2.6 Phase 5 — Convertir le template entre types */}

@@ -35,7 +35,11 @@ export async function sendSignInviteEmail(
     return { ok: false, error: 'destinataire vide' }
   }
 
-  const subject = `${params.envelopeTitle} — Document à ${params.recipientRole === 'Copie' || params.recipientRole === 'cc' ? 'consulter' : 'signer'}`
+  // v2.8.6 — Subject adapté singulier/pluriel selon documentsCount
+  const isCC = params.recipientRole === 'Copie' || params.recipientRole === 'cc'
+  const action = isCC ? 'consulter' : 'signer'
+  const isPlural = (params.documentsCount || 1) > 1
+  const subject = `${params.envelopeTitle} — ${isPlural ? 'Documents' : 'Document'} à ${action}`
   const html = buildSignInviteHtml(params)
   const text = buildSignInviteText(params)
 
@@ -82,7 +86,9 @@ export async function sendSignReminderEmail(
   if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
   if (!to) return { ok: false, error: 'destinataire vide' }
 
-  const subject = `Rappel : ${params.envelopeTitle} — Document en attente de signature`
+  // v2.8.6 — Subject adapté singulier/pluriel selon documentsCount
+  const isPluralReminder = (params.documentsCount || 1) > 1
+  const subject = `Rappel : ${params.envelopeTitle} — ${isPluralReminder ? 'Documents' : 'Document'} en attente de signature`
   const html = buildSignReminderHtml(params)
   const text = buildSignReminderText(params)
 
@@ -147,7 +153,12 @@ export async function sendSignCompletedEmail(
     hour: '2-digit', minute: '2-digit',
   })
 
-  const subject = `Documents signés — ${params.envelopeTitle}`
+  // v2.8.6 — Subject + corps adaptés au nombre de PDFs (attachments contient
+  // le contrat + éventuellement le certificat exclu via filter dans finalize).
+  const docsCount = params.attachments.length
+  const subject = docsCount > 1
+    ? `Documents signés — ${params.envelopeTitle}`
+    : `Document signé — ${params.envelopeTitle}`
   const html = buildCompletedHtml(params, dateStr, timeStr)
   const text = buildCompletedText(params, dateStr, timeStr)
 
@@ -182,7 +193,23 @@ export async function sendSignCompletedEmail(
   }
 }
 
+function normalizeSender(name: string): string {
+  if (!name) return name
+  let n = name.trim()
+  n = n.replace(/\s+(SA|S\.A\.|SARL|Sàrl|S\.à r\.l\.|SAS|AG|GmbH|Ltd|Limited|S\.A\.S\.)\.?$/i, '').trim()
+  if (n === n.toUpperCase() && n.length > 3) {
+    n = n.split(/(\s+|-+)/).map(part => {
+      if (/^[\s-]+$/.test(part)) return part
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+    }).join('')
+  }
+  return n
+}
+
 function buildCompletedHtml(p: SignCompletedEmailParams, dateStr: string, timeStr: string): string {
+  const senderName = normalizeSender(p.senderName)
+  const docsCount = p.attachments.length
+  const docsNoun = docsCount > 1 ? 'documents' : 'document'
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -198,10 +225,10 @@ function buildCompletedHtml(p: SignCompletedEmailParams, dateStr: string, timeSt
         Bonjour ${escapeHtml(p.recipientName.split(/\s+/)[0] || p.recipientName)},
       </h1>
       <p style="font-size:14.5px;color:#374151;line-height:1.6;margin:0 0 16px;">
-        Vos documents <strong>${escapeHtml(p.envelopeTitle)}</strong> ont été signés électroniquement avec succès.
+        ${docsNoun === 'documents' ? 'Vos documents' : 'Votre document'} <strong>${escapeHtml(p.envelopeTitle)}</strong> ${docsNoun === 'documents' ? 'ont été signés' : 'a été signé'} électroniquement avec succès.
       </p>
       <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 18px;">
-        Une copie complète signée est jointe à cet email (${p.attachments.length} document${p.attachments.length > 1 ? 's' : ''}).
+        Une copie complète signée est jointe à cet email (${docsCount} ${docsNoun}).
       </p>
       <div style="background:#FAFAF7;border:1px solid #E5E7EB;border-radius:10px;padding:14px 16px;margin:20px 0;">
         <div style="font-size:11px;color:#6B7280;letter-spacing:0.05em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Détails signature</div>
@@ -213,22 +240,25 @@ function buildCompletedHtml(p: SignCompletedEmailParams, dateStr: string, timeSt
       </div>
       <p style="font-size:13px;color:#6B7280;line-height:1.6;margin:18px 0 0;">
         Conservez cet email et les pièces jointes — ils constituent la preuve de votre signature.
-        Pour toute question, contactez ${escapeHtml(p.senderName)}${p.senderEmail ? ` (<a href="mailto:${escapeHtml(p.senderEmail)}" style="color:#A16207;">${escapeHtml(p.senderEmail)}</a>)` : ''}.
+        Pour toute question, contactez ${escapeHtml(senderName)}${p.senderEmail ? ` (<a href="mailto:${escapeHtml(p.senderEmail)}" style="color:#A16207;">${escapeHtml(p.senderEmail)}</a>)` : ''}.
       </p>
     </div>
     <p style="text-align:center;font-size:11px;color:#9CA3AF;margin-top:18px;">
-      ${escapeHtml(p.senderName)} · Sécurisé par TalentFlow Sign
+      ${escapeHtml(senderName)} · Sécurisé par TalentFlow Sign
     </p>
   </div>
 </body></html>`
 }
 
 function buildCompletedText(p: SignCompletedEmailParams, dateStr: string, timeStr: string): string {
+  const senderName = normalizeSender(p.senderName)
+  const docsCount = p.attachments.length
+  const isPlural = docsCount > 1
   return [
     `Bonjour ${p.recipientName.split(/\s+/)[0] || p.recipientName},`,
     '',
-    `Vos documents "${p.envelopeTitle}" ont été signés électroniquement avec succès.`,
-    `Une copie complète signée est jointe à cet email (${p.attachments.length} document${p.attachments.length > 1 ? 's' : ''}).`,
+    `${isPlural ? 'Vos documents' : 'Votre document'} "${p.envelopeTitle}" ${isPlural ? 'ont été signés' : 'a été signé'} électroniquement avec succès.`,
+    `Une copie complète signée est jointe à cet email (${docsCount} ${isPlural ? 'documents' : 'document'}).`,
     '',
     'Détails signature :',
     `  Date : ${dateStr} à ${timeStr}`,
@@ -236,7 +266,7 @@ function buildCompletedText(p: SignCompletedEmailParams, dateStr: string, timeSt
     '  Plateforme : TalentFlow Sign · Conforme ZertES',
     '',
     'Conservez cet email et les pièces jointes — ils constituent la preuve de votre signature.',
-    `${p.senderName}${p.senderEmail ? ` · ${p.senderEmail}` : ''}`,
+    `${senderName}${p.senderEmail ? ` · ${p.senderEmail}` : ''}`,
   ].join('\n')
 }
 
@@ -328,7 +358,7 @@ function buildSignerSignedHtml(p: SignerSignedNotifyParams, isCompleted: boolean
 <body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
     <div style="text-align:center;margin-bottom:20px;">
-      <span style="font-family:Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.4px;color:#1C1A14;">L-AGENCE</span>
+      <span style="font-family:Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.4px;color:#1C1A14;">L-Agence</span>
       <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">TalentFlow Sign</div>
     </div>
     <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;box-shadow:0 4px 16px rgba(0,0,0,0.04);">

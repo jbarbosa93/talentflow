@@ -29,15 +29,54 @@ const HEADER_FG = '#1C1A14'       // texte du header (gris foncé sur fond crèm
 const REMINDER_RED = '#dc2626'    // rouge badge "RAPPEL"
 
 /**
+ * v2.8.6 — Normalise le nom de l'expéditeur pour les emails :
+ *   - "L-AGENCE SA" → "L-Agence"  (retire SA + Capitalize)
+ *   - "L-AGENCE"    → "L-Agence"
+ *   - "L-Agence SA" → "L-Agence"
+ *   - "L-Agence"    → "L-Agence"  (no-op)
+ *
+ * Retire les suffixes juridiques (SA, SARL, Sàrl, AG, GmbH, Ltd) et
+ * passe en Capitalize si le nom est entièrement en MAJUSCULES.
+ */
+function normalizeSenderName(name: string): string {
+  if (!name) return name
+  let n = name.trim()
+  // Retire les suffixes juridiques
+  n = n.replace(/\s+(SA|S\.A\.|SARL|Sàrl|S\.à r\.l\.|SAS|AG|GmbH|Ltd|Limited|S\.A\.S\.)\.?$/i, '').trim()
+  // Si entièrement en MAJUSCULES (et > 3 chars), on Capitalize chaque mot
+  // (L-AGENCE → L-Agence). Mots avec tirets gérés : on capitalize chaque segment.
+  if (n === n.toUpperCase() && n.length > 3) {
+    n = n.split(/(\s+|-+)/).map(part => {
+      if (/^[\s-]+$/.test(part)) return part
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+    }).join('')
+  }
+  return n
+}
+
+/**
+ * v2.8.6 — Helper pluriel/singulier "document(s)".
+ * count <= 1 → "document", > 1 → "documents".
+ */
+function docNoun(count?: number): string {
+  return (count && count > 1) ? 'documents' : 'document'
+}
+
+/**
  * Build le HTML de l'email d'invitation à signer.
  * Style L-AGENCE v2 : crème + or + noir, simple et lisible.
  */
 export function buildSignInviteHtml(p: SignEmailParams): string {
   const isCC = p.recipientRole === 'Copie' || p.recipientRole === 'cc'
-  const ctaLabel = isCC ? 'Voir le document' : 'Signer le document'
+  // v2.8.6 — Normalise nom expéditeur + accord singulier/pluriel
+  const senderName = normalizeSenderName(p.senderName)
+  const noun = docNoun(p.documentsCount)
+  const ctaLabel = isCC
+    ? (noun === 'documents' ? 'Voir les documents' : 'Voir le document')
+    : (noun === 'documents' ? 'Signer les documents' : 'Signer le document')
   const headline = isCC
-    ? 'Vous recevez ce document en copie'
-    : `${p.senderName} vous invite à signer un document`
+    ? `Vous recevez ${noun === 'documents' ? 'ces documents' : 'ce document'} en copie`
+    : `${senderName} vous invite à ${noun === 'documents' ? 'signer des documents' : 'signer un document'}`
 
   const expiresLine = p.expiresAt
     ? `<p style="${pStyle()}; color:${MUTED}; font-size:12px; margin-top:24px;">
@@ -48,7 +87,7 @@ export function buildSignInviteHtml(p: SignEmailParams): string {
   const messageBlock = p.message?.trim()
     ? `<div style="background:${SOFT_BG}; border:1px solid ${BORDER}; border-radius:8px; padding:16px; margin:20px 0;">
          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:${MUTED}; margin-bottom:6px;">
-           Message de ${escapeHtml(p.senderName)}
+           Message de ${escapeHtml(senderName)}
          </div>
          <div style="font-size:14px; color:${FOREGROUND}; line-height:1.5; white-space:pre-wrap;">
            ${escapeHtml(p.message)}
@@ -85,7 +124,9 @@ export function buildSignInviteHtml(p: SignEmailParams): string {
           <tr>
             <td style="padding:28px 32px 8px 32px;">
               <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:${PRIMARY}; margin-bottom:8px;">
-                ${isCC ? 'Document à consulter' : 'Document à signer'}
+                ${noun === 'documents'
+                  ? (isCC ? 'Documents à consulter' : 'Documents à signer')
+                  : (isCC ? 'Document à consulter' : 'Document à signer')}
               </div>
               <h1 style="margin:0 0 14px 0; font-family:Georgia,'Times New Roman',serif; font-size:22px; font-weight:400; line-height:1.3; color:${FOREGROUND};">
                 ${escapeHtml(headline)}
@@ -94,7 +135,7 @@ export function buildSignInviteHtml(p: SignEmailParams): string {
                 Bonjour ${escapeHtml(firstName(p.recipientName))},
               </p>
               <p style="${pStyle()};">
-                Vous avez reçu un document à ${isCC ? 'consulter' : 'signer'} :
+                Vous avez reçu ${noun === 'documents' ? 'des documents' : 'un document'} à ${isCC ? 'consulter' : 'signer'} :
                 <strong style="color:${FOREGROUND};">${escapeHtml(p.envelopeTitle)}</strong>.
               </p>
               ${docsLine}
@@ -136,7 +177,7 @@ export function buildSignInviteHtml(p: SignEmailParams): string {
                 <tr>
                   <td style="padding-bottom:10px; border-bottom:1px solid ${BORDER};">
                     <div style="font-family:Georgia,'Times New Roman',serif; font-size:18px; font-weight:400; letter-spacing:.04em; color:${FOREGROUND};">
-                      L&#8209;AGENCE SA
+                      L&#8209;Agence
                     </div>
                     <div style="font-size:11px; color:${MUTED}; margin-top:2px;">
                       Agence d'emploi · Monthey, Suisse
@@ -147,7 +188,7 @@ export function buildSignInviteHtml(p: SignEmailParams): string {
                   <td style="padding-top:10px;">
                     <p style="margin:0; font-size:11px; color:${MUTED}; line-height:1.5;">
                       Cet email a été envoyé par TalentFlow Sign pour le compte de
-                      <strong>${escapeHtml(p.senderName)}</strong>${p.senderEmail ? ` (<a href="mailto:${escapeHtml(p.senderEmail)}" style="color:${MUTED};">${escapeHtml(p.senderEmail)}</a>)` : ''}.
+                      <strong>${escapeHtml(senderName)}</strong>${p.senderEmail ? ` (<a href="mailto:${escapeHtml(p.senderEmail)}" style="color:${MUTED};">${escapeHtml(p.senderEmail)}</a>)` : ''}.
                     </p>
                     <p style="margin:6px 0 0 0; font-size:11px; color:${MUTED};">
                       <a href="https://talent-flow.ch" style="color:${MUTED}; text-decoration:none;">talent-flow.ch</a>
@@ -170,18 +211,21 @@ export function buildSignInviteHtml(p: SignEmailParams): string {
 export function buildSignInviteText(p: SignEmailParams): string {
   const isCC = p.recipientRole === 'Copie' || p.recipientRole === 'cc'
   const action = isCC ? 'consulter' : 'signer'
+  const senderName = normalizeSenderName(p.senderName)
+  const noun = docNoun(p.documentsCount)
+  const docPhrase = noun === 'documents' ? 'des documents' : 'un document'
   const lines = [
     `Bonjour ${firstName(p.recipientName)},`,
     '',
-    `${p.senderName} vous invite à ${action} un document : ${p.envelopeTitle}.`,
+    `${senderName} vous invite à ${action} ${docPhrase} : ${p.envelopeTitle}.`,
     '',
     p.message ? `Message :\n${p.message}\n` : '',
-    `Lien pour ${action} le document :`,
+    `Lien pour ${action} ${noun === 'documents' ? 'les documents' : 'le document'} :`,
     p.signUrl,
     '',
     p.expiresAt ? `Ce lien expire le ${formatExpiryDate(p.expiresAt)}.` : '',
     '',
-    '— L-AGENCE SA · talent-flow.ch',
+    '— L-Agence · talent-flow.ch',
   ]
   return lines.filter(Boolean).join('\n')
 }
@@ -228,8 +272,12 @@ function formatExpiryDate(iso: string): string {
  */
 export function buildSignReminderHtml(p: SignEmailParams): string {
   const isCC = p.recipientRole === 'Copie' || p.recipientRole === 'cc'
-  const ctaLabel = isCC ? 'Voir le document' : 'Signer le document'
-  const action = isCC ? 'consulter' : 'signer'
+  // v2.8.6 — Normalise nom expéditeur + accord pluriel/singulier
+  const senderName = normalizeSenderName(p.senderName)
+  const noun = docNoun(p.documentsCount)
+  const ctaLabel = isCC
+    ? (noun === 'documents' ? 'Voir les documents' : 'Voir le document')
+    : (noun === 'documents' ? 'Signer les documents' : 'Signer le document')
 
   const expiresLine = p.expiresAt
     ? `<p style="${pStyle()}; color:${MUTED}; font-size:12px; margin-top:24px;">
@@ -240,7 +288,7 @@ export function buildSignReminderHtml(p: SignEmailParams): string {
   const messageBlock = p.message?.trim()
     ? `<div style="background:${SOFT_BG}; border:1px solid ${BORDER}; border-radius:8px; padding:16px; margin:20px 0;">
          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:${MUTED}; margin-bottom:6px;">
-           Message de ${escapeHtml(p.senderName)}
+           Message de ${escapeHtml(senderName)}
          </div>
          <div style="font-size:14px; color:${FOREGROUND}; line-height:1.5; white-space:pre-wrap;">
            ${escapeHtml(p.message)}
@@ -278,7 +326,7 @@ export function buildSignReminderHtml(p: SignEmailParams): string {
           <tr>
             <td style="padding:28px 32px 8px 32px;">
               <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:${REMINDER_RED}; margin-bottom:8px;">
-                Document en attente
+                ${noun === 'documents' ? 'Documents en attente' : 'Document en attente'}
               </div>
               <h1 style="margin:0 0 14px 0; font-family:Georgia,'Times New Roman',serif; font-size:22px; font-weight:400; line-height:1.3; color:${FOREGROUND};">
                 Rappel — votre signature est attendue
@@ -287,9 +335,9 @@ export function buildSignReminderHtml(p: SignEmailParams): string {
                 Bonjour ${escapeHtml(firstName(p.recipientName))},
               </p>
               <p style="${pStyle()};">
-                Nous vous rappelons que le document
+                Nous vous rappelons que ${noun === 'documents' ? 'les documents' : 'le document'}
                 <strong style="color:${FOREGROUND};">${escapeHtml(p.envelopeTitle)}</strong>
-                est en attente de votre ${isCC ? 'consultation' : 'signature'}.
+                ${noun === 'documents' ? 'sont' : 'est'} en attente de votre ${isCC ? 'consultation' : 'signature'}.
               </p>
               ${messageBlock}
             </td>
@@ -328,7 +376,7 @@ export function buildSignReminderHtml(p: SignEmailParams): string {
                 <tr>
                   <td style="padding-bottom:10px; border-bottom:1px solid ${BORDER};">
                     <div style="font-family:Georgia,'Times New Roman',serif; font-size:18px; font-weight:400; letter-spacing:.04em; color:${FOREGROUND};">
-                      L&#8209;AGENCE SA
+                      L&#8209;Agence
                     </div>
                     <div style="font-size:11px; color:${MUTED}; margin-top:2px;">
                       Agence d'emploi · Monthey, Suisse
@@ -362,18 +410,20 @@ export function buildSignReminderHtml(p: SignEmailParams): string {
 export function buildSignReminderText(p: SignEmailParams): string {
   const isCC = p.recipientRole === 'Copie' || p.recipientRole === 'cc'
   const action = isCC ? 'consulter' : 'signer'
+  const noun = docNoun(p.documentsCount)
+  const docPhraseSingPl = noun === 'documents' ? 'les documents' : 'le document'
   const lines = [
     `Bonjour ${firstName(p.recipientName)},`,
     '',
-    `RAPPEL — Nous vous rappelons que le document "${p.envelopeTitle}" est en attente de votre ${isCC ? 'consultation' : 'signature'}.`,
+    `RAPPEL — Nous vous rappelons que ${docPhraseSingPl} "${p.envelopeTitle}" ${noun === 'documents' ? 'sont' : 'est'} en attente de votre ${isCC ? 'consultation' : 'signature'}.`,
     '',
     p.message ? `Message :\n${p.message}\n` : '',
-    `Lien pour ${action} le document :`,
+    `Lien pour ${action} ${docPhraseSingPl} :`,
     p.signUrl,
     '',
     p.expiresAt ? `Ce lien est valable jusqu'au ${formatExpiryDate(p.expiresAt)}.` : '',
     '',
-    '— L-Agence SA · talent-flow.ch · TalentFlow Sign',
+    '— L-Agence · talent-flow.ch · TalentFlow Sign',
   ]
   return lines.filter(Boolean).join('\n')
 }
