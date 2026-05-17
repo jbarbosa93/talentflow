@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.8.8'
+export const APP_VERSION = '2.8.9'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.9 — Hotfix : double email signé quand consultant == admin == signataire
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.9',
+    date: '2026-05-17',
+    label: 'Hotfix — Double email signé pour le consultant qui est admin + signataire',
+    features: [
+      'HOTFIX — João recevait 2 emails « Document signé » pour un même envoi : un en tant que destinataire (« João Barbosa ») + un en tant qu\'admin (« L-Agence SA (admin) »). Cause : le check anti-doublon `recipients.some(r => r.email.toLowerCase() === adminEmail.toLowerCase())` ne faisait pas `.trim()` → si un email avait un espace ou casing différent, le doublon n\'était pas détecté. Solution : refacto avec Set + helper normalizeEmail() (lowercase + trim) appliqué aux 2 côtés. Plus de doublon possible. Bonus : « L-Agence SA (admin) » → « L-Agence (admin) » (cohérent avec cleanup v2.8.7).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.8.8 — Portail client : « Bientôt disponible » sur Rapports
   //          + Notes partagées candidat (consultant ↔ client)

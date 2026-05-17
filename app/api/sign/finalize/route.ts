@@ -279,13 +279,25 @@ async function stampAllAndSendEmails(args: {
   }
 
   // 3. Envoi email à tous (signers + cc) + admin L-Agence
-  const recipients: { email: string; name: string }[] = updatedRecipients.map(r => ({
-    email: r.email,
-    name: r.name,
-  }))
+  // v2.8.9 — Dedup par email normalisé (lowercase + trim) pour éviter doublon
+  // quand l'admin EST déjà dans les recipients (cas : consultant qui s'envoie
+  // un contrat à lui-même, ou un recipient avec une casse/espace différent).
+  const normalizeEmail = (e: string) => (e || '').toLowerCase().trim()
+  const seenEmails = new Set<string>()
+  const recipients: { email: string; name: string }[] = []
+  for (const r of updatedRecipients) {
+    const norm = normalizeEmail(r.email)
+    if (!norm || seenEmails.has(norm)) continue
+    seenEmails.add(norm)
+    recipients.push({ email: r.email, name: r.name })
+  }
   const adminEmail = process.env.ADMIN_EMAIL
-  if (adminEmail && !recipients.some(r => r.email.toLowerCase() === adminEmail.toLowerCase())) {
-    recipients.push({ email: adminEmail, name: 'L-Agence SA (admin)' })
+  if (adminEmail) {
+    const normAdmin = normalizeEmail(adminEmail)
+    if (normAdmin && !seenEmails.has(normAdmin)) {
+      seenEmails.add(normAdmin)
+      recipients.push({ email: adminEmail, name: 'L-Agence (admin)' })
+    }
   }
 
   // v2.8.5 — Le certificat n'est PAS envoyé par email à TOUS les destinataires.
