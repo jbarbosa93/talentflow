@@ -115,7 +115,34 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.8.5 (Sign Signature pré-enregistrée consultant + page Merci instantanée + certificat séparé + 12 fixes UX)** — 15/05/2026 (après-midi/soir)
+**v2.8.11 (Sign Templates : garde-fous anti-écrasement DB + suppression chatbot + règle checkboxes groupées)** — 17/05/2026
+
+### v2.8.11 — INCIDENT wipe template + garde-fous + 5 fixes Sign Templates
+**INCIDENT 17/05 14:56** — Template `cb083ae0` (« Documents à signer ») wipé en DB (race condition probable HMR/auto-save → PATCH silent avec `docs=[]` envoyé pendant hydration React). Restauration depuis daily backup 17/05 01:56 UTC vers projet clone Supabase (TalentFlow-Recovery, plan Pro permet « Restore to new project »), puis UPSERT row sur prod via MCP `execute_sql` + script Node admin (5 docs, 102 fields, 16 wizard steps, 2 destinataires récupérés intacts, 0 perte). Clone supprimé après restauration. ~15 min total wipe→restore.
+
+**GARDE-FOUS ANTI-ÉCRASEMENT** (pattern #77) — défense en profondeur client + serveur :
+- **Client** (`components/sign/TemplateEditor.tsx` `handleSave`) : capture counts au premier load avec data non-vide via `initialLoadCountsRef`. Tout PATCH (silent OU manuel) qui tenterait d'envoyer `docs/recipients/wizard_steps` vide alors qu'il y en avait au load → REFUSÉ + toast rouge `Auto-save annulée (écrasement détecté)`. `console.error` détaillé pour debug.
+- **Serveur** (`app/(dashboard)/api/sign/templates/[id]/route.ts` PATCH) : SELECT actuel + compare avant UPDATE. Si payload tente de vider une collection alors que la DB en contient → 409 Conflict avec `{conflicts, existingCounts}`. Override via `?confirm_wipe=1` uniquement (action explicite).
+
+**Règle d'incohérence checkboxes groupées** (pattern #78) : quand une checkbox a `groupId` + `groupRule`, son flag `required` individuel est IGNORÉ partout :
+- `SignWizard.validateCurrentStep` skip required individuel
+- `PublicFieldsLayer.areAllRequiredFieldsFilled` skip required individuel
+- Création de groupe auto-décoche `required:false` sur tous membres
+- Toggle « Tout obligatoire » de section exclut les groupées (toast informatif `2 cases groupées ignorées — règle du groupe prévaut`)
+- Calcul `allRequired` ignore les groupées
+Évite l'absurdité « Oui ET Non doivent être cochés ». La règle du groupe (`SelectExactly`/`SelectAtLeast`/`SelectAtMost`) est seule source de vérité.
+
+**Validation groupe en wizard FIXÉE** : `SignWizard.validateCurrentStep` vérifie les règles de groupe avec message d'erreur précis : « Etes vous au chomage ? : sélectionne exactement 1 case (actuellement 0) ». Plus de skip silencieux du bouton Suivant.
+
+**Mode Wizard — regroupement visuel par section** : composant `SectionHeader` éditable inline (clic = renomme propagé à tous les fields de la section). Toggle « Tout obligatoire » par section. Champs indentés `marginLeft: 18`. Symbole `§` retiré (UX retour user). Insertion dans `WizardEditor.tsx` autour du `SortableContext`.
+
+**Mode Document — infos groupe au clic** : sélection checkbox groupée affiche directement membres + règle + pages + noms autres cases dans le panneau Groupe existant (`fields.filter(ff => ff.groupId === f.groupId)`), pas de panneau sidebar séparé.
+
+**Couleurs rôles personnalisables** : palette 8 couleurs (vert/orange/bleu/violet/rose/cyan/indigo/rouge) sous chaque rôle. Champ `colorIdx` sur `SignRecipient` + helper `getRecipientPalette(rec, fallbackIdx)`. `FieldsCanvas` hérite via prop `recipientColorMap`.
+
+**Chatbot Assistant IA supprimé** — composant `components/sign/TemplateAssistantBar.tsx` + route `/api/sign/templates/[id]/assistant/route.ts` retirés du code (retour user : « ne marche pas »). Bouton « Améliorer avec l'IA » (détection auto fields via Claude Vision PDF) RESTE : c'est `enrich-with-ai`, endpoint séparé fonctionnel.
+
+**One-shot DB** : 12 cases groupées avec `required:true` (héritage import DocuSign) patchées en `required:false` sur le template `cb083ae0` pour cohérence avec nouvelle règle #78 (script Node ad-hoc avec service role).
 
 ### v2.8.5 — TalentFlow Sign : Signature pré-enregistrée + UX post-déploiement
 **Feature majeure** : signature manuscrite pré-enregistrée pour les consultants. `/parametres/profil` nouvelle card "Ma signature manuscrite" → SignaturePad → stockée dans `auth.users.raw_user_meta_data.preset_signature_data_url`. À l'envoi : si le créateur est dans les destinataires + a preset signature → auto-apposée + skip étape + candidat reçoit email direct. Skippe le flow secrétaire (pas dans destinataires). Endpoint dédié `/api/auth/preset-signature` (GET/POST/DELETE).
@@ -694,6 +721,21 @@ Service role only (RLS bloque l'accès public direct). Accès via routes proxy :
 **75. SIGN — Certificat séparé du contrat (PDF standalone)** (v2.8.5) — `generateCertificatePdf()` produit un PDF certificat à 1 seule page. Implémentation : `PDFDocument.create()` puis save (PDF vide 0 page) puis `appendCertificatePage` ajoute la page cert. **PIÈGE** : viewers macOS Aperçu interprètent le PDF vide comme ayant une page blanche implicite → résultat 2 pages. Fix : après `appendCertificatePage`, re-load et `removePage(0..n-2)` jusqu'à ne garder que la dernière (= vraie page cert). Distribution : `signed_pdf_paths = [contrat.pdf, Certificat de signature - contrat.pdf]`. Le certificat est **EXCLU des emails completed** (filter `!d.name.startsWith('Certificat de signature')` dans `attachments`) → reste accessible UNIQUEMENT via la page détail `/sign/[envelopeId]` pour le créateur / admin L-Agence.
 
 **76. SIGN — recipientOrder 0-based dans PDF generator** (v2.8.5) — `pdf-generator.ts` ligne 156 forçait `recipientOrder = recIdx + 1` (1-based depuis l'index). Mais les fields de l'éditeur TF Sign sont en 0-based → le consultant rec[0] cherchait `f.recipientOrder === 1`, ne matchait aucun field, **la signature consultant n'était JAMAIS stampée sur le PDF final**. Fix : `typeof rec.order === 'number' ? rec.order : (recIdx + 1)` + `(f.recipientOrder ?? 1) === recipientOrder`. Cohérent avec pattern #71 (toujours `??`, jamais `||`).
+
+**77. SIGN — Garde-fous anti-écrasement DB client+serveur** (v2.8.11, incident 17/05 14:56) — Race condition probable HMR/auto-save : pendant le rechargement à chaud Next.js, le state local `docs` peut être remonté à `[]` (valeur initiale `useState`) AVANT que le fetch parent ne le repeuple, et si `setDirty(true)` se déclenche dans cet intervalle, l'auto-save 800ms tire `PATCH documents:[]` qui wipe la DB. Double garde-fou :
+- **Client** (`TemplateEditor.handleSave`) : `initialLoadCountsRef = useRef<{docs,recipients,steps}|null>(null)` capturé au premier render avec data non-vide. AVANT chaque PATCH (silent OU manuel) : si `init && (init.docs>0 && docs.length===0)` (idem recipients/steps) → REFUSE le PATCH + toast rouge `Auto-save annulée (écrasement détecté)`.
+- **Serveur** (`/api/sign/templates/[id]` PATCH) : si payload contient `documents=[]` OU `wizard_steps=[]` OU `recipients_schema=[]` → SELECT existing AVANT update, compare counts. Si DB en contient → **409 Conflict** avec `{conflicts:string[], existingCounts:Record<string,number>}`. Override **uniquement** via `?confirm_wipe=1` (action explicite).
+
+Pattern général à appliquer à tout endpoint PATCH qui gère des arrays JSONB côté serveur : ne JAMAIS accepter silencieusement un remplacement complet par `[]` sans confirm. Coût : 1 SELECT supplémentaire par PATCH avec wipe potentiel (rare, donc négligeable).
+
+**78. SIGN — Règle incohérence checkboxes groupées : required individuel ignoré** (v2.8.11) — Quand une checkbox a `groupId` + `groupRule`, son flag `required` individuel devient logiquement absurde : un groupe `SelectExactly 1` (typique Oui/Non) avec les deux cases `required:true` est **impossible à satisfaire** (« Oui doit être coché ET Non doit être coché » sont contradictoires). La règle du groupe (`SelectExactly`/`SelectAtLeast`/`SelectAtMost`) est seule source de vérité. Appliqué à 5 endroits :
+1. `SignWizard.validateCurrentStep` : skip `if (f.type === 'checkbox' && f.groupId && f.groupRule) continue` avant le check required
+2. `PublicFieldsLayer.areAllRequiredFieldsFilled` : même skip dans le filter `requiredFields`
+3. `TemplateEditor.groupCheckboxes` : auto-set `required: false` à la création
+4. `WizardEditor.SectionHeader` toggle « Tout obligatoire » : exclut groupées via `.filter(m => !(m.type === 'checkbox' && m.groupId && m.groupRule))`. Toast informatif `N cases groupées ignorées — règle du groupe prévaut`.
+5. Calcul `allRequired` pour cocher visuellement le toggle : itère uniquement sur non-groupées (sinon resterait jamais coché à 100%).
+
+One-shot DB pour template existant : `UPDATE documents` JSONB pour passer `required:false` sur toute checkbox avec `groupId+groupRule+required=true` (12 cases sur template `cb083ae0` héritées de l'import DocuSign).
 
 ---
 

@@ -45,6 +45,45 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
 
     const supabase = createAdminClient()
+
+    // v2.8.11 — GARDE-FOU SERVEUR ANTI-ÉCRASEMENT (incident 17/05/2026 14:56) :
+    // Si le PATCH tente de remplacer documents/wizard_steps/recipients_schema par
+    // un tableau vide alors que la DB en contient, on REFUSE (409 Conflict).
+    // Force le client à confirmer explicitement via ?confirm_wipe=1.
+    const wipeKeys = ['documents', 'wizard_steps', 'recipients_schema'] as const
+    const incomingWipes: string[] = []
+    for (const k of wipeKeys) {
+      if (k in allowed && Array.isArray(allowed[k]) && (allowed[k] as unknown[]).length === 0) {
+        incomingWipes.push(k)
+      }
+    }
+    if (incomingWipes.length > 0) {
+      const url = new URL(req.url)
+      const confirmed = url.searchParams.get('confirm_wipe') === '1'
+      if (!confirmed) {
+        const { data: existing } = await supabase
+          .from('sign_templates' as any)
+          .select('documents, wizard_steps, recipients_schema')
+          .eq('id', id)
+          .single()
+        const existingCounts: Record<string, number> = {
+          documents: Array.isArray((existing as any)?.documents) ? (existing as any).documents.length : 0,
+          wizard_steps: Array.isArray((existing as any)?.wizard_steps) ? (existing as any).wizard_steps.length : 0,
+          recipients_schema: Array.isArray((existing as any)?.recipients_schema) ? (existing as any).recipients_schema.length : 0,
+        }
+        const conflicts = incomingWipes.filter(k => (existingCounts[k] || 0) > 0)
+        if (conflicts.length > 0) {
+          console.error('[Sign][SAFEGUARD] Blocked wipe PATCH', { id, conflicts, existingCounts })
+          return NextResponse.json({
+            error: 'Écrasement bloqué',
+            details: `Le PATCH tente de vider ${conflicts.join(', ')} alors que la DB contient du contenu. Ajoute ?confirm_wipe=1 si intentionnel.`,
+            conflicts,
+            existingCounts,
+          }, { status: 409 })
+        }
+      }
+    }
+
     const { data, error } = await supabase
       .from('sign_templates' as any)
       .update(allowed)

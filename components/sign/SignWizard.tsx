@@ -248,9 +248,42 @@ export default function SignWizard({
       const eff = effectiveFieldState(f, fieldValues)
       if (!eff.visible) continue            // caché par condition
       if (!eff.required) continue           // pas requis (ou allégé par condition)
+      // v2.8.10 — Les checkboxes appartenant à un groupe avec règle (SelectExactly/AtLeast/AtMost)
+      // sont validées via la règle du groupe, PAS individuellement. Sinon "Oui ET Non doivent
+      // être cochés" → impossible. La règle du groupe est la source de vérité.
+      if (f.type === 'checkbox' && f.groupId && f.groupRule) continue
       if (isFieldFilled(f, fieldValues[f.id], signatureDataUrl, autoFill, fieldValues)) continue
       setValidationError(`"${f.tooltip || f.label || 'Champ'}" est requis`)
       return false
+    }
+    // v2.8.10 — Validation des règles de groupe (checkboxes) : on vérifie que chaque
+    // groupe présent dans l'étape respecte sa règle (SelectExactly/AtLeast/AtMost).
+    // Sans ça, un groupe « Exactement 1 » non rempli laissait passer Suivant.
+    const groupsToCheck = new Map<string, { rule?: string; min?: number; max?: number; name?: string; members: typeof stepFields }>()
+    for (const f of stepFields) {
+      if (f.type !== 'checkbox' || !f.groupId) continue
+      const eff = effectiveFieldState(f, fieldValues)
+      if (!eff.visible) continue
+      const g = groupsToCheck.get(f.groupId)
+      if (g) g.members.push(f)
+      else groupsToCheck.set(f.groupId, { rule: f.groupRule, min: f.groupMin, max: f.groupMax, name: f.groupName, members: [f] })
+    }
+    for (const g of groupsToCheck.values()) {
+      if (!g.rule) continue
+      const checkedCount = g.members.filter(m => fieldValues[m.id] === true).length
+      const label = g.name || 'Groupe'
+      if (g.rule === 'SelectExactly' && checkedCount !== (g.min ?? 1)) {
+        setValidationError(`« ${label} » : sélectionne exactement ${g.min ?? 1} case${(g.min ?? 1) > 1 ? 's' : ''} (actuellement ${checkedCount})`)
+        return false
+      }
+      if (g.rule === 'SelectAtLeast' && checkedCount < (g.min ?? 1)) {
+        setValidationError(`« ${label} » : sélectionne au moins ${g.min ?? 1} case${(g.min ?? 1) > 1 ? 's' : ''} (actuellement ${checkedCount})`)
+        return false
+      }
+      if (g.rule === 'SelectAtMost' && checkedCount > (g.max ?? 1)) {
+        setValidationError(`« ${label} » : sélectionne au plus ${g.max ?? 1} case${(g.max ?? 1) > 1 ? 's' : ''} (actuellement ${checkedCount})`)
+        return false
+      }
     }
     return true
   }

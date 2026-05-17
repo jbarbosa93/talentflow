@@ -296,6 +296,8 @@ export interface SignRecipientSchema {
    *  'wizard' = formulaire pas-à-pas (idéal candidats / saisie longue).
    *  'document' = overlay PDF (idéal validation / signature seule). */
   preferredViewMode?: SignViewMode
+  /** v2.8.10 — Index palette couleur (0-7). Si undefined → fallback sur `order`. */
+  colorIdx?: number | null
 }
 
 export type SignDeliveryChannel = 'email' | 'whatsapp' | 'both'
@@ -321,6 +323,8 @@ export interface SignRecipient {
   /** v2.2.2 — Mode d'affichage préféré au signing (override le défaut auto mobile/desktop).
    *  Provient soit du recipientsSchema du template, soit choisi par l'admin à l'envoi. */
   preferredViewMode?: SignViewMode
+  /** v2.8.10 — Index palette couleur (0-7). Si undefined → fallback sur `order`. */
+  colorIdx?: number | null
 }
 
 export type SignTemplateKind = 'envelope' | 'report'
@@ -449,17 +453,39 @@ export interface RecipientColorPalette {
 }
 
 export const RECIPIENT_COLORS: RecipientColorPalette[] = [
-  // 1 — bleu (Candidat)
+  // 0 — bleu (default Candidat)
   { stroke: '#4A90E2', fill: 'rgba(74,144,226,0.16)',  fillSolid: '#CCE5FF', text: '#1E40AF', soft: 'rgba(74,144,226,0.08)' },
-  // 2 — vert (Conseiller)
+  // 1 — vert (default Consultant)
   { stroke: '#7CB342', fill: 'rgba(124,179,66,0.18)',  fillSolid: '#DCEDC8', text: '#33691E', soft: 'rgba(124,179,66,0.08)' },
-  // 3 — orange
+  // 2 — orange
   { stroke: '#F5A623', fill: 'rgba(245,166,35,0.20)',  fillSolid: '#FFE0B2', text: '#92400E', soft: 'rgba(245,166,35,0.08)' },
-  // 4 — violet
+  // 3 — violet
   { stroke: '#A855F7', fill: 'rgba(168,85,247,0.18)',  fillSolid: '#E9D5FF', text: '#5B21B6', soft: 'rgba(168,85,247,0.08)' },
-  // 5 — rose (fallback)
+  // 4 — rose
   { stroke: '#EC4899', fill: 'rgba(236,72,153,0.18)',  fillSolid: '#FBCFE8', text: '#9D174D', soft: 'rgba(236,72,153,0.08)' },
+  // v2.8.10 — 3 nouvelles couleurs pour les rôles supplémentaires
+  // 5 — cyan
+  { stroke: '#06B6D4', fill: 'rgba(6,182,212,0.18)',   fillSolid: '#CFFAFE', text: '#155E75', soft: 'rgba(6,182,212,0.08)' },
+  // 6 — indigo
+  { stroke: '#6366F1', fill: 'rgba(99,102,241,0.18)',  fillSolid: '#E0E7FF', text: '#3730A3', soft: 'rgba(99,102,241,0.08)' },
+  // 7 — rouge
+  { stroke: '#EF4444', fill: 'rgba(239,68,68,0.18)',   fillSolid: '#FEE2E2', text: '#991B1B', soft: 'rgba(239,68,68,0.08)' },
 ]
+
+/**
+ * v2.8.10 — Résout la palette couleur d'un destinataire.
+ * Si le recipient/recipientSchema a un `colorIdx` explicite (0-7) → utilise.
+ * Sinon → fallback sur l'index dans le tableau (modulo length).
+ */
+export function getRecipientPalette(
+  rec: { colorIdx?: number | null; order?: number } | undefined | null,
+  fallbackIdx: number = 0,
+): RecipientColorPalette {
+  const idx = (typeof rec?.colorIdx === 'number' && rec.colorIdx >= 0 && rec.colorIdx < RECIPIENT_COLORS.length)
+    ? rec.colorIdx
+    : (typeof rec?.order === 'number' ? rec.order % RECIPIENT_COLORS.length : fallbackIdx % RECIPIENT_COLORS.length)
+  return RECIPIENT_COLORS[idx]
+}
 
 export const FIELD_TYPE_LABELS: Record<SignFieldType, string> = {
   // Signature

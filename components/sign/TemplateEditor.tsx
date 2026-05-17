@@ -43,9 +43,8 @@ const PDFViewer = dynamic(() => import('./PDFViewer'), {
 const FieldsCanvas = dynamic(() => import('./FieldsCanvas'), { ssr: false })
 // v2.7.6 — Tailles + libellés par défaut, partagés avec FieldsCanvas pour le double-clic palette
 import { DEFAULT_FIELD_SIZE_PCT, PLACEHOLDER } from './FieldsCanvas'
-// v2.8.0 — Assistant IA template (chatbot bas de page)
-const TemplateAssistantBar = dynamic(() => import('./TemplateAssistantBar'), { ssr: false })
-import type { TemplateChange } from './TemplateAssistantBar'
+// v2.8.11 — Assistant IA template (chatbot) supprimé : retour utilisateur "ne marche pas".
+// Le bouton "Améliorer avec l'IA" (détection auto fields) reste, c'est un endpoint séparé.
 
 interface Props {
   templateId: string
@@ -154,6 +153,18 @@ export default function TemplateEditor({
     if (!step) return null
     return new Set(step.fieldIds)
   }, [stepFilterIdx, wizardSteps])
+
+  // v2.8.10 — Mapping order → colorIdx (palette custom par rôle)
+  const recipientColorMap = useMemo<Record<number, number>>(() => {
+    const map: Record<number, number> = {}
+    for (const r of recipients) {
+      if (typeof r.colorIdx === 'number' && typeof r.order === 'number') {
+        map[r.order] = r.colorIdx
+      }
+    }
+    return map
+  }, [recipients])
+
   // v2.3.16 — Modal preview PDF stampé avec données de test
   const [previewOpen, setPreviewOpen] = useState(false)
 
@@ -253,6 +264,7 @@ export default function TemplateEditor({
     setDocs(next)
     setDirty(true)
   }
+
   // v2.2.4 — Clipboard local pour copier-coller des fields entre sélections / pages.
   // Stocke un snapshot des fields au Cmd+C (avec leurs configs originales). Au Cmd+V,
   // on génère de nouveaux UUIDs + un offset visuel pour ne pas se superposer à la source.
@@ -396,12 +408,42 @@ export default function TemplateEditor({
     setDirty(true)
   }
 
+  // v2.8.11 — GARDE-FOU ANTI-ÉCRASEMENT (incident 17/05/2026 14:56) :
+  // Capture les counts au premier load avec data non-vide. Si plus tard un PATCH
+  // silent tente d'envoyer docs=[] alors que le template avait des docs, on REFUSE.
+  // Protège contre une race condition HMR / state reset qui aurait wipe la DB.
+  const initialLoadCountsRef = useRef<{ docs: number; recipients: number; steps: number } | null>(null)
+  useEffect(() => {
+    if (initialLoadCountsRef.current === null && (docs.length > 0 || recipients.length > 0 || wizardSteps.length > 0)) {
+      initialLoadCountsRef.current = {
+        docs: docs.length,
+        recipients: recipients.length,
+        steps: wizardSteps.length,
+      }
+    }
+  }, [docs.length, recipients.length, wizardSteps.length])
+
   // Save — v2.2.2 : envoie aussi wizard_steps + wizard_enabled (atomic) pour
   // que les modifs faites dans Mode Wizard ne soient pas perdues si l'admin
   // sauve depuis Mode Document. Le state vient maintenant du parent partagé.
   // v2.7.4 — Accepte un flag silent (=true en auto-save) pour ne pas spammer de toasts.
   const handleSave = async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true
+    // v2.8.11 — Garde-fou anti-écrasement : refuse tout PATCH (silent OU manuel)
+    // qui tenterait d'envoyer un payload vide alors que le template avait du contenu.
+    const init = initialLoadCountsRef.current
+    if (init) {
+      const wipingDocs = init.docs > 0 && docs.length === 0
+      const wipingRecipients = init.recipients > 0 && recipients.length === 0
+      const wipingSteps = init.steps > 0 && wizardSteps.length === 0
+      if (wipingDocs || wipingRecipients || wipingSteps) {
+        const msg = `Auto-save annulée (écrasement détecté) — docs:${docs.length}/${init.docs}, recipients:${recipients.length}/${init.recipients}, steps:${wizardSteps.length}/${init.steps}. Recharge la page.`
+        console.error('[Sign][SAFEGUARD] Blocked PATCH', { docs: docs.length, recipients: recipients.length, steps: wizardSteps.length, initial: init })
+        if (!silent) toast.error(msg)
+        else toast.warning(msg, { duration: 10000 })
+        return
+      }
+    }
     setSaving(true)
     if (!silent) setManualSaving(true)
     try {
@@ -700,6 +742,9 @@ export default function TemplateEditor({
         groupRule: rule,
         groupMin: rule === 'SelectAtMost' ? undefined : count,
         groupMax: rule === 'SelectAtLeast' ? undefined : count,
+        // v2.8.10 — Auto-décoche required individuel : la règle du groupe prévaut.
+        // Évite l'incohérence "Oui ET Non requis = impossible à satisfaire".
+        required: false,
       }
     }))
     const ruleLabel = rule === 'SelectExactly' ? `Exactement ${count}` : rule === 'SelectAtMost' ? `Au plus ${count}` : `Au moins ${count}`
@@ -1119,6 +1164,7 @@ export default function TemplateEditor({
                 wizardSteps={wizardSteps}
                 showStepBadges={showStepBadges}
                 stepFilterFieldIds={stepFilterFieldIds}
+                recipientColorMap={recipientColorMap}
               />
             </div>
           )}
@@ -1504,10 +1550,11 @@ export default function TemplateEditor({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {recipients.map((r, idx) => {
-              // v2.8.0 — Avant : `Math.max(1, r.order || 1) - 1` mappait order=0 ET
-              // order=1 au même index → 2 rôles distincts affichés en bleu. Fix :
-              // utiliser order direct (mod palette pour éviter index hors borne).
-              const c = RECIPIENT_COLORS[Math.max(0, r.order ?? 0) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
+              // v2.8.10 — Palette résolue depuis colorIdx (custom) ou fallback order
+              const colorIdx = (typeof r.colorIdx === 'number' && r.colorIdx >= 0 && r.colorIdx < RECIPIENT_COLORS.length)
+                ? r.colorIdx
+                : Math.max(0, r.order ?? 0) % RECIPIENT_COLORS.length
+              const c = RECIPIENT_COLORS[colorIdx] || RECIPIENT_COLORS[0]
               const active = activeRecipientOrder === r.order
               const fieldCount = countFieldsForRecipient(docs, r.order)
               return (
@@ -1626,6 +1673,28 @@ export default function TemplateEditor({
                       <option value="cc">👁 Reçoit une copie (CC)</option>
                     </select>
                   </div>
+                  {/* v2.8.10 — Palette couleur du rôle (8 choix) */}
+                  <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', marginRight: 4 }}>Couleur:</span>
+                    {RECIPIENT_COLORS.map((cp, ci) => {
+                      const isSel = colorIdx === ci
+                      return (
+                        <button
+                          key={ci}
+                          type="button"
+                          onClick={() => updateRecipient(idx, { colorIdx: ci })}
+                          title={`Couleur ${ci + 1}`}
+                          style={{
+                            width: 16, height: 16, borderRadius: 4,
+                            background: cp.stroke,
+                            border: isSel ? `2px solid var(--foreground)` : '2px solid transparent',
+                            cursor: 'pointer', padding: 0,
+                            outline: 'none',
+                          }}
+                        />
+                      )
+                    })}
+                  </div>
                 </div>
               )
             })}
@@ -1716,164 +1785,10 @@ export default function TemplateEditor({
         />
       )}
 
-      {/* v2.8.0 — Assistant IA template (panneau flottant déplaçable) */}
-      <TemplateAssistantBar
-        templateId={templateId}
-        selectedFieldId={selectedIds.length === 1 ? selectedIds[0] : null}
-        currentMode="document"
-        allFields={allTemplateFields}
-        wizardSteps={wizardSteps}
-        onApplyChanges={(changes) => applyTemplateChanges(changes)}
-      />
     </div>
   )
-
-  // ───────────────────────────────────────────────────────────────────
-  // v2.8.0 — Applique les changements proposés par l'assistant IA.
-  // Mute le state local (docs + wizardSteps). L'auto-save 800ms persiste.
-  // Note : NE PAS hoist en dehors du composant (utilise closures de state).
-  // ───────────────────────────────────────────────────────────────────
-  function applyTemplateChanges(changes: TemplateChange[]) {
-    // Collecte les mutations puis applique en 1 fois pour éviter les batchs perdus
-    const fieldPatches = new Map<string, Partial<SignField>>()
-    const newSteps: WizardStep[] = []
-    const stepsFieldMoves = new Map<string, string>()  // fieldId → targetStepId
-    let sectionDescUpdates: Array<{ section: string; description: string }> = []
-
-    for (const ch of changes) {
-      switch (ch.op) {
-        case 'set_required':
-          fieldPatches.set(ch.fieldId, { ...(fieldPatches.get(ch.fieldId) || {}), required: ch.value })
-          break
-        case 'set_label':
-          // Sync label + tooltip (cohérent avec v2.7.6 Bug 8)
-          fieldPatches.set(ch.fieldId, { ...(fieldPatches.get(ch.fieldId) || {}), label: ch.label, tooltip: ch.label })
-          break
-        case 'set_help_text':
-          fieldPatches.set(ch.fieldId, { ...(fieldPatches.get(ch.fieldId) || {}), helpText: ch.helpText || undefined })
-          break
-        case 'set_section':
-          fieldPatches.set(ch.fieldId, { ...(fieldPatches.get(ch.fieldId) || {}), wizardSection: ch.section || undefined })
-          break
-        case 'set_section_description':
-          sectionDescUpdates.push({ section: ch.section, description: ch.description })
-          break
-        case 'set_default_checked': {
-          const existing = fieldPatches.get(ch.fieldId) || {}
-          const allFields = docs.flatMap(d => d.fields || [])
-          const f = allFields.find(ff => ff.id === ch.fieldId)
-          const meta = { ...(f?.metadata || {}), ...(existing.metadata || {}), selected: ch.value }
-          fieldPatches.set(ch.fieldId, { ...existing, metadata: meta })
-          break
-        }
-        case 'add_condition': {
-          const existing = fieldPatches.get(ch.fieldId) || {}
-          const allFields = docs.flatMap(d => d.fields || [])
-          const f = allFields.find(ff => ff.id === ch.fieldId)
-          const currentConditions = (existing.conditions || f?.conditions || []) as SignFieldCondition[]
-          const newCond: SignFieldCondition = {
-            triggerFieldId: ch.condition.triggerFieldId,
-            operator: ch.condition.operator as SignConditionOperator,
-            value: ch.condition.value,
-            action: ch.condition.action as SignConditionAction,
-          }
-          fieldPatches.set(ch.fieldId, { ...existing, conditions: [...currentConditions, newCond] })
-          break
-        }
-        case 'remove_condition': {
-          const existing = fieldPatches.get(ch.fieldId) || {}
-          const allFields = docs.flatMap(d => d.fields || [])
-          const f = allFields.find(ff => ff.id === ch.fieldId)
-          const currentConditions = (existing.conditions || f?.conditions || []) as SignFieldCondition[]
-          const filtered = currentConditions.filter((_, i) => i !== ch.conditionIndex)
-          fieldPatches.set(ch.fieldId, { ...existing, conditions: filtered.length === 0 ? undefined : filtered })
-          break
-        }
-        case 'group_fields': {
-          const groupId = `g_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-          const groupName = ch.groupName || `G${(docs.flatMap(d => d.fields || []).filter(f => f.groupId).length) + 1}`
-          for (let i = 0; i < ch.fieldIds.length; i++) {
-            const fid = ch.fieldIds[i]
-            const existing = fieldPatches.get(fid) || {}
-            fieldPatches.set(fid, {
-              ...existing,
-              groupId,
-              groupName,
-              groupRule: ch.rule,
-              groupMin: ch.rule === 'SelectAtMost' ? undefined : ch.count,
-              groupMax: ch.rule === 'SelectAtLeast' ? undefined : ch.count,
-            })
-          }
-          break
-        }
-        case 'move_to_step':
-          stepsFieldMoves.set(ch.fieldId, ch.stepId)
-          break
-        case 'create_step': {
-          const newStep: WizardStep = {
-            id: `wstep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            title: ch.title,
-            fieldIds: ch.fieldIds,
-            docOrder: 1,
-            recipientOrder: ch.recipientOrder ?? 1,
-          }
-          newSteps.push(newStep)
-          // Retire les fieldIds des autres steps pour éviter doublons
-          for (const fid of ch.fieldIds) stepsFieldMoves.set(fid, newStep.id)
-          break
-        }
-      }
-    }
-
-    // 1. Applique les patches sur docs
-    if (fieldPatches.size > 0 || sectionDescUpdates.length > 0) {
-      const newDocs = docs.map(d => {
-        const newFields = (d.fields || []).map(f => {
-          let updated = f
-          const patch = fieldPatches.get(f.id)
-          if (patch) updated = { ...updated, ...patch }
-          // Section description sync (toutes les fields de la section)
-          for (const sd of sectionDescUpdates) {
-            if ((updated.wizardSection || '').trim() === sd.section.trim()) {
-              updated = { ...updated, sectionDescription: sd.description || undefined }
-            }
-          }
-          return updated
-        })
-        return { ...d, fields: newFields }
-      })
-      setDocs(newDocs)
-    }
-
-    // 2. Applique les nouvelles steps + moves
-    if (newSteps.length > 0 || stepsFieldMoves.size > 0) {
-      if (setWizardSteps) {
-        setWizardSteps(prev => {
-          // Move des fields existants
-          let next = prev.map(s => ({
-            ...s,
-            fieldIds: s.fieldIds.filter(fid => {
-              const targetStepId = stepsFieldMoves.get(fid)
-              return !targetStepId || targetStepId === s.id
-            }),
-          }))
-          // Ajoute les fields aux steps cibles (existantes)
-          for (const [fid, targetStepId] of stepsFieldMoves.entries()) {
-            next = next.map(s => {
-              if (s.id !== targetStepId) return s
-              if (s.fieldIds.includes(fid)) return s
-              return { ...s, fieldIds: [...s.fieldIds, fid] }
-            })
-          }
-          // Ajoute les nouvelles steps (création)
-          return [...next, ...newSteps]
-        })
-      }
-    }
-
-    setDirty(true)
-  }
 }
+
 
 // ─────────────────────────────────────────────────────────────────
 // Panel "Champ(s) sélectionné(s)" — gère 1 ou plusieurs sélections
@@ -2492,6 +2407,27 @@ function SelectedFieldsPanel({
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Groupe : {f.groupName || 'G'}
               </div>
+              {/* v2.8.10 — Membres du groupe (toutes les cases qui partagent groupId) */}
+              {(() => {
+                const members = fields.filter(ff => ff.groupId === f.groupId)
+                const pages = Array.from(new Set(members.map(m => m.page))).sort((a, b) => a - b)
+                const ruleLabel = f.groupRule === 'SelectExactly' ? `Exactement ${f.groupMin ?? 1}`
+                  : f.groupRule === 'SelectAtLeast' ? `Au moins ${f.groupMin ?? 1}`
+                  : f.groupRule === 'SelectAtMost' ? `Au plus ${f.groupMax ?? 1}`
+                  : 'Libre'
+                return (
+                  <div style={{ fontSize: 11, color: 'var(--foreground)', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 8px', lineHeight: 1.5 }}>
+                    <strong>{members.length}</strong> case{members.length > 1 ? 's' : ''} dans ce groupe ·
+                    règle <strong>{ruleLabel}</strong> ·
+                    page{pages.length > 1 ? 's' : ''} <strong>{pages.join(', ')}</strong>
+                    {members.length > 1 && (
+                      <div style={{ marginTop: 4, fontSize: 10.5, color: 'var(--muted)' }}>
+                        {members.map(m => `« ${m.tooltip || m.label || '(sans nom)'} »`).join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
               <Field label="Étiquette du groupe">
                 <input
                   type="text"

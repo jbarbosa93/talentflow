@@ -755,14 +755,38 @@ export function areAllRequiredFieldsFilled(
     f.required &&
     !f.metadata?.hidden &&
     f.type !== 'annotation' &&
-    !(blockedFieldIds?.has(f.id))
+    !(blockedFieldIds?.has(f.id)) &&
+    // v2.8.10 — Checkboxes groupées : validées via la règle du groupe (plus bas),
+    // pas individuellement (sinon Oui+Non tous requis = impossible).
+    !(f.type === 'checkbox' && f.groupId && f.groupRule)
   )
   // Aussi : tous les champs signature/initial doivent avoir une signature globale
   const hasSignatureField = fields.some(f =>
     (f.type === 'signature' || f.type === 'initial') && !f.metadata?.hidden
   )
   if (hasSignatureField && !signatureDataUrl) return false
-  return requiredFields.every(f => isFieldFilled(f, values[f.id], signatureDataUrl, autoFill))
+  if (!requiredFields.every(f => isFieldFilled(f, values[f.id], signatureDataUrl, autoFill))) return false
+
+  // v2.8.10 — Validation des groupes de cases : si une case du groupe est dans
+  // la liste des fields à valider (= step courant), TOUT le groupe doit respecter sa règle.
+  const fieldIdSet = new Set(fields.map(f => f.id))
+  const groupsToCheck = new Map<string, { rule?: string; min?: number; max?: number; members: SignField[] }>()
+  for (const f of fields) {
+    if (f.type !== 'checkbox' || !f.groupId) continue
+    if (blockedFieldIds?.has(f.id)) continue
+    if (!fieldIdSet.has(f.id)) continue
+    const g = groupsToCheck.get(f.groupId)
+    if (g) g.members.push(f)
+    else groupsToCheck.set(f.groupId, { rule: f.groupRule, min: f.groupMin, max: f.groupMax, members: [f] })
+  }
+  for (const g of groupsToCheck.values()) {
+    if (!g.rule) continue
+    const checkedCount = g.members.filter(m => values[m.id] === true).length
+    if (g.rule === 'SelectExactly' && checkedCount !== (g.min ?? 1)) return false
+    if (g.rule === 'SelectAtLeast' && checkedCount < (g.min ?? 1)) return false
+    if (g.rule === 'SelectAtMost' && checkedCount > (g.max ?? 1)) return false
+  }
+  return true
 }
 
 /**

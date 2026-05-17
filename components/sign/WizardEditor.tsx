@@ -1167,24 +1167,79 @@ function StepDetail({
         >
           <SortableContext items={stepFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {stepFields.map((f, i) => (
-                <SortableFieldRow
-                  key={f.id}
-                  field={f}
-                  fieldIdxInStep={i}
-                  totalFieldsInStep={stepFields.length}
-                  allRecipientFields={allRecipientFields}
-                  onUpdate={(patch) => onUpdateField(f.id, patch)}
-                  onUpdateAnyField={onUpdateField}
-                  onRemove={() => onRemoveFieldFromStep(f.id)}
-                  onSplitAfter={() => onSplitAt(i + 1)}
-                  onDuplicate={() => onDuplicateField(f.id)}
-                  availableTargetSteps={allSteps
-                    .map((s, idx) => ({ ...s, idx }))
-                    .filter(s => s.idx !== stepIdx && (s.recipientOrder ?? 1) === (step.recipientOrder ?? 1))}
-                  onMoveToStep={(targetIdx) => onMoveFieldToStep(f.id, targetIdx)}
-                />
-              ))}
+              {(() => {
+                // v2.8.10 — Regroupement visuel par section : on rend les fields
+                // dans leur ordre actuel mais on insère un en-tête "§ Nom de section"
+                // dès qu'on rencontre une nouvelle valeur de wizardSection. Les
+                // champs sans section sont rendus sans en-tête (juste empilés).
+                const els: React.ReactNode[] = []
+                let currentSection: string | null = null
+                stepFields.forEach((f, i) => {
+                  const sec = (f.wizardSection || '').trim()
+                  if (sec && sec !== currentSection) {
+                    currentSection = sec
+                    // Description partagée (sib field avec la même section)
+                    const sib = stepFields.find(x => (x.wizardSection || '').trim() === sec && x.sectionDescription)
+                    const sectionMembers = stepFields.filter(x => (x.wizardSection || '').trim() === sec)
+                    // v2.8.10 — On ignore les checkboxes groupées dans le calcul allRequired :
+                    // leur "obligatoire" est porté par la règle du groupe, pas par required.
+                    const allRequiredTargets = sectionMembers.filter(x => !(x.type === 'checkbox' && x.groupId && x.groupRule))
+                    const allRequired = allRequiredTargets.length > 0 && allRequiredTargets.every(x => x.required)
+                    els.push(
+                      <SectionHeader
+                        key={`sec-${sec}`}
+                        sectionName={sec}
+                        sectionDescription={sib?.sectionDescription}
+                        memberCount={sectionMembers.length}
+                        allRequired={allRequired}
+                        marginTop={i === 0 ? 0 : 8}
+                        onRename={(newName) => {
+                          const trimmed = newName.trim()
+                          if (!trimmed || trimmed === sec) return
+                          // Renomme la section sur TOUS les fields qui la portent (tous docs)
+                          for (const m of sectionMembers) onUpdateField(m.id, { wizardSection: trimmed })
+                          toast.success(`Section renommée : « ${sec} » → « ${trimmed} »`)
+                        }}
+                        onRequiredToggle={(required) => {
+                          // v2.8.10 — Exclut les checkboxes groupées : leur "obligatoire"
+                          // est porté par la règle du groupe (SelectExactly/AtLeast/AtMost),
+                          // pas par le flag required individuel (sinon Oui+Non=impossible).
+                          const targets = sectionMembers.filter(m => !(m.type === 'checkbox' && m.groupId && m.groupRule))
+                          for (const m of targets) onUpdateField(m.id, { required })
+                          const skipped = sectionMembers.length - targets.length
+                          const msg = skipped > 0
+                            ? `Section "${sec}" : ${required ? 'obligatoire' : 'facultatif'} (${skipped} case${skipped > 1 ? 's' : ''} groupée${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''} — règle du groupe prévaut)`
+                            : `Section "${sec}" : ${required ? 'tout obligatoire' : 'tout facultatif'}`
+                          toast.success(msg)
+                        }}
+                      />,
+                    )
+                  } else if (!sec && currentSection !== null) {
+                    // On sort d'une section (champ sans section après une section)
+                    currentSection = null
+                  }
+                  els.push(
+                    <div key={f.id} style={sec ? { marginLeft: 18 } : undefined}>
+                      <SortableFieldRow
+                        field={f}
+                        fieldIdxInStep={i}
+                        totalFieldsInStep={stepFields.length}
+                        allRecipientFields={allRecipientFields}
+                        onUpdate={(patch) => onUpdateField(f.id, patch)}
+                        onUpdateAnyField={onUpdateField}
+                        onRemove={() => onRemoveFieldFromStep(f.id)}
+                        onSplitAfter={() => onSplitAt(i + 1)}
+                        onDuplicate={() => onDuplicateField(f.id)}
+                        availableTargetSteps={allSteps
+                          .map((s, idx) => ({ ...s, idx }))
+                          .filter(s => s.idx !== stepIdx && (s.recipientOrder ?? 1) === (step.recipientOrder ?? 1))}
+                        onMoveToStep={(targetIdx) => onMoveFieldToStep(f.id, targetIdx)}
+                      />
+                    </div>,
+                  )
+                })
+                return els
+              })()}
             </div>
           </SortableContext>
         </DndContext>
@@ -2104,6 +2159,124 @@ function AttachmentsEditor({
 
 // v2.2.4 — FormulaEditor interne supprimé (déplacé dans FieldFormulaOptions.tsx
 // pour partage entre Mode Wizard et Mode Document).
+
+// ─── SectionHeader v2.8.10 — En-tête de section éditable inline ──────
+function SectionHeader({
+  sectionName, sectionDescription, memberCount, allRequired, marginTop,
+  onRename, onRequiredToggle,
+}: {
+  sectionName: string
+  sectionDescription?: string
+  memberCount: number
+  allRequired: boolean
+  marginTop: number
+  onRename: (newName: string) => void
+  onRequiredToggle: (required: boolean) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(sectionName)
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+  const commit = () => {
+    const trimmed = draft.trim()
+    if (trimmed && trimmed !== sectionName) onRename(trimmed)
+    setEditing(false)
+  }
+  const cancel = () => {
+    setDraft(sectionName)
+    setEditing(false)
+  }
+  return (
+    <div
+      style={{
+        marginTop,
+        padding: '8px 10px',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderLeft: '3px solid var(--primary, #EAB308)',
+        borderRadius: 6,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }}
+    >
+      {editing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === 'Enter') commit()
+            else if (e.key === 'Escape') cancel()
+          }}
+          style={{
+            fontSize: 12, fontWeight: 700, color: 'var(--foreground)',
+            textTransform: 'uppercase', letterSpacing: 0.4,
+            background: 'var(--card)',
+            border: '1px solid var(--primary, #EAB308)',
+            borderRadius: 4,
+            padding: '2px 6px',
+            outline: 'none',
+            minWidth: 180,
+            fontFamily: 'inherit',
+          }}
+        />
+      ) : (
+        <span
+          onClick={() => setEditing(true)}
+          title="Cliquer pour renommer la section"
+          style={{
+            fontSize: 11, fontWeight: 700, color: 'var(--foreground)',
+            textTransform: 'uppercase', letterSpacing: 0.4,
+            cursor: 'pointer',
+            padding: '2px 6px',
+            borderRadius: 4,
+            border: '1px solid transparent',
+            transition: 'background 0.12s, border-color 0.12s',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.background = 'var(--card)'
+            ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.background = 'transparent'
+            ;(e.currentTarget as HTMLElement).style.borderColor = 'transparent'
+          }}
+        >
+          {sectionName}
+        </span>
+      )}
+      <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+        ({memberCount} champ{memberCount > 1 ? 's' : ''})
+      </span>
+      {sectionDescription && (
+        <span style={{ fontSize: 10.5, color: 'var(--muted)', fontStyle: 'italic', marginLeft: 4, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          — {sectionDescription}
+        </span>
+      )}
+      <span style={{ flex: sectionDescription ? 0 : 1 }} />
+      <label
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+        title="Rend obligatoire TOUS les champs de cette section"
+      >
+        <input
+          type="checkbox"
+          checked={allRequired}
+          onChange={e => onRequiredToggle(e.target.checked)}
+          style={{ accentColor: 'var(--primary, #EAB308)', cursor: 'pointer' }}
+        />
+        Tout obligatoire
+      </label>
+    </div>
+  )
+}
 
 // ─── DisplayModeBtn — toggle Liste / Cartes ──────────────────────────
 function DisplayModeBtn({

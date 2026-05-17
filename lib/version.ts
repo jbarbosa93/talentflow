@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.8.9'
+export const APP_VERSION = '2.8.11'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,41 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.11 — Sign Templates : garde-fous anti-écrasement + suppression chatbot
+  //           + règle d'incohérence checkboxes groupées
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.11',
+    date: '2026-05-17',
+    label: 'Sign Templates : garde-fous anti-écrasement DB + suppression chatbot IA + règle checkboxes groupées',
+    features: [
+      'INCIDENT 17/05 14:56 — Le template « Documents à signer » a été wipé en DB suite à une race condition probable HMR/auto-save (PATCH silent avec docs=[] envoyé pendant l\'hydratation du composant). Restauration depuis le daily backup 17/05 01:56 UTC (5 docs, 102 fields, 16 wizard steps, 2 destinataires intacts, 0 perte fonctionnelle).',
+      'GARDE-FOU CLIENT — `TemplateEditor.handleSave` capture les counts au premier load avec data non-vide. Tout PATCH (silent OU manuel) qui tenterait d\'envoyer docs/recipients/wizard_steps vide alors qu\'il y en avait au load est REFUSÉ et déclenche un toast rouge `Auto-save annulée (écrasement détecté)`.',
+      'GARDE-FOU SERVEUR — Route PATCH `/api/sign/templates/[id]` retourne 409 Conflict si le payload tente de vider une collection (documents/wizard_steps/recipients_schema) alors que la DB en contient. Override possible via `?confirm_wipe=1` (action explicite uniquement). Double protection client+serveur.',
+      'Règle d\'incohérence — checkboxes groupées : quand une checkbox appartient à un groupe avec une règle (SelectExactly/AtLeast/AtMost), son flag `required` individuel est ignoré partout (validation Suivant, calcul allRequired, toast « Tout obligatoire »). La règle du groupe est la seule source de vérité. Évite l\'absurdité « Oui ET Non doivent être cochés ». Auto-décoche required:false à la création d\'un groupe.',
+      'Validation groupe en wizard FIXÉE — `SignWizard.validateCurrentStep` vérifie maintenant les règles de groupe. Message d\'erreur précis : « Etes vous au chomage ? : sélectionne exactement 1 case (actuellement 0) ». Plus de skip silencieux du Suivant.',
+      'Couleurs des rôles personnalisables — palette 8 couleurs (vert, orange, bleu, violet, rose, cyan, indigo, rouge) sous chaque rôle. Le PDF, les badges et les checkboxes héritent automatiquement de la couleur choisie.',
+      'Mode Wizard : regroupement visuel par section — en-tête de section éditable inline (clique pour renommer, Enter pour valider, Escape pour annuler — propagé à tous les fields de la section). Toggle « Tout obligatoire » bascule required sur tous les fields de la section (excepté checkboxes groupées). Champs indentés sous l\'en-tête.',
+      'Mode Document : infos du groupe au clic sur une case — sélectionner une checkbox groupée affiche directement les membres, la règle, les pages et les noms des autres cases. Plus besoin de chercher quelles cases vont ensemble.',
+      'Chatbot Assistant IA template SUPPRIMÉ — retour utilisateur « ne marche pas ». Composant `TemplateAssistantBar.tsx` + route `/api/sign/templates/[id]/assistant` retirés du code. Le bouton « Améliorer avec l\'IA » (détection auto des fields via Claude Vision sur PDF) reste : c\'est un endpoint séparé (`enrich-with-ai`) qui fonctionne.',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.8.10 — TemplateEditor : sections + groupes + couleurs rôles + validation wizard
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.8.10',
+    date: '2026-05-17',
+    label: 'Éditeur template : sections, groupes visualisés, couleurs rôles, validation wizard groupes',
+    features: [
+      'Couleurs des rôles personnalisables (palette 8 couleurs) — chaque rôle peut être recoloré via les pastilles sous le sélecteur signer/cc. Le PDF + les badges + les checkboxes héritent automatiquement de la couleur choisie.',
+      'Mode Wizard : regroupement visuel par section — quand des champs partagent une « Section d\'affichage », un en-tête « § NomSection » s\'affiche au-dessus avec un toggle « Tout obligatoire » qui bascule required sur tous les champs de la section d\'un clic. Les champs de la section sont indentés sous l\'en-tête. Plus besoin d\'ouvrir chaque champ pour vérifier sa section.',
+      'Mode Document : infos du groupe au clic sur une case — sélectionner une checkbox groupée affiche maintenant directement la liste des membres du groupe, leur règle (Exactement N / Au moins / Au plus), les pages concernées et les noms des autres cases. Plus besoin de chercher quelles cases vont ensemble.',
+      'Validation groupe en wizard (bloque Suivant) — `areAllRequiredFieldsFilled` vérifie maintenant les règles de groupe (SelectExactly/SelectAtLeast/SelectAtMost). Le bouton Suivant reste désactivé tant que la règle n\'est pas respectée. Plus aucun skip silencieux d\'un groupe « Exactement 1 ».',
+      'Assistant IA template fermé par défaut — la bulle minimisée s\'affiche en bas à droite (cliquer pour ouvrir). Plus de panneau qui s\'auto-ouvre et masque l\'éditeur.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.8.9 — Hotfix : double email signé quand consultant == admin == signataire
   // ─────────────────────────────────────────────────────────────────────

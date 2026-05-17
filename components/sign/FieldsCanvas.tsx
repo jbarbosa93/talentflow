@@ -40,6 +40,11 @@ interface Props {
   /** v2.7.6 — Filtre visuel par étape. Si défini, les fields PAS dans ce Set sont
    *  grisés (opacity 0.3) mais restent visibles et cliquables. null = pas de filtre. */
   stepFilterFieldIds?: Set<string> | null
+  /** v2.8.10 — Mapping order → colorIdx (palette custom par rôle). Si manquant,
+   *  fallback sur order modulo palette. */
+  recipientColorMap?: Record<number, number>
+  /** v2.8.10 — Set des fieldIds à highlighter (hover groupe). Outline brillant. */
+  highlightedFieldIds?: Set<string>
 }
 
 export const DEFAULT_FIELD_SIZE_PCT: Record<SignFieldType, { w: number; h: number }> = {
@@ -98,11 +103,14 @@ const SNAP_THRESHOLD_PX = 6
 
 const PEN_PATH = 'M3 21l3-1 11-11-2-2L4 18l-1 3zm14-14l2-2 2 2-2 2-2-2z'
 
-// v2.8.0 — Avant : `Math.max(1, order) - 1` mappait order=0 ET order=1 au même
-// index 0 → 2 rôles affichés en même couleur. Maintenant on utilise order direct
-// (modulo la palette pour éviter le crash sur index hors borne).
-function colorFor(order: number) {
-  const idx = Math.max(0, order ?? 0) % RECIPIENT_COLORS.length
+// v2.8.10 — Couleur résolue depuis recipientColorMap (order → colorIdx custom)
+// avec fallback sur order modulo palette si pas de mapping. Permet aux rôles
+// d'avoir une couleur personnalisée définie dans le panneau RÔLES.
+function colorFor(order: number, colorMap?: Record<number, number>) {
+  const customIdx = colorMap?.[order]
+  const idx = (typeof customIdx === 'number' && customIdx >= 0 && customIdx < RECIPIENT_COLORS.length)
+    ? customIdx
+    : Math.max(0, order ?? 0) % RECIPIENT_COLORS.length
   return RECIPIENT_COLORS[idx] || RECIPIENT_COLORS[0]
 }
 
@@ -118,6 +126,7 @@ export default function FieldsCanvas({
   width, height, page, fields, onChange, selectedIds, onSelect,
   activeTool, activeRecipientOrder, genId, showSectionBadges = true,
   wizardSteps, showStepBadges, stepFilterFieldIds,
+  recipientColorMap, highlightedFieldIds,
 }: Props) {
   const stageRef = useRef<Konva.Stage>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
@@ -573,8 +582,10 @@ export default function FieldsCanvas({
           const w = f.width * width
           const h = f.height * height
           const isSelected = selectedSet.has(f.id)
-          const isHovered = hoveredId === f.id
-          const c = colorFor(f.recipientOrder)
+          // v2.8.10 — highlight si dans le set hover groupe (équivalent à hover natif)
+          const isGroupHighlighted = !!highlightedFieldIds?.has(f.id)
+          const isHovered = hoveredId === f.id || isGroupHighlighted
+          const c = colorFor(f.recipientOrder, recipientColorMap)
           const stepNum = showStepNums ? (fieldStepMap.get(f.id) ?? null) : null
           // v2.7.6 — Atténuation si filtre étape actif et field hors filtre
           const isDimmed = !!stepFilterFieldIds && !stepFilterFieldIds.has(f.id)
@@ -615,7 +626,7 @@ export default function FieldsCanvas({
           const h = f.height * height
           const handleX = x + w
           const handleY = y + h
-          const c = colorFor(f.recipientOrder)
+          const c = colorFor(f.recipientOrder, recipientColorMap)
           return (
             <Rect
               key={`h_${f.id}`}
@@ -665,7 +676,7 @@ export default function FieldsCanvas({
         const def = DEFAULT_FIELD_SIZE_PCT[activeTool]
         const wPx = def.w * width
         const hPx = def.h * height
-        const c = colorFor(activeRecipientOrder)
+        const c = colorFor(activeRecipientOrder, recipientColorMap)
         return (
           <Layer listening={false}>
             <Rect
