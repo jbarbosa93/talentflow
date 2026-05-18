@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.7'
+export const APP_VERSION = '2.9.8'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.8 — Modal Inviter : pre-fill email candidat + createPortal (fix backdrop sticky)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.8',
+    date: '2026-05-18',
+    label: 'Modal "+ Inviter" : pré-remplit l\'email candidat + createPortal pour fix backdrop noir sticky',
+    features: [
+      'PortalAccountsPanel : nouvelle prop `defaultInviteEmail`. Sur /sign/rapports/[id], passer `link.candidat_email` → le modal s\'ouvre avec l\'email pré-rempli (skip si déjà compte créé pour cet email).',
+      'BUG MODAL — Backdrop sticky + non flou + ne suit pas le scroll (pattern #10). Cause : un ancêtre du dashboard avec `transform` casse `position:fixed`. Fix : wrap dans `createPortal(jsx, document.body)`. Backdrop blur 6px + WebkitBackdropFilter ajouté pour Safari.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.7 — Phase form rapport : icônes Mon compte/Déconnexion à côté du bouton Aide
   // ─────────────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@
 // - Boutons par compte : Renvoyer invitation / Révoquer / Réactiver / Supprimer
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 
 type AccountType = 'client' | 'candidat'
@@ -34,6 +35,9 @@ interface Props {
   authRequired?: boolean
   /** Callback quand auth_required change (pour rafraîchir le parent si besoin) */
   onAuthRequiredChange?: (next: boolean) => void
+  /** v2.9.8 — Email pré-rempli quand l'admin ouvre la modal d'invitation
+   *  (ex: email du candidat sur /sign/rapports/[id], email client sur portail). */
+  defaultInviteEmail?: string | null
 }
 
 function formatDate(s: string | null): string {
@@ -59,7 +63,7 @@ function statusBadge(status: PortalAccount['status']) {
   )
 }
 
-export default function PortalAccountsPanel({ portalId, reportLinkId, accountType, contextLabel, authRequired, onAuthRequiredChange }: Props) {
+export default function PortalAccountsPanel({ portalId, reportLinkId, accountType, contextLabel, authRequired, onAuthRequiredChange, defaultInviteEmail }: Props) {
   const [accounts, setAccounts] = useState<PortalAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -187,7 +191,12 @@ export default function PortalAccountsPanel({ portalId, reportLinkId, accountTyp
           Accès au {accountType === 'client' ? 'portail' : 'rapport'} ({accounts.length})
         </h3>
         <button
-          onClick={() => setInviteOpen(true)}
+          onClick={() => {
+            // v2.9.8 — Pré-remplit avec defaultInviteEmail si déjà pas créé pour cet email
+            const already = accounts.some(a => a.email.toLowerCase() === (defaultInviteEmail || '').toLowerCase().trim())
+            setInviteEmail(!already && defaultInviteEmail ? defaultInviteEmail.trim() : '')
+            setInviteOpen(true)
+          }}
           style={{
             padding: '7px 14px', fontSize: 13, fontWeight: 600,
             background: '#EAB308', color: '#1C1A14',
@@ -269,10 +278,12 @@ export default function PortalAccountsPanel({ portalId, reportLinkId, accountTyp
         </div>
       )}
 
-      {/* Modal invitation */}
-      {inviteOpen && (
+      {/* Modal invitation — v2.9.8 : createPortal pour échapper aux ancêtres avec transform
+          qui cassent position:fixed (pattern #10) */}
+      {inviteOpen && typeof document !== 'undefined' && createPortal(
         <div onClick={() => !busy && setInviteOpen(false)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16,
         }}>
           <div onClick={e => e.stopPropagation()} style={{
@@ -306,7 +317,8 @@ export default function PortalAccountsPanel({ portalId, reportLinkId, accountTyp
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

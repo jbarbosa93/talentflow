@@ -444,6 +444,7 @@ export default function ReportLinkDetailPage({
           accountType="candidat"
           contextLabel={link.candidat_name || undefined}
           authRequired={(link as any).auth_required}
+          defaultInviteEmail={link.candidat_email || undefined}
         />
       </div>
 
