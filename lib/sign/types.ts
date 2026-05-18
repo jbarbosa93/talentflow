@@ -117,6 +117,13 @@ export interface SignField {
   // 'phone' = téléphone portable du candidat (depuis sa fiche).
   autoFillSource?: 'phone'
 
+  // v2.9.12 — Clé métier partagée entre templates pour autofill cross-template.
+  // Ex: 'address', 'npa', 'ville', 'pays', 'avs', 'iban'. Si un autre template
+  // déjà signé par le même email contient un field avec la même `crossTemplateKey`,
+  // la valeur saisie y sera utilisée pour pré-remplir ce field-ci.
+  // Le candidat peut toujours corriger la valeur pré-remplie.
+  crossTemplateKey?: string
+
   // v2.2.0 Phase 2.5 — Formatage du texte rendu (texte/date/email/...)
   font?: string                    // 'Arial' | 'Helvetica' | 'Calibri' | 'Times' | 'Courier'
   fontSize?: number                // pt
@@ -209,6 +216,28 @@ export const COMMON_MIME_TYPES: { value: string; label: string }[] = [
   { value: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',          label: 'DOCX' },
   { value: 'application/msword',                                                               label: 'DOC' },
   { value: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',                label: 'XLSX' },
+]
+
+// v2.9.12 — Presets de clés cross-template pour autofill entre templates signés
+// par le même destinataire. L'admin peut aussi saisir une clé custom.
+export const CROSS_TEMPLATE_KEYS: { value: string; label: string }[] = [
+  { value: '',                  label: '— Aucune —' },
+  { value: 'address',           label: 'Adresse (rue + n°)' },
+  { value: 'npa',               label: 'NPA / Code postal' },
+  { value: 'ville',             label: 'Ville / Localité' },
+  { value: 'pays',              label: 'Pays' },
+  { value: 'date_naissance',    label: 'Date de naissance' },
+  { value: 'lieu_naissance',    label: 'Lieu de naissance' },
+  { value: 'nationalite',       label: 'Nationalité' },
+  { value: 'avs',               label: 'N° AVS' },
+  { value: 'iban',              label: 'IBAN' },
+  { value: 'tel_urgence',       label: 'Téléphone d\'urgence' },
+  { value: 'nom_urgence',       label: 'Personne à contacter (urgence)' },
+  { value: 'nom_conjoint',      label: 'Nom du conjoint' },
+  { value: 'prenom_conjoint',   label: 'Prénom du conjoint' },
+  { value: 'permis_type',       label: 'Type de permis' },
+  { value: 'permis_expiration', label: 'Date d\'expiration permis' },
+  { value: 'caisse_maladie',    label: 'Caisse maladie' },
 ]
 
 export type SignConditionOperator =

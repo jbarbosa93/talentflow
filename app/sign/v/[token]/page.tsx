@@ -262,6 +262,50 @@ export default function PublicSignPage({ params }: PageProps) {
       .catch(() => setState('error'))
   }, [token])
 
+  // v2.9.12 — Cross-template autofill : récupère les valeurs des champs ayant
+  // une `crossTemplateKey` depuis les autres templates déjà signés par ce destinataire.
+  // Ne réécrit JAMAIS une valeur déjà saisie (priorité minimale).
+  useEffect(() => {
+    if (!data || state !== 'ok') return
+    // Collecte les crossTemplateKey utilisées dans le template courant
+    const keyToFieldIds: Record<string, string[]> = {}
+    for (const doc of (data.documents || [])) {
+      for (const f of (doc.fields || [])) {
+        const k = (f as any).crossTemplateKey
+        if (typeof k === 'string' && k.trim()) {
+          const key = k.trim()
+          ;(keyToFieldIds[key] ||= []).push(f.id)
+        }
+      }
+    }
+    if (Object.keys(keyToFieldIds).length === 0) return
+    fetch('/api/sign/cross-fill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { values?: Record<string, string> } | null) => {
+        if (!d?.values) return
+        setFieldValues(prev => {
+          const next = { ...prev }
+          let touched = false
+          for (const [key, value] of Object.entries(d.values || {})) {
+            const fieldIds = keyToFieldIds[key]
+            if (!fieldIds) continue
+            for (const fid of fieldIds) {
+              // Skip si le candidat a déjà saisi qqch (ne pas écraser)
+              if (next[fid] !== undefined && next[fid] !== null && next[fid] !== '') continue
+              next[fid] = value
+              touched = true
+            }
+          }
+          return touched ? next : prev
+        })
+      })
+      .catch(() => { /* silent */ })
+  }, [data, state, token])
+
   const documents = useMemo(() => data?.documents || [], [data])
   const activeDoc = documents[activeDocIdx]
   const senderDisplayName = data?.sender?.name || COMPANY

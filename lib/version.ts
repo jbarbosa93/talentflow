@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.11'
+export const APP_VERSION = '2.9.12'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.12 — Sign : autofill cross-template par clé métier
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.12',
+    date: '2026-05-18',
+    label: 'Sign : autofill cross-template (adresse/NPA/AVS… repris d\'un template signé précédemment)',
+    features: [
+      'NOUVEAU CHAMP — `SignField.crossTemplateKey?: string` permet de tagger un champ avec une clé métier partagée (adresse, npa, ville, pays, AVS, IBAN, date de naissance, conjoint, permis, etc.). 18 presets fournis + clé custom via saisie libre.',
+      'ÉDITEUR — Sélecteur « Clé partagée (autofill cross-template) » visible dans le panneau d\'édition d\'un field text/number/date/email/select/phone. Le tooltip explique le comportement.',
+      'API — Nouvelle route publique POST `/api/sign/cross-fill` : prend un token sign (authentifie le destinataire) et renvoie un map `{ crossKey: dernièreValeur }` agrégé sur tous les templates déjà signés par le même email. Plus récent gagne. Skip valeurs vides.',
+      'CANDIDAT — `/sign/v/[token]` : useEffect dédié au mount qui appelle cross-fill et pré-remplit les fields ayant une `crossTemplateKey` connue. N\'ÉCRASE JAMAIS une valeur déjà saisie (priorité minimale). Le candidat peut toujours corriger.',
+      'USE CASE — Le candidat remplit son adresse/NPA dans la Fiche d\'inscription. Quand on lui envoie ensuite la Mappe, ces champs sont déjà pré-remplis. Idem pour AVS, IBAN, infos conjoint, etc.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.11 — Upload PDF inline dans « Documents à consulter » du Wizard
   // ─────────────────────────────────────────────────────────────────────

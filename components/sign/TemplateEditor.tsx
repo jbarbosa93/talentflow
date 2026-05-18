@@ -33,7 +33,7 @@ import {
   RECIPIENT_COLORS, FIELD_TYPE_LABELS, FIELD_TYPE_CATEGORIES,
   CONDITION_OPERATOR_LABELS, CONDITION_ACTION_LABELS,
   AUTO_FILL_FIELD_TYPES, DATE_FORMATS, CURRENCIES, COMMON_MIME_TYPES,
-  FONT_FAMILIES, FONT_SIZES, FONT_COLORS,
+  FONT_FAMILIES, FONT_SIZES, FONT_COLORS, CROSS_TEMPLATE_KEYS,
   getRecipientPalette,
 } from '@/lib/sign/types'
 
@@ -2145,6 +2145,23 @@ function SelectedFieldsPanel({
               ))}
             </select>
           </Field>
+          {/* v2.9.12 — Clé partagée cross-template pour autofill entre templates
+              signés par le même destinataire (ex: adresse saisie dans Fiche d'inscription
+              pré-remplit l'adresse dans Mappe). Visible pour text/number/date/email/select. */}
+          {(['text', 'number', 'date', 'email', 'select', 'phone'] as SignFieldType[]).includes(f.type) && (
+            <Field label="Clé partagée (autofill cross-template)">
+              <select
+                className="neo-input"
+                value={f.crossTemplateKey || ''}
+                onChange={e => onPatch(f.id, { crossTemplateKey: e.target.value || undefined })}
+                title="Si un autre template signé par le même destinataire a un field avec la même clé, sa valeur pré-remplira ce field."
+              >
+                {CROSS_TEMPLATE_KEYS.map(k => (
+                  <option key={k.value} value={k.value}>{k.label}</option>
+                ))}
+              </select>
+            </Field>
+          )}
           {/* v2.2.2 — Pills colorées au lieu de select texte (feedback visuel direct).
               Le champ change INSTANTANÉMENT de couleur sur le PDF Konva en cliquant. */}
           <Field label="Destinataire">
