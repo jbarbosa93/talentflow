@@ -8,7 +8,8 @@ import Link from 'next/link'
 import { Award, Download, Eye, FileText, Loader2, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { getWeekDates } from '@/lib/report/week-helpers'
-import { REPORT_STATUS_LABELS, type ReportSubmission } from '@/lib/report/types'
+import { REPORT_STATUS_LABELS, type ReportSubmission, type ReportLinkClient } from '@/lib/report/types'
+import { toWhatsAppSafe } from '@/lib/report/text-format'
 import PdfPreviewModal from './PdfPreviewModal'
 import CorrectWeekModal from './CorrectWeekModal'
 
@@ -30,10 +31,14 @@ interface Props {
   }>
   /** v2.6.17 — Callback après une correction de semaine réussie (re-fetch parent). */
   onCorrected?: () => void
+  /** v2.9.2 — Liste des entreprises destinataires (pour bouton WhatsApp client par submission). */
+  clients?: ReportLinkClient[]
+  /** v2.9.2 — Nom du candidat (utilisé dans le message WhatsApp envoyé au client). */
+  candidatName?: string | null
 }
 
 export default function SubmissionHistoryTable({
-  submissions, onViewPdf, slug, showLinkColumn, linksMeta, onCorrected,
+  submissions, onViewPdf, slug, showLinkColumn, linksMeta, onCorrected, clients, candidatName,
 }: Props) {
   // v2.3.8 Bug 9b — État loading par submission pour les boutons Télécharger
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
@@ -282,6 +287,40 @@ export default function SubmissionHistoryTable({
                             : <Award size={11} />}
                           Certificat
                         </button>
+                      )}
+                      {/* v2.9.2 — WhatsApp au client (si rapport en attente de signature client).
+                          Pratique quand le client ne réagit pas à l'email. */}
+                      {s.status === 'candidate_signed' && s.client_token && (
+                        (() => {
+                          const sl = slug || linksMeta?.[s.id]?.slug
+                          if (!sl) return null
+                          const client = clients?.find(c => c.id === s.report_link_client_id)
+                          const phoneDigits = (client?.client_phone || '').replace(/\D/g, '')
+                          const signUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/report/client/${s.client_token}`
+                          const week = getWeekDates(s.week_start)
+                          const greetingName = client?.client_contact_name?.split(/\s+/)[0] || ''
+                          const greeting = greetingName ? `Bonjour ${greetingName},` : 'Bonjour,'
+                          const cand = (candidatName || '').trim() || 'le collaborateur'
+                          const rawMsg = `${greeting}\n\n${cand} a soumis son rapport d'heures de la semaine ${week.weekNumber}. Pouvez-vous le valider via le lien ci-dessous ?\n\n${signUrl}\n\nMerci !\n\n— L-Agence SA`
+                          const msg = toWhatsAppSafe(rawMsg)
+                          const url = phoneDigits
+                            ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(msg)}`
+                            : `https://wa.me/?text=${encodeURIComponent(msg)}`
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!phoneDigits) toast.warning('Pas de WhatsApp client configuré — choisis le contact dans WhatsApp')
+                                window.open(url, '_blank', 'noopener,noreferrer')
+                              }}
+                              title="Envoyer le lien de validation au client par WhatsApp"
+                              style={actionBtnStyle('#25D366')}
+                            >
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.8.9-1 1.1-.2.2-.4.2-.7.1-1.8-.9-3-1.6-4.2-3.6-.3-.6.3-.5.9-1.7.1-.2 0-.4 0-.5 0-.1-.7-1.6-.9-2.2-.2-.5-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1 2.9 1.2 3.1c.1.2 2.1 3.2 5 4.5 1.8.8 2.5.8 3.4.7.5 0 1.7-.7 1.9-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3zM12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 4.9L2 22l5.3-1.4c1.4.8 3 1.2 4.7 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2z"/></svg>
+                              WhatsApp client
+                            </button>
+                          )
+                        })()
                       )}
                       {/* v2.6.17 — Corriger la semaine (admin/consultant). Visible uniquement
                           si signée par le candidat (status candidate_signed/client_signed/completed). */}

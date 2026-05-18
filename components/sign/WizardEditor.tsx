@@ -1939,11 +1939,14 @@ function ConditionsEditor({
                   onChange={e => update(i, { triggerFieldId: e.target.value })}
                   style={{ ...editInputStyle, padding: '4px 6px', fontSize: 11, flex: 1, minWidth: 140 }}
                 >
-                  {/* v2.7.8 — Groupé par section + nom lisible (fini les UUIDs DocuSign) */}
+                  {/* v2.7.8 — Groupé par section + nom lisible (fini les UUIDs DocuSign)
+                      v2.9.2 — Suffixe page+id court pour disambigüer 2 fields homonymes */}
                   {groupFieldsBySection(otherFields).map((g, gi) => (
                     <optgroup key={`s-${gi}`} label={g.section || '(sans section)'}>
                       {g.fields.map(f => (
-                        <option key={f.id} value={f.id}>{getFieldDisplayLabel(f)}</option>
+                        <option key={f.id} value={f.id}>
+                          {getFieldDisplayLabel(f)} · p.{f.page ?? 1} · #{f.id.slice(0, 4)}
+                        </option>
                       ))}
                     </optgroup>
                   ))}

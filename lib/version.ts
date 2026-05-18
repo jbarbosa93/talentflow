@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.1'
+export const APP_VERSION = '2.9.2'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.2 — Sign Templates polish + Rapports : bouton WhatsApp client par submission
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.2',
+    date: '2026-05-18',
+    label: 'Sign : badge condition sous la case + dropdown disambigué — Rapports : bouton WhatsApp client par semaine',
+    features: [
+      'SIGN — Badge condition ⚙ sur checkbox : déplacé SOUS la case (avant chevauchait le badge étape sur le coin top-left). Ne masque plus le numéro d\'étape.',
+      'SIGN — Dropdown « champ déclencheur » dans l\'éditeur de conditions affiche maintenant la page + un ID court (`Section — Nom · p.1 · #abc1`). Permet de différencier deux checkboxes homonymes (ex: 2 « Suisse » dans 2 sections différentes).',
+      'RAPPORTS — Bouton WhatsApp client par submission (status `candidate_signed`). Visible sur `/sign/rapports/[id]` à côté de Corriger semaine. Ouvre `wa.me/{tel}?text=…` avec un message pré-rempli incluant le lien `/report/client/{token}` (TTL 7j). Pratique quand le client ne réagit pas à l\'email automatique.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.1 — Sign Templates : conditions show/require + badge condition
   //          sur checkboxes + couleurs custom rôles dans panneau Réassigner

@@ -922,10 +922,10 @@ function FieldGroup({
             />
           </>
         )}
-        {/* v2.9.1 — Badge "a une condition" : violet, au-dessus à gauche
-            (miroir du badge "G" en haut à droite). Affiche le count. */}
+        {/* v2.9.2 — Badge "a une condition" : violet, SOUS la case (évite le chevauchement
+            avec stepBadge centré sur le coin top-left et groupBadge top-right). */}
         {field.conditions && field.conditions.length > 0 && (
-          <Group x={-3} y={-5} listening={false}>
+          <Group x={-2} y={h + 2} listening={false}>
             <Rect
               width={14}
               height={10}

@@ -15,7 +15,7 @@ import RecapPeriode from '@/components/report/RecapPeriode'
 import { createPortal } from 'react-dom'
 import { BarChart3, X as XIcon } from 'lucide-react'
 import {
-  REPORT_LINK_STATUS_LABELS, type ReportLink, type ReportSubmission,
+  REPORT_LINK_STATUS_LABELS, type ReportLink, type ReportSubmission, type ReportLinkClient,
 } from '@/lib/report/types'
 import { toWhatsAppSafe } from '@/lib/report/text-format'
 import PortalAccountsPanel from '@/components/portal-auth/PortalAccountsPanel'
@@ -27,6 +27,8 @@ export default function ReportLinkDetailPage({
   const router = useRouter()
   const [link, setLink] = useState<ReportLink | null>(null)
   const [submissions, setSubmissions] = useState<ReportSubmission[]>([])
+  // v2.9.2 — Entreprises destinataires (pour bouton WhatsApp client par submission)
+  const [linkClients, setLinkClients] = useState<ReportLinkClient[]>([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [recapOpen, setRecapOpen] = useState(false)
@@ -36,14 +38,17 @@ export default function ReportLinkDetailPage({
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [linkR, subR] = await Promise.all([
+      const [linkR, subR, clR] = await Promise.all([
         fetch(`/api/admin/reports/${id}`),
         fetch(`/api/admin/reports/${id}/submissions`),
+        fetch(`/api/admin/reports/${id}/clients`),
       ])
       const linkD = await linkR.json()
       if (linkR.ok) setLink(linkD.link)
       const subD = await subR.json()
       setSubmissions(subD.submissions || [])
+      const clD = await clR.json().catch(() => ({}))
+      setLinkClients((clD.clients || []) as ReportLinkClient[])
     } catch {
       toast.error('Erreur chargement')
     } finally {
@@ -472,6 +477,8 @@ export default function ReportLinkDetailPage({
           submissions={submissions}
           slug={link.slug}
           onCorrected={fetchData}
+          clients={linkClients}
+          candidatName={link.candidat_name}
         />
       </div>
 
