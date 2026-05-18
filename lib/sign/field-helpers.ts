@@ -241,9 +241,16 @@ export function effectiveFieldState(
   field: SignField,
   fieldValues: Record<string, unknown>,
 ): { visible: boolean; required: boolean } {
-  let visible = true
-  let required = !!field.required
-  if (!field.conditions || field.conditions.length === 0) return { visible, required }
+  if (!field.conditions || field.conditions.length === 0) {
+    return { visible: true, required: !!field.required }
+  }
+  // v2.9.1 — Si une règle `show` est définie, défaut = caché (le show l'allume quand la cond est vraie).
+  // Idem pour `require` : défaut = non obligatoire si une règle `require` existe.
+  // Sinon les actions `show`/`require` ne servent à rien (visible/required déjà true par défaut).
+  const hasShow    = field.conditions.some(c => c.action === 'show')
+  const hasRequire = field.conditions.some(c => c.action === 'require')
+  let visible  = hasShow    ? false : true
+  let required = hasRequire ? false : !!field.required
   for (const cond of field.conditions) {
     const met = evaluateCondition(cond, fieldValues)
     if (!met) continue

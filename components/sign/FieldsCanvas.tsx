@@ -922,6 +922,33 @@ function FieldGroup({
             />
           </>
         )}
+        {/* v2.9.1 — Badge "a une condition" : violet, au-dessus à gauche
+            (miroir du badge "G" en haut à droite). Affiche le count. */}
+        {field.conditions && field.conditions.length > 0 && (
+          <Group x={-3} y={-5} listening={false}>
+            <Rect
+              width={14}
+              height={10}
+              fill="#7C3AED"
+              cornerRadius={2}
+              shadowColor="rgba(0,0,0,0.25)"
+              shadowBlur={2}
+              shadowOffsetY={1}
+            />
+            <Text
+              x={0}
+              y={0}
+              width={14}
+              height={10}
+              text={`⚙${field.conditions.length}`}
+              fontSize={7.5}
+              fontStyle="bold"
+              fill="#fff"
+              align="center"
+              verticalAlign="middle"
+            />
+          </Group>
+        )}
       </Group>
     )
   }

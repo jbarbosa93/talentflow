@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.0'
+export const APP_VERSION = '2.9.1'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.1 — Sign Templates : conditions show/require + badge condition
+  //          sur checkboxes + couleurs custom rôles dans panneau Réassigner
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.1',
+    date: '2026-05-18',
+    label: 'Sign Templates : règles `show` fonctionnelles + badge ⚙ sur checkboxes + couleurs rôles partout',
+    features: [
+      'CONDITIONS show/require — Quand un champ a une règle `show`, il est désormais CACHÉ par défaut et n\'apparaît que si la condition est satisfaite (avant : `show` était un no-op silencieux car le défaut était déjà visible). Idem pour `require` : défaut non obligatoire si une règle `require` existe. Permet enfin des règles « Afficher si X ≠ 0 » qui marchent vraiment.',
+      'BADGE conditions sur checkboxes — Le badge violet ⚙N (nombre de règles) s\'affiche aussi sur les cases à cocher (avant : visible uniquement sur les fields texte/select). Placé en haut à gauche de la case pour ne pas chevaucher le badge "G" de groupe.',
+      'COULEURS rôles partout — Le panneau « Réassigner au destinataire » (multi-sélection) et le sélecteur « Destinataire » (champ unique) utilisent maintenant la couleur custom choisie sur le rôle (colorIdx) au lieu de la couleur par défaut basée sur l\'ordre. Cohérent avec le rendu sur le PDF (pattern #71 + helper `getRecipientPalette`).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.0 — Auth portail client + rapports candidat (email + mot de passe)
   //          + UX polish portail mobile + rename PDF rapport + Bilan ETP

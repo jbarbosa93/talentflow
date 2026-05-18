@@ -34,6 +34,7 @@ import {
   CONDITION_OPERATOR_LABELS, CONDITION_ACTION_LABELS,
   AUTO_FILL_FIELD_TYPES, DATE_FORMATS, CURRENCIES, COMMON_MIME_TYPES,
   FONT_FAMILIES, FONT_SIZES, FONT_COLORS,
+  getRecipientPalette,
 } from '@/lib/sign/types'
 
 const PDFViewer = dynamic(() => import('./PDFViewer'), {
@@ -2149,8 +2150,8 @@ function SelectedFieldsPanel({
           <Field label="Destinataire">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {recipients.map(r => {
-                // v2.8.0 — Voir commentaire fix couleurs RECIPIENT_COLORS
-                const c = RECIPIENT_COLORS[Math.max(0, r.order ?? 0) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
+                // v2.9.1 — Utilise colorIdx custom (pattern #71 + getRecipientPalette)
+                const c = getRecipientPalette(r)
                 const isActive = f.recipientOrder === r.order
                 return (
                   <button
@@ -2574,8 +2575,8 @@ function SelectedFieldsPanel({
         <Field label="Réassigner au destinataire">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {recipients.map(r => {
-              // v2.8.0 — Voir commentaire fix couleurs RECIPIENT_COLORS
-              const c = RECIPIENT_COLORS[Math.max(0, r.order ?? 0) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
+              // v2.9.1 — Utilise colorIdx custom (pattern #71 + getRecipientPalette)
+              const c = getRecipientPalette(r)
               return (
                 <button
                   key={r.order}
