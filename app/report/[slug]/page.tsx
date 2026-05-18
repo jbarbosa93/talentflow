@@ -135,10 +135,21 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart])
 
   // ─── Fetch initial ──────────────────────────────────────────────────
+  // v2.9.0 — Si l'API renvoie 401 (auth_required=true sans session), redirect login
   useEffect(() => {
     fetch(`/api/reports/${slug}`)
-      .then(r => r.json())
-      .then((d: VerifyResponse) => {
+      .then(async r => {
+        if (r.status === 401) {
+          if (typeof window !== 'undefined') {
+            const next = encodeURIComponent(window.location.pathname + window.location.search)
+            window.location.replace(`/report/login?next=${next}`)
+          }
+          return null
+        }
+        return r.json()
+      })
+      .then((d: VerifyResponse | null) => {
+        if (!d) return
         setData(d)
         if (d.valid) setState('ok')
         else if (d.reason === 'paused') setState('paused')
@@ -451,8 +462,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   if (state === 'loading') {
     return (
       <CenteredCard>
+        <p style={{ ...textStyle, margin: 0 }}>Chargement du lien…</p>
         <Loader2 size={28} className="animate-spin" style={{ color: '#EAB308' }} />
-        <p style={{ ...textStyle, marginTop: 16 }}>Chargement du lien…</p>
       </CenteredCard>
     )
   }
@@ -599,6 +610,52 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     }
   }
 
+  // v2.9.0 — Boutons flottants Mon compte + Déconnexion (visibles si auth_required, donc connecté)
+  const handleCandidatLogout = async () => {
+    try {
+      await fetch('/api/portal-auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountType: 'candidat' }),
+      })
+    } catch {}
+    if (typeof window !== 'undefined') {
+      window.location.replace('/report/login')
+    }
+  }
+  const accountButton = (data?.link as any)?.auth_required ? (
+    <div style={{
+      position: 'fixed', top: 12, right: 12, zIndex: 100,
+      display: 'flex', alignItems: 'center', gap: 6,
+      fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+    }}>
+      <a
+        href="/report/account" title="Mon compte"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '7px 12px', borderRadius: 99,
+          background: '#FFFFFF', color: '#1C1A14', textDecoration: 'none',
+          border: '1px solid #E5E7EB', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          fontSize: 12, fontWeight: 600,
+        }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>
+        Mon compte
+      </a>
+      <button
+        onClick={handleCandidatLogout} title="Se déconnecter"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '7px 12px', borderRadius: 99,
+          background: '#FFFFFF', color: '#B91C1C',
+          border: '1px solid #FCA5A5', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Déconnexion
+      </button>
+    </div>
+  ) : null
+
   // v2.4.0 — Page accueil (landing) mobile-first
   if (phase === 'landing') {
     return (
@@ -608,6 +665,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
         paddingBottom: 100,
       }}>
+        {accountButton}
         <CandidatWelcomeHeader prenom={candidatePrenomLanding} />
         <div style={{ padding: '6px 16px 18px' }}>
           <button
@@ -769,6 +827,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
         paddingBottom: 100,
       }}>
+        {accountButton}
         {/* v2.4.6 — Header avec logo officiel + bouton retour */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 14px 4px' }}>
           <button
@@ -891,6 +950,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       display: 'flex',
       flexDirection: 'column',
     }}>
+      {accountButton}
       {/* SignaturePad */}
       <SignaturePad
         open={signaturePadOpen}
@@ -1527,8 +1587,8 @@ function CenteredCard({ children }: { children: React.ReactNode }) {
       <div style={{
         maxWidth: 460, width: '100%', padding: 32,
         background: '#fff', border: '1px solid #E5E7EB',
-        borderRadius: 16, textAlign: 'center',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+        borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12,
       }}>
         {children}
       </div>

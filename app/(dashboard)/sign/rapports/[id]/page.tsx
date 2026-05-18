@@ -18,6 +18,7 @@ import {
   REPORT_LINK_STATUS_LABELS, type ReportLink, type ReportSubmission,
 } from '@/lib/report/types'
 import { toWhatsAppSafe } from '@/lib/report/text-format'
+import PortalAccountsPanel from '@/components/portal-auth/PortalAccountsPanel'
 
 export default function ReportLinkDetailPage({
   params,
@@ -425,6 +426,19 @@ export default function ReportLinkDetailPage({
             client_contact_name: link.client_contact_name,
             client_phone: link.client_phone,
           }}
+        />
+      </div>
+
+      {/* v2.9.0 — Accès du candidat au rapport (email + mot de passe) */}
+      <div style={{
+        marginTop: 24, padding: 18,
+        background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12,
+      }}>
+        <PortalAccountsPanel
+          reportLinkId={link.id}
+          accountType="candidat"
+          contextLabel={link.candidat_name || undefined}
+          authRequired={(link as any).auth_required}
         />
       </div>
 

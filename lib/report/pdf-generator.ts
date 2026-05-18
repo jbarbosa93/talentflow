@@ -231,7 +231,7 @@ export async function generateReportPdf(
       console.log('[report/pdf-generator] Audit header added:', currentBuf.length + 'B')
 
       // ─── 3a : Upload rapport ───
-      const reportName = buildReportFilename(link, submission)
+      const reportName = buildReportFilename(link, submission, candidat)
       const reportBlob = new Blob([currentBuf as BlobPart], { type: 'application/pdf' })
       const reportPath = await uploadSignDocument(
         'signed',
@@ -253,7 +253,7 @@ export async function generateReportPdf(
       })
       console.log('[report/pdf-generator] Certificate done:', certBuf.length + 'B')
 
-      const certName = buildCertFilename(link, submission)
+      const certName = buildCertFilename(link, submission, candidat)
       const certBlob = new Blob([certBuf as BlobPart], { type: 'application/pdf' })
       const certPath = await uploadSignDocument(
         'signed',
@@ -289,23 +289,54 @@ export async function generateReportPdf(
 
 // ─── Filename helpers ──────────────────────────────────────────────────
 
-function buildReportFilename(link: ReportLink, submission: ReportSubmission): string {
+/** Normalise un nom : retire accents, garde [A-Za-z0-9-], remplace les espaces par _. */
+function normalizeNamePart(s: string): string {
+  return (s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9 \-]/g, '')
+    .trim()
+    .replace(/\s+/g, '_')
+}
+
+/** Extrait nom_prenom depuis candidat (prio) ou link.candidat_name (fallback split sur premier espace).
+ *  Format final : "Nom_Prenom". Si nom inconnu, retourne juste "Prenom". Si rien, "candidat". */
+function buildCandidatNamePart(link: ReportLink, candidat?: { prenom?: string | null; nom?: string | null } | null): string {
+  // Source prio : candidat lié (champs séparés en DB, fiables)
+  if (candidat?.nom || candidat?.prenom) {
+    const nom = normalizeNamePart(candidat.nom || '')
+    const prenom = normalizeNamePart(candidat.prenom || '')
+    if (nom && prenom) return `${nom}_${prenom}`
+    return nom || prenom
+  }
+  // Fallback : split candidat_name sur 1er espace (convention "Prénom Nom" partout dans l'app)
+  const raw = (link.candidat_name || '').trim()
+  if (raw) {
+    const parts = raw.split(/\s+/)
+    if (parts.length >= 2) {
+      const prenom = normalizeNamePart(parts[0])
+      const nom = normalizeNamePart(parts.slice(1).join(' '))
+      return `${nom}_${prenom}`
+    }
+    return normalizeNamePart(raw)
+  }
+  return 'candidat'
+}
+
+function buildReportFilename(link: ReportLink, submission: ReportSubmission, candidat?: { prenom?: string | null; nom?: string | null } | null): string {
   try {
     const week = getWeekDates(submission.week_start)
-    const cand = (link.candidat_name || link.title || 'rapport')
-      .replace(/[^a-zA-Z0-9 \-_]/g, '').trim().slice(0, 30)
-    return `Rapport_signe_S${week.weekNumber}_${cand}_${submission.week_start}.pdf`
+    const namePart = buildCandidatNamePart(link, candidat)
+    return `${namePart}_Semaine_${week.weekNumber}.pdf`
   } catch {
     return 'rapport_signe.pdf'
   }
 }
 
-function buildCertFilename(link: ReportLink, submission: ReportSubmission): string {
+function buildCertFilename(link: ReportLink, submission: ReportSubmission, candidat?: { prenom?: string | null; nom?: string | null } | null): string {
   try {
     const week = getWeekDates(submission.week_start)
-    const cand = (link.candidat_name || link.title || 'rapport')
-      .replace(/[^a-zA-Z0-9 \-_]/g, '').trim().slice(0, 30)
-    return `Certificat_signature_S${week.weekNumber}_${cand}_${submission.week_start}.pdf`
+    const namePart = buildCandidatNamePart(link, candidat)
+    return `${namePart}_Semaine_${week.weekNumber}_Certificat.pdf`
   } catch {
     return 'certificat_signature.pdf'
   }

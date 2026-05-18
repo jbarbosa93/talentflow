@@ -115,6 +115,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       }
       update.use_client_portal = body.use_client_portal
     }
+    // v2.9.0 — toggle auth_required (accès protégé par email + mot de passe)
+    if (typeof body.auth_required === 'boolean') {
+      update.auth_required = body.auth_required
+    }
 
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })

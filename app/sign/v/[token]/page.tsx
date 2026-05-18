@@ -424,8 +424,8 @@ export default function PublicSignPage({ params }: PageProps) {
   if (state === 'loading') {
     return (
       <CenteredCard>
+        <p style={{ ...textStyle, margin: 0 }}>Vérification du lien…</p>
         <Loader2 size={28} className="animate-spin" style={{ color: '#EAB308' }} />
-        <p style={{ ...textStyle, marginTop: 16 }}>Vérification du lien…</p>
       </CenteredCard>
     )
   }
@@ -1129,8 +1129,8 @@ function CenteredCard({ children }: { children: React.ReactNode }) {
       <div style={{
         maxWidth: 460, width: '100%', padding: 32,
         background: '#fff', border: '1px solid #E5E7EB',
-        borderRadius: 16, textAlign: 'center',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+        borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12,
       }}>
         {children}
       </div>

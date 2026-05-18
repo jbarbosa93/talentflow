@@ -9,10 +9,12 @@
 // Sécurité : le slug est imprévisible (16 chars random). Vérifie is_active=true.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCandidatDocuments } from '@/lib/compliance/queries'
 import { isDriver } from '@/lib/compliance/driver-detection'
 import type { CandidatDocumentWithStatus } from '@/lib/compliance/types'
+import { verifySession, cookieName } from '@/lib/portal-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -80,11 +82,30 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     // 1. Portal
     const { data: portal } = await (admin as any)
       .from('client_portals')
-      .select('id, client_id, slug, name, is_active, last_accessed_at')
+      .select('id, client_id, slug, name, is_active, last_accessed_at, auth_required')
       .eq('slug', slug)
       .maybeSingle()
     if (!portal) return NextResponse.json({ error: 'Lien invalide' }, { status: 404 })
     if (!portal.is_active) return NextResponse.json({ error: 'Lien révoqué' }, { status: 410 })
+
+    // 1bis. v2.9.0 — Si auth_required, vérifier la session (cookie JWT)
+    if (portal.auth_required) {
+      const jar = await cookies()
+      const jwt = jar.get(cookieName('client'))?.value
+      const session = jwt ? await verifySession(jwt) : null
+      if (!session || session.portalId !== portal.id) {
+        return NextResponse.json({ error: 'Authentification requise' }, { status: 401 })
+      }
+      // Re-check révocation côté DB
+      const { data: account } = await (admin as any)
+        .from('portal_accounts')
+        .select('is_revoked')
+        .eq('id', session.accountId)
+        .maybeSingle()
+      if (!account || account.is_revoked) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 401 })
+      }
+    }
 
     // 2. Client (logo, nom)
     const { data: client } = await (admin as any)
@@ -206,7 +227,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     try { await (admin as any).from('client_portals').update({ last_accessed_at: new Date().toISOString() }).eq('id', portal.id) } catch {}
 
     return NextResponse.json({
-      portal: { id: portal.id, name: portal.name, slug: portal.slug },
+      portal: { id: portal.id, name: portal.name, slug: portal.slug, auth_required: !!portal.auth_required },
       client: client || null,
       candidats: candidatsOut,
     })

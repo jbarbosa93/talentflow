@@ -19,6 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const updates: Record<string, any> = {}
     if (typeof body.is_active === 'boolean') updates.is_active = body.is_active
     if (typeof body.name === 'string') updates.name = body.name.trim().slice(0, 200)
+    if (typeof body.auth_required === 'boolean') updates.auth_required = body.auth_required
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ ok: true, noop: true })
     }

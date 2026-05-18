@@ -1205,7 +1205,9 @@ export default function MissionsPage() {
       const prorata = totalWdWeek > 0 ? effWd / totalWdWeek : 0
       return s + Number(m.coefficient) * prorata
     }, 0)
-    return { ...w, count: rows.length, avgCoeff: rows.length ? totalCoeff / rows.length : 0, totalCoeff }
+    // Vrai coeff moyen : moyenne des coefficients réels (sans pondération prorata)
+    const realAvgCoeff = rows.length ? rows.reduce((s, m) => s + Number(m.coefficient), 0) / rows.length : 0
+    return { ...w, count: rows.length, avgCoeff: realAvgCoeff, totalCoeff }
   })
 
   const toggleSort = (key: 'candidat' | 'client') => {
@@ -1419,8 +1421,8 @@ export default function MissionsPage() {
                 {weekSummaries.map((w, i) => (
                   <div key={i} style={{ ...S.card, padding: '8px 14px', minWidth: 130, flex: 1 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', marginBottom: 3 }}>{w.label}</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>{w.count} candidat{w.count !== 1 ? 's' : ''}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>Coeff moy. {w.count ? w.avgCoeff.toFixed(2) : '—'} · Total {w.totalCoeff.toFixed(2)}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>{w.totalCoeff.toFixed(2)} ETP</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{w.count} mission{w.count !== 1 ? 's' : ''} · Coeff moy. ×{w.count ? w.avgCoeff.toFixed(2) : '—'}</div>
                   </div>
                 ))}
               </div>

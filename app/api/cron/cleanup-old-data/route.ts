@@ -104,12 +104,56 @@ export async function GET(request: Request) {
     results.recheck_results = { deleted: 0, error: e?.message || 'unknown' }
   }
 
+  // 5. v2.9.0 — portal_login_attempts (rétention 30j)
+  try {
+    const { error, count } = await supabase
+      .from('portal_login_attempts')
+      .delete({ count: 'exact' })
+      .lt('attempted_at', cutoffIso)
+    results.portal_login_attempts = error
+      ? { deleted: 0, error: error.message }
+      : { deleted: count ?? 0 }
+  } catch (e: any) {
+    results.portal_login_attempts = { deleted: 0, error: e?.message || 'unknown' }
+  }
+
+  // 6. v2.9.0 — portal_tokens utilisés depuis > 30j (purge historique)
+  try {
+    const { error, count } = await supabase
+      .from('portal_tokens')
+      .delete({ count: 'exact' })
+      .not('used_at', 'is', null)
+      .lt('used_at', cutoffIso)
+    results.portal_tokens_used = error
+      ? { deleted: 0, error: error.message }
+      : { deleted: count ?? 0 }
+  } catch (e: any) {
+    results.portal_tokens_used = { deleted: 0, error: e?.message || 'unknown' }
+  }
+
+  // 7. v2.9.0 — portal_tokens expirés depuis > 7j (purge invitations/resets périmés)
+  try {
+    const cutoff7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { error, count } = await supabase
+      .from('portal_tokens')
+      .delete({ count: 'exact' })
+      .lt('expires_at', cutoff7d)
+    results.portal_tokens_expired = error
+      ? { deleted: 0, error: error.message }
+      : { deleted: count ?? 0 }
+  } catch (e: any) {
+    results.portal_tokens_expired = { deleted: 0, error: e?.message || 'unknown' }
+  }
+
   const durationMs = Date.now() - tStart
   const totalDeleted =
     (results.emails_envoyes?.deleted ?? 0) +
     (results.activites?.deleted ?? 0) +
     (results.logs_activite?.deleted ?? 0) +
-    (results.recheck_results?.deleted ?? 0)
+    (results.recheck_results?.deleted ?? 0) +
+    (results.portal_login_attempts?.deleted ?? 0) +
+    (results.portal_tokens_used?.deleted ?? 0) +
+    (results.portal_tokens_expired?.deleted ?? 0)
 
   console.log(
     `[cron/cleanup-old-data] emails_envoyes: ${results.emails_envoyes?.deleted ?? 0}, activites: ${results.activites?.deleted ?? 0}, logs_activite: ${results.logs_activite?.deleted ?? 0}, recheck_results: ${results.recheck_results?.deleted ?? 0} (total ${totalDeleted}) en ${durationMs}ms`

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.8.11'
+export const APP_VERSION = '2.9.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,32 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.0 — Auth portail client + rapports candidat (email + mot de passe)
+  //          + UX polish portail mobile + rename PDF rapport + Bilan ETP
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.0',
+    date: '2026-05-18',
+    label: 'Auth email + mot de passe sur portail client & rapports candidat + UX mobile + Bilan ETP',
+    features: [
+      'AUTH PORTAIL — Nouveau système d\'authentification email + mot de passe pour le portail client (/client-portal/[slug]) et la page candidat rapports (/report/[slug]). Multi-comptes par portail (plusieurs emails pour la même entreprise). Sign / signatures contrat / validation client rapport NE SONT PAS TOUCHÉS (gardent leur fonctionnement par token email).',
+      'FLAG auth_required — Toggle "Accès protégé" par portail (et par lien rapport). DEFAULT FALSE → aucune régression sur l\'existant. Activation portail par portail au fur et à mesure que les comptes sont invités. Bandeau jaune dans le dashboard + warning si on active sans aucun compte actif.',
+      'FLOW invitation — Admin clique "+ Inviter" (modal email seulement) → compte créé avec password_hash NULL + token invitation 7j → email template L-Agence envoyé → utilisateur clique → page set-password (logo entreprise + nom + email affichés) → crée son mdp → auto-login → bouton "Accéder à mon portail" → portail.',
+      'FLOW reset mdp — Lien "Mot de passe oublié ?" sur la page login → email avec lien valable 1h → set-password → auto-login. Anti-énumération (réponse 200 toujours, jamais d\'info sur l\'existence de l\'email).',
+      'PAGE Mon compte — /client-portal/account et /report/account : infos compte (email, date création, dernière connexion), changement de mot de passe (avec œil pour voir), bouton déconnexion. Bouton "Mon compte" + "Déconnexion" visibles dans le header du portail si auth_required activé.',
+      'SÉCURITÉ — Rate-limit 5 tentatives échouées par IP / 15 min sur /api/portal-auth/login. Compte révoqué (is_revoked) bloqué même avec mdp correct. Cookies HttpOnly + Secure + SameSite=Strict + JWT signé HS256 (PORTAL_AUTH_SECRET). Bcrypt 12 rounds. Tokens invitation/reset invalidés après usage. RLS service_role only sur les 3 nouvelles tables.',
+      'UX DASHBOARD — Panneau "Accès" dépliable sous chaque portail dans /missions/portails (et intégré dans /sign/rapports/[id]) : liste comptes avec statut Invité/Actif/Révoqué + boutons Renvoyer/Révoquer/Supprimer + toggle "Accès protégé".',
+      'UX PORTAIL CLIENT — Mode liste (1 colonne pleine largeur) sur desktop ≥769px (au lieu de grille 3 cols qui coupait le bouton Documents). Mobile inchangé. Footer auth pages allégé (pas de répétition "L-Agence SA" sous le logo).',
+      'UX PORTAIL MOBILE — Header restructuré sur ≤640px : logo L-Agence + badge "Lecture seule" sur ligne 1, ClientLogo + nom entreprise sur ligne 2 (au lieu de tout sur une ligne qui débordait).',
+      'UX PAGES LOADING — Spinner orange centré sous le texte "Chargement…" (au lieu de spinner mal centré à gauche). Cohérent sur /client-portal, /report, /report/client, /sign/v.',
+      'UX MISSIONS DASHBOARD — Liste portails /missions/portails épurée : retrait du sous-titre redondant "L-AGENCE SA — ..." et du lien "/client-portal/uaUNcYaf…" (déjà visible par bouton Copier/Ouvrir). Ne reste que la date d\'accès.',
+      'RAPPORT PDF — Nouveau format de nom de fichier : `Nom_Prenom_Semaine_X.pdf` (rapport) et `Nom_Prenom_Semaine_X_Certificat.pdf` (certificat). Priorité aux champs prenom/nom du candidat lié (DB), fallback split sur 1er espace de candidat_name. Noms composés gérés. Accents retirés.',
+      'BILAN MISSIONS — Card hebdo affiche maintenant "X.XX ETP" en chiffre principal (au lieu de "N candidats"), cohérent avec le KPI Total ETP en haut de page. Sous-titre "N missions · Coeff moy. ×0.95". Le vrai coeff moyen est calculé sans pondération prorata (la précédente formule donnait une valeur dénuée de sens).',
+      'DB — 2 migrations appliquées : (a) `v290_portal_accounts_auth` (3 tables portal_accounts/portal_tokens/portal_login_attempts + RLS + indexes), (b) `v290_auth_required_flag` (colonnes auth_required sur client_portals + report_links). Cron `cleanup-old-data` étendu : portal_login_attempts >30j, portal_tokens utilisés >30j, portal_tokens expirés >7j.',
+      'STACK — `bcryptjs ^3.0.3` ajouté (hash mdp). `jose` (JWT) réutilisé (déjà transit dep Next.js). Nouvelle env var obligatoire `PORTAL_AUTH_SECRET` (32+ chars). Pattern #79 à #82 documentés.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.8.11 — Sign Templates : garde-fous anti-écrasement + suppression chatbot
   //           + règle d'incohérence checkboxes groupées

@@ -11,6 +11,8 @@ const PDFJS_DIST_PATH = path.resolve(__dirname, 'node_modules/pdfjs-dist')
 const nextConfig: NextConfig = {
   // Allow preview sandbox to write build output to workspace
   distDir: process.env.NEXT_DIST_DIR || '.next',
+  // Accès mobile depuis le réseau local en dev
+  allowedDevOrigins: ['172.22.22.145', '172.22.22.63'],
   serverExternalPackages: ['mupdf'],
   // v2.2.0 Phase 2 — Force Next à transpiler ces modules ESM via swc.
   // Sans ça, webpack dev (`next dev --webpack`) interprète mal les exports

@@ -9,10 +9,12 @@
 // Pas d'auth (lien permanent). Si status != 'active' → erreur 403.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import {
   getReportLinkBySlug, getTemplateForLink, listSubmissions,
 } from '@/lib/report/queries'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { verifySession, cookieName } from '@/lib/portal-auth'
 
 export const runtime = 'nodejs'
 
@@ -32,6 +34,25 @@ export async function GET(
       valid: false,
       reason: link.status === 'paused' ? 'paused' : 'revoked',
     }, { status: 403 })
+  }
+
+  // v2.9.0 — Si auth_required, vérifier la session candidat
+  if ((link as any).auth_required) {
+    const jar = await cookies()
+    const jwt = jar.get(cookieName('candidat'))?.value
+    const session = jwt ? await verifySession(jwt) : null
+    if (!session || session.reportLinkId !== link.id) {
+      return NextResponse.json({ valid: false, reason: 'auth_required' }, { status: 401 })
+    }
+    const supabase = createAdminClient()
+    const { data: account } = await (supabase as any)
+      .from('portal_accounts')
+      .select('is_revoked')
+      .eq('id', session.accountId)
+      .maybeSingle()
+    if (!account || account.is_revoked) {
+      return NextResponse.json({ valid: false, reason: 'auth_required' }, { status: 401 })
+    }
   }
 
   const template = await getTemplateForLink(link.template_id)
@@ -103,6 +124,7 @@ export async function GET(
       title: link.title,
       client_name: link.client_name,
       delivery_channel: link.delivery_channel,
+      auth_required: !!(link as any).auth_required,
     },
     candidat,
     template: {

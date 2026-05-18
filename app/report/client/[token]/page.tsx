@@ -232,10 +232,8 @@ export default function PublicClientReportPage({
     return (
       <CenteredCard>
         <style>{`@keyframes tfFadeIn { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }`}</style>
+        <p style={{ ...textStyle, margin: 0, animation: 'tfFadeIn 0.4s ease-out backwards' }}>Chargement du rapport…</p>
         <Loader2 size={28} className="animate-spin" style={{ color: '#EAB308' }} />
-        <p style={{ ...textStyle, marginTop: 16, animation: 'tfFadeIn 0.6s ease-out 0.25s backwards' }}>
-          Chargement du rapport…
-        </p>
       </CenteredCard>
     )
   }
@@ -929,8 +927,8 @@ function CenteredCard({ children }: { children: React.ReactNode }) {
       <div style={{
         maxWidth: 460, width: '100%', padding: 32,
         background: '#fff', border: '1px solid #E5E7EB',
-        borderRadius: 16, textAlign: 'center',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+        borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12,
       }}>
         {children}
       </div>

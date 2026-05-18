@@ -18,7 +18,7 @@ export async function GET() {
     const admin = createAdminClient()
     const { data, error } = await (admin as any)
       .from('client_portals')
-      .select('id, client_id, slug, name, is_active, created_at, last_accessed_at, clients!client_id(nom_entreprise)')
+      .select('id, client_id, slug, name, is_active, auth_required, created_at, last_accessed_at, clients!client_id(nom_entreprise)')
       .order('created_at', { ascending: false })
     if (error) throw error
 

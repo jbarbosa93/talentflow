@@ -8,7 +8,7 @@ import { use, useEffect, useState } from 'react'
 import {
   Loader2, AlertTriangle, Phone, ShieldCheck, Calendar, FileText,
   MessageCircle, Mail, MapPin, Cake, AlertCircle, CheckCircle2, Users, ClipboardList, FileClock,
-  MessageSquare,
+  MessageSquare, UserCircle2, LogOut,
 } from 'lucide-react'
 import { formatExpiryDate } from '@/lib/compliance/document-status'
 import type { CandidatDocumentWithStatus } from '@/lib/compliance/types'
@@ -37,7 +37,7 @@ interface PortalCandidat {
 }
 
 interface PortalData {
-  portal: { id: string; name: string; slug: string }
+  portal: { id: string; name: string; slug: string; auth_required?: boolean }
   client: { id: string; nom_entreprise: string; site_web: string | null; ville: string | null } | null
   candidats: PortalCandidat[]
 }
@@ -60,6 +60,20 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
   // Badge count des rapports à valider (fetch léger en arrière-plan)
   const [pendingCount, setPendingCount] = useState<number | null>(null)
 
+  // v2.9.0 — Déconnexion : POST logout + redirect login
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/portal-auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountType: 'client' }),
+      })
+    } catch {}
+    if (typeof window !== 'undefined') {
+      window.location.replace('/client-portal/login')
+    }
+  }
+
   const switchTab = (next: TabKey) => {
     setTab(next)
     if (typeof window !== 'undefined') {
@@ -80,10 +94,19 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
   }, [slug, state])
 
   useEffect(() => {
+    // v2.9.0 — Fetch portail puis check session SI auth_required=true (rétrocompat option A)
     fetch(`/api/client-portal/${slug}`)
       .then(async r => {
         if (r.status === 404) { setState('invalid'); return null }
         if (r.status === 410) { setState('revoked'); return null }
+        if (r.status === 401) {
+          // Le portail exige une session et nous n'en avons pas → redirige login
+          if (typeof window !== 'undefined') {
+            const next = encodeURIComponent(window.location.pathname + window.location.search)
+            window.location.replace(`/client-portal/login?next=${next}`)
+          }
+          return null
+        }
         if (!r.ok) { setState('error'); return null }
         return r.json()
       })
@@ -96,11 +119,11 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
   if (state === 'loading') {
     return (
       <CenteredCard>
-        <style>{`@keyframes tfFadeIn { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }`}</style>
-        <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', color: '#EAB308' }} />
-        <p style={{ marginTop: 16, fontSize: 14, color: '#6B7280', animation: 'tfFadeIn 0.6s ease-out 0.25s backwards' }}>
+        <style>{`@keyframes tfFadeIn { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } } @keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        <p style={{ fontSize: 14, color: '#6B7280', margin: 0, animation: 'tfFadeIn 0.4s ease-out backwards' }}>
           Chargement du portail…
         </p>
+        <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', color: '#EAB308' }} />
       </CenteredCard>
     )
   }
@@ -141,55 +164,151 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
         @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.65 } }
         .portal-card { animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards }
+        @media (max-width: 640px) {
+          .portal-header { padding: 14px 16px !important; }
+          .portal-header-row1 { margin-bottom: 10px; }
+          .portal-header-divider { display: none !important; }
+          .portal-header-desktop-only { display: none !important; }
+          .portal-header-client h1 { font-size: 18px !important; }
+          .portal-header-client p { font-size: 10.5px !important; }
+        }
+        @media (min-width: 641px) {
+          .portal-header-row1 { display: none !important; }
+        }
+        /* v2.9.0 — Mode liste sur desktop : 1 colonne pleine largeur (au lieu de grille 3 cols).
+           Cards s'affichent en lignes verticales empilées, boutons d'action ont assez de place.
+           Mobile (< 769px) garde la grille auto-fill (1 col forcée par la largeur écran). */
+        @media (min-width: 769px) {
+          .portal-candidats-grid { grid-template-columns: 1fr !important; }
+        }
       `}</style>
 
       {/* Header — branding L-Agence + Client */}
-      <header style={{
+      <header className="portal-header" style={{
         background: 'linear-gradient(135deg, #FFFFFF 0%, #FAFAF7 100%)',
         borderBottom: '1px solid #E5E7EB',
-        padding: '24px 16px',
+        padding: '20px 16px',
       }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence" style={{ height: 42, width: 'auto', flexShrink: 0 }} />
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
-          <div style={{ height: 36, width: 1, background: '#E5E7EB' }} />
-
-          {data.client && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-              <ClientLogo
-                nom_entreprise={data.client.nom_entreprise}
-                site_web={data.client.site_web}
-                size="lg"
-              />
-              <div style={{ minWidth: 0 }}>
-                <h1 style={{
-                  margin: 0,
-                  fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
-                  fontSize: 26, fontWeight: 400, color: '#1C1A14', lineHeight: 1.1,
-                  letterSpacing: '-0.01em',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {data.client.nom_entreprise}
-                </h1>
-                <p style={{
-                  margin: '4px 0 0', fontSize: 11.5, color: '#6B7280',
-                  textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700,
-                }}>
-                  Portail Collaborateurs · L-Agence SA
-                </p>
-              </div>
+          {/* Mobile : ligne 1 — logo L-Agence + badge + Mon compte */}
+          <div className="portal-header-row1" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence" style={{ height: 34, width: 'auto' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '5px 10px', borderRadius: 99,
+                background: '#DCFCE7', color: '#15803D',
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+              }}>
+                <ShieldCheck size={11} /> Lecture seule
+              </span>
+              {data.portal.auth_required && (
+                <>
+                  <a
+                    href="/client-portal/account" title="Mon compte"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: 34, height: 30, borderRadius: 99,
+                      background: '#FFFFFF', color: '#1C1A14', textDecoration: 'none',
+                      border: '1px solid #E5E7EB',
+                    }}>
+                    <UserCircle2 size={16} />
+                  </a>
+                  <button
+                    onClick={handleLogout} title="Se déconnecter"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: 34, height: 30, borderRadius: 99,
+                      background: '#FFFFFF', color: '#B91C1C',
+                      border: '1px solid #FCA5A5', cursor: 'pointer', fontFamily: 'inherit',
+                    }}>
+                    <LogOut size={16} />
+                  </button>
+                </>
+              )}
             </div>
-          )}
+          </div>
 
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '6px 12px', borderRadius: 99,
-            background: '#DCFCE7', color: '#15803D',
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
-          }}>
-            <ShieldCheck size={12} /> Lecture seule
-          </span>
+          {/* Ligne principale (desktop flex / mobile ligne 2) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'nowrap' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence" className="portal-header-desktop-only" style={{ height: 42, width: 'auto', flexShrink: 0 }} />
+
+            <div className="portal-header-divider" style={{ height: 36, width: 1, background: '#E5E7EB', flexShrink: 0 }} />
+
+            {data.client && (
+              <div className="portal-header-client" style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                <ClientLogo
+                  nom_entreprise={data.client.nom_entreprise}
+                  site_web={data.client.site_web}
+                  size="md"
+                />
+                <div style={{ minWidth: 0 }}>
+                  <h1 style={{
+                    margin: 0,
+                    fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+                    fontSize: 26, fontWeight: 400, color: '#1C1A14', lineHeight: 1.1,
+                    letterSpacing: '-0.01em',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {data.client.nom_entreprise}
+                  </h1>
+                  <p style={{
+                    margin: '4px 0 0', fontSize: 11.5, color: '#6B7280',
+                    textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700,
+                  }}>
+                    Portail Collaborateurs · L-Agence SA
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <span className="portal-header-desktop-only" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '6px 12px', borderRadius: 99,
+              background: '#DCFCE7', color: '#15803D',
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+              flexShrink: 0,
+            }}>
+              <ShieldCheck size={12} /> Lecture seule
+            </span>
+
+            {/* v2.9.0 — Mon compte + Déconnexion (visibles si auth_required, donc utilisateur connecté) */}
+            {data.portal.auth_required && (
+              <>
+                <a
+                  href="/client-portal/account"
+                  className="portal-header-desktop-only"
+                  title="Mon compte"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '6px 12px', borderRadius: 99,
+                    background: '#FFFFFF', color: '#1C1A14', textDecoration: 'none',
+                    border: '1px solid #E5E7EB',
+                    fontSize: 12, fontWeight: 600, flexShrink: 0,
+                  }}>
+                  <UserCircle2 size={14} /> Mon compte
+                </a>
+                <button
+                  onClick={handleLogout}
+                  className="portal-header-desktop-only"
+                  title="Se déconnecter"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '6px 12px', borderRadius: 99,
+                    background: '#FFFFFF', color: '#B91C1C',
+                    border: '1px solid #FCA5A5',
+                    fontSize: 12, fontWeight: 600, flexShrink: 0,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                  <LogOut size={14} /> Déconnexion
+                </button>
+              </>
+            )}
+          </div>
+
         </div>
       </header>
 
@@ -234,7 +353,7 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
               <p style={{ fontSize: 14, color: '#374151', margin: '0 0 22px', fontWeight: 500 }}>
                 <strong style={{ color: '#1C1A14' }}>{data.candidats.length}</strong> collaborateur{data.candidats.length > 1 ? 's' : ''} en mission chez vous.
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16, alignItems: 'start' }}>
+              <div className="portal-candidats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16, alignItems: 'start' }}>
                 {data.candidats.map((c, idx) => (
                   <CandidatCard
                     key={c.id}
@@ -688,7 +807,8 @@ function CenteredCard({ children }: { children: React.ReactNode }) {
       <div style={{
         maxWidth: 460, width: '100%', padding: 32,
         background: '#fff', border: '1px solid #E5E7EB', borderRadius: 16,
-        textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12,
       }}>
         {children}
       </div>

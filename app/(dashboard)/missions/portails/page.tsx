@@ -9,8 +9,9 @@ import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import {
   Plus, Copy, ExternalLink, Trash2, X, Loader2, Search, ShieldCheck,
-  Check, Link as LinkIcon, Calendar, ChevronLeft,
+  Check, Link as LinkIcon, Calendar, ChevronLeft, Users, ChevronDown,
 } from 'lucide-react'
+import PortalAccountsPanel from '@/components/portal-auth/PortalAccountsPanel'
 
 interface ClientPortal {
   id: string
@@ -19,6 +20,7 @@ interface ClientPortal {
   slug: string
   name: string
   is_active: boolean
+  auth_required: boolean
   created_at: string
   last_accessed_at: string | null
 }
@@ -172,12 +174,14 @@ function PortalRow({ portal: p, copied, onCopy, onToggleActive, onDelete }: {
   onToggleActive: () => void
   onDelete: () => void
 }) {
+  const [accountsOpen, setAccountsOpen] = useState(false)
   const lastAccess = p.last_accessed_at
     ? new Date(p.last_accessed_at).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })
     : 'Jamais consulté'
   return (
+    <div style={{ borderBottom: '1px solid var(--border)' }}>
     <div style={{
-      padding: '16px 18px', borderBottom: '1px solid var(--border)',
+      padding: '16px 18px',
       display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
     }}>
       <div style={{
@@ -199,16 +203,8 @@ function PortalRow({ portal: p, copied, onCopy, onToggleActive, onDelete }: {
             </span>
           )}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--muted-foreground)', marginTop: 2 }}>
-          {p.name}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6, fontSize: 11, color: 'var(--muted)', flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <LinkIcon size={11} /> /client-portal/{p.slug.slice(0, 8)}…
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <Calendar size={11} /> {lastAccess}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
+          <Calendar size={11} /> {lastAccess}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -219,6 +215,9 @@ function PortalRow({ portal: p, copied, onCopy, onToggleActive, onDelete }: {
         <a href={`/client-portal/${p.slug}`} target="_blank" rel="noopener noreferrer" style={actionBtn()}>
           <ExternalLink size={12} /> Ouvrir
         </a>
+        <button onClick={() => setAccountsOpen(o => !o)} style={actionBtn()}>
+          <Users size={12} /> Accès <ChevronDown size={11} style={{ transform: accountsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        </button>
         <button onClick={onToggleActive} style={actionBtn()}>
           {p.is_active ? 'Désactiver' : 'Réactiver'}
         </button>
@@ -226,6 +225,19 @@ function PortalRow({ portal: p, copied, onCopy, onToggleActive, onDelete }: {
           <Trash2 size={12} /> Supprimer
         </button>
       </div>
+    </div>
+    {accountsOpen && (
+      <div style={{ padding: '0 18px 18px', background: 'var(--secondary)' }}>
+        <div style={{ paddingTop: 14 }}>
+          <PortalAccountsPanel
+            portalId={p.id}
+            accountType="client"
+            contextLabel={p.client_name || undefined}
+            authRequired={p.auth_required}
+          />
+        </div>
+      </div>
+    )}
     </div>
   )
 }

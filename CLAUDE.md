@@ -115,7 +115,29 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.8.11 (Sign Templates : garde-fous anti-écrasement DB + suppression chatbot + règle checkboxes groupées)** — 17/05/2026
+**v2.9.0 (Auth portail client + rapports candidat + UX polish + Bilan ETP)** — 18/05/2026
+
+### v2.9.0 — Auth email + mot de passe sur portails + UX polish
+**Feature majeure** : auth email + mot de passe pour `/client-portal/[slug]` et `/report/[slug]`. Sign / signatures / validation client rapport NON TOUCHÉS (gardent leur fonctionnement par token email). Multi-comptes par portail (plusieurs emails partagent le même portal_id via UNIQUE partiel). Flag `auth_required` DEFAULT FALSE → activation portail par portail (zéro régression sur l'existant).
+
+**DB** : 2 migrations — (a) `portal_accounts` (13 cols, multi-comptes), `portal_tokens` (invitation 7j / reset 1h), `portal_login_attempts` (rate-limit) + RLS service_role only + 8 indexes. (b) `auth_required BOOLEAN DEFAULT FALSE` sur `client_portals` + `report_links` (lié par UUID portal_id/report_link_id, résistant au changement de slug).
+
+**Flow invitation** : Admin clique "+ Inviter" (modal email) → POST `/api/admin/portal-accounts` → INSERT compte + token 7j → email branding L-Agence (logo officiel) → utilisateur clique → page `/set-password?token=xxx` avec card contexte (logo entreprise + nom + email destinataire) + 2 champs mdp avec œil → POST `/api/portal-auth/set-password` → auto-login (cookie JWT 30j) → écran succès "✅ Mot de passe créé !" + bouton "Accéder à mon portail" qui redirige vers le bon slug.
+
+**Flow login** : `/client-portal/login?next=URL` ou `/report/login?next=URL` (slug extrait du `next` pour disambiguer si même email sur plusieurs portails). Toggle "Mot de passe oublié ?" inline (pas de page séparée). Rate-limit 5 fails/IP/15min → 429. Compte révoqué → 403 avec message contact L-Agence. Compte pas activé (password_hash NULL) → 403 "Compte non activé, vérifiez vos emails".
+
+**Sécurité** : Bcrypt 12 rounds. JWT HS256 signé via `PORTAL_AUTH_SECRET` (env var obligatoire, 32+ chars). Cookies HttpOnly + Secure (prod) + SameSite=Strict, séparés client/candidat (`tf_portal_client` / `tf_portal_candidat`). Anti-énumération sur forgot-password (200 always). Tokens reset/invitation invalidés après usage. RLS sans policy = service_role only sur les 3 tables.
+
+**Page Mon compte** (`/client-portal/account` + `/report/account`) : composant partagé `AccountPage` — infos compte (email, date création, dernière connexion en format CH), formulaire changement mdp (ancien + nouveau + confirm + œil), bouton retour portail (via slug récupéré par `/api/portal-auth/me?full=1`), bouton déconnexion. Boutons "Mon compte" + "Déconnexion" dans le header du portail (visibles uniquement si `auth_required` = utilisateur connecté).
+
+**Bilan missions ETP** : card hebdo affiche `X.XX ETP` en chiffre principal (au lieu de "N candidats"), cohérent avec le KPI Total ETP en haut. Sous-titre "N missions · Coeff moy. ×0.95". Le vrai coeff moyen calculé sans pondération prorata (l'ancienne formule mélangeait coefficient × prorata et n'avait aucun sens).
+
+**Rename PDF rapport** : `Nom_Prenom_Semaine_X.pdf` (rapport) et `Nom_Prenom_Semaine_X_Certificat.pdf` (cert). Helper `buildCandidatNamePart()` : priorité aux champs prenom/nom du candidat lié (DB), fallback split sur 1er espace de `candidat_name`. Noms composés gérés ("Mamadou Fara Diop Niang" → `Fara_Diop_Niang_Mamadou`). Accents retirés (NFD). Effet rétroactif uniquement sur nouveaux PDFs générés.
+
+**UX polish** : Mode liste 1 colonne pleine largeur sur desktop ≥769px pour portail client (au lieu de grille 3 cols qui coupait Documents). Mobile inchangé. Header portail restructuré mobile ≤640px (logo + badge ligne 1, ClientLogo + nom ligne 2). Spinner loading centré sous texte sur 4 pages publiques. Footer auth pages sans répétition "L-Agence SA". Liste `/missions/portails` épurée.
+
+**Cron cleanup** étendu : portal_login_attempts >30j, portal_tokens utilisés >30j, portal_tokens expirés >7j. Stack : `bcryptjs ^3.0.3` ajouté, `jose` réutilisé.
+
 
 ### v2.8.11 — INCIDENT wipe template + garde-fous + 5 fixes Sign Templates
 **INCIDENT 17/05 14:56** — Template `cb083ae0` (« Documents à signer ») wipé en DB (race condition probable HMR/auto-save → PATCH silent avec `docs=[]` envoyé pendant hydration React). Restauration depuis daily backup 17/05 01:56 UTC vers projet clone Supabase (TalentFlow-Recovery, plan Pro permet « Restore to new project »), puis UPSERT row sur prod via MCP `execute_sql` + script Node admin (5 docs, 102 fields, 16 wizard steps, 2 destinataires récupérés intacts, 0 perte). Clone supprimé après restauration. ~15 min total wipe→restore.
