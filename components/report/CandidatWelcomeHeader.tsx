@@ -5,19 +5,23 @@
 //   - Logo L-Agence top gauche
 //   - Salutation dynamique (heure / jour spécial / Pâques)
 //   - Météo Open-Meteo (gratuite, sans clé) — silent si géoloc refusée
+//   - Slot `actions` (boutons Mon compte / Déconnexion v2.9.0)
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import LogoLAgence from './LogoLAgence'
 import { getWelcomeGreeting, weatherLabel } from '@/lib/report/welcome'
 
 interface Props {
   prenom: string
+  /** v2.9.6 — Slot pour les boutons d'action (account / logout). Rendus dans
+   *  le flow flex à droite du header → plus de position:fixed qui chevauche. */
+  actions?: ReactNode
 }
 
 interface Weather { temp: number; emoji: string; text: string }
 
-export default function CandidatWelcomeHeader({ prenom }: Props) {
+export default function CandidatWelcomeHeader({ prenom, actions }: Props) {
   const [greeting, setGreeting] = useState(() => getWelcomeGreeting(prenom))
   const [weather, setWeather] = useState<Weather | null>(null)
 
@@ -48,57 +52,58 @@ export default function CandidatWelcomeHeader({ prenom }: Props) {
 
   return (
     <header
-      className="tf-welcome-header"
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 16,
-        // v2.9.5 — padding-right réservé aux pills account/logout fixées top-right.
-        // Mobile (≤640px) : icônes 32×32 → 80px. Desktop : pas de réservation
-        // (les libellés flottent au-dessus, la page reste large).
-        padding: '18px 80px 14px 16px',
+        gap: 12,
+        padding: '14px 12px',
         background: 'transparent',
         boxSizing: 'border-box',
         maxWidth: '100%',
-        overflow: 'hidden',
       }}
     >
-      <style>{`
-        @media (min-width: 641px) {
-          .tf-welcome-header { padding-right: 16px !important; }
-        }
-      `}</style>
       <div style={{ flexShrink: 0 }}>
-        <LogoLAgence height={38} color="dark" />
+        <LogoLAgence height={32} color="dark" />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <h1 style={{
           fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: 400,
           color: '#1C1A14',
           margin: 0,
           lineHeight: 1.15,
           letterSpacing: '-0.01em',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
         }}>
           {greeting.text} <span aria-hidden>{greeting.emoji}</span>
         </h1>
         {weather && (
           <div style={{
-            marginTop: 4,
-            fontSize: 13,
+            marginTop: 2,
+            fontSize: 12,
             color: '#6B7280',
             display: 'flex',
             alignItems: 'center',
             gap: 6,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}>
             <span>{weather.temp}°C</span>
             <span aria-hidden>·</span>
-            <span>{weather.text}</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{weather.text}</span>
             <span aria-hidden>{weather.emoji}</span>
           </div>
         )}
       </div>
+      {actions && (
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {actions}
+        </div>
+      )}
     </header>
   )
 }

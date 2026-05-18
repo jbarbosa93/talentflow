@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.5'
+export const APP_VERSION = '2.9.6'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.6 — /report/[slug] : icônes account/logout en flow flex (responsive total)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.6',
+    date: '2026-05-18',
+    label: '/report/[slug] : icônes Mon compte/Déconnexion intégrées dans le header (plus de position:fixed)',
+    features: [
+      'CandidatWelcomeHeader : nouveau slot `actions` rendu dans le flow flex à droite. Logo réduit 32px + h1 ellipsis + météo ellipsis → contenu garanti lisible sur tout écran (320px à 4K).',
+      'Phases sans header (form) : bandeau sticky-top dédié avec les 2 icônes à droite.',
+      'Suppression complète du position:fixed qui chevauchait + générait du scroll latéral sur petits écrans.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.5 — Fix scroll latéral /report/[slug]
   // ─────────────────────────────────────────────────────────────────────
