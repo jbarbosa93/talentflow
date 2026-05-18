@@ -841,6 +841,8 @@ export default function WizardEditor({
               fieldIndex={fieldIndex}
               allRecipientFields={allRecipientFields}
               documents={documents}
+              templateId={templateId}
+              setDocuments={setDocuments}
               onUpdateStep={(p) => updateStep(selectedStepIdx, p)}
               onMoveStep={(d) => moveStep(selectedStepIdx, d)}
               onDeleteStep={() => deleteStep(selectedStepIdx)}
@@ -928,6 +930,9 @@ interface StepDetailProps {
   fieldIndex: Map<string, { field: SignField; docIdx: number; fieldIdx: number }>
   allRecipientFields: SignField[]
   documents: SignDocument[]
+  /** v2.9.11 — Upload de PDF inline depuis l'éditeur de step (Documents à consulter). */
+  templateId: string
+  setDocuments: React.Dispatch<React.SetStateAction<SignDocument[]>>
   onUpdateStep: (p: Partial<WizardStep>) => void
   onMoveStep: (dir: -1 | 1) => void
   onDeleteStep: () => void
@@ -947,6 +952,7 @@ interface StepDetailProps {
 
 function StepDetail({
   step, stepIdx, totalSteps, allSteps, fieldIndex, allRecipientFields, documents,
+  templateId, setDocuments,
   onUpdateStep, onMoveStep, onDeleteStep, onMergeNext, onSplitAt,
   onUpdateField, onMoveFieldInStep, onReorderFieldInStep, onRemoveFieldFromStep, onAddFieldToStep,
   onDuplicateField, onMoveFieldToStep, onDeleteFields,
@@ -1077,7 +1083,9 @@ function StepDetail({
       <AttachmentsEditor
         attachments={step.attachments || []}
         documents={documents}
+        templateId={templateId}
         onChange={(a) => onUpdateStep({ attachments: a.length === 0 ? undefined : a })}
+        onDocumentAdded={(newDoc) => setDocuments(prev => [...prev, newDoc])}
       />
 
       {/* Fields list */}
@@ -2033,13 +2041,18 @@ function ConditionsEditor({
 // AttachmentsEditor — édite la liste des documents à consulter de l'étape
 // ───────────────────────────────────────────────────────────────────────
 function AttachmentsEditor({
-  attachments, documents, onChange,
+  attachments, documents, onChange, templateId, onDocumentAdded,
 }: {
   attachments: WizardStepAttachment[]
   documents: SignDocument[]
   onChange: (a: WizardStepAttachment[]) => void
+  /** v2.9.11 — Upload de PDF inline */
+  templateId?: string
+  onDocumentAdded?: (doc: SignDocument) => void
 }) {
   const [showAdd, setShowAdd] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const usedDocOrders = new Set(attachments.map(a => a.docOrder).filter(o => o !== undefined))
   const availableDocs = documents.filter((d, i) => {
     const order = d.order ?? (i + 1)
@@ -2059,13 +2072,90 @@ function AttachmentsEditor({
     setShowAdd(false)
   }
 
+  // v2.9.11 — Upload PDF inline → ajout au template + auto-attach au step
+  const handleUpload = async (file: File) => {
+    if (!templateId || !onDocumentAdded) {
+      toast.error('Upload non disponible dans ce contexte')
+      return
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('PDF trop volumineux (max 50 MB)')
+      return
+    }
+    setUploading(true)
+    try {
+      // 1. Demande URL upload signée
+      const urlR = await fetch('/api/sign/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder: 'templates', ownerId: templateId, filename: file.name }),
+      })
+      if (!urlR.ok) throw new Error('upload-url')
+      const { uploadUrl, path } = await urlR.json()
+      // 2. PUT direct Supabase
+      const put = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/pdf' },
+        body: file,
+      })
+      if (!put.ok) throw new Error('put-failed')
+      // 3. Construit le SignDocument et l'ajoute au template
+      const nextOrder = (documents.reduce((max, d) => Math.max(max, d.order ?? 0), 0) || documents.length) + 1
+      const newDoc: SignDocument = {
+        name: file.name,
+        storage_path: path,
+        page_count: 1, // approximation — détaillé par pdf-lib côté backend si besoin
+        order: nextOrder,
+        fields: [],
+      }
+      onDocumentAdded(newDoc)
+      // 4. Auto-attache au step en cours
+      const newAtt: WizardStepAttachment = {
+        id: 'att_' + Math.random().toString(36).slice(2, 11),
+        label: file.name.replace(/\.pdf$/i, ''),
+        docOrder: nextOrder,
+      }
+      onChange([...attachments, newAtt])
+      toast.success(`📄 ${file.name} ajouté et attaché au step`)
+    } catch (e) {
+      toast.error('Erreur upload : ' + (e instanceof Error ? e.message : 'inconnu'))
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
         <label style={{ ...editLabelStyle, marginBottom: 0 }}>
           Documents à consulter ({attachments.length})
         </label>
         <span style={{ flex: 1 }} />
+        {/* v2.9.11 — Upload inline */}
+        {templateId && onDocumentAdded && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              style={{ display: 'none' }}
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) handleUpload(f)
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="neo-btn-ghost neo-btn-sm"
+              disabled={uploading}
+              title="Uploader un nouveau PDF (sera ajouté au template + attaché à cette étape)"
+            >
+              {uploading ? '⏳ Upload…' : '📤 Uploader un PDF'}
+            </button>
+          </>
+        )}
         <button
           type="button"
           onClick={() => setShowAdd(s => !s)}

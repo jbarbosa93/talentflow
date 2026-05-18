@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.10'
+export const APP_VERSION = '2.9.11'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.11 — Upload PDF inline dans « Documents à consulter » du Wizard
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.11',
+    date: '2026-05-18',
+    label: 'Wizard Editor : bouton « 📤 Uploader un PDF » dans Documents à consulter',
+    features: [
+      'AttachmentsEditor : nouveau bouton 📤 qui ouvre un file picker. Le PDF est uploadé via /api/sign/upload-url (direct Supabase, bypass Vercel 4.5MB) → ajouté à `template.documents[]` → auto-attaché au step en cours. Plus besoin de passer par le mode Document pour ajouter un PDF de référence.',
+      'Limite 50 MB par fichier, accept=application/pdf uniquement.',
+      'Toast vert au succès, rouge si erreur upload.',
+      '⚠️ Limitation actuelle : 1 step = N attachments globaux. Les attachments par carte de section (Cartes par section) viendront dans une release séparée.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.10 — Silence Sentry : "TypeError: Failed to fetch" sur flushSave keepalive
   // ─────────────────────────────────────────────────────────────────────
