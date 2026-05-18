@@ -624,36 +624,54 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     }
   }
   const accountButton = (data?.link as any)?.auth_required ? (
-    <div style={{
-      position: 'fixed', top: 12, right: 12, zIndex: 100,
-      display: 'flex', alignItems: 'center', gap: 6,
-      fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
-    }}>
-      <a
-        href="/report/account" title="Mon compte"
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '7px 12px', borderRadius: 99,
-          background: '#FFFFFF', color: '#1C1A14', textDecoration: 'none',
-          border: '1px solid #E5E7EB', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-          fontSize: 12, fontWeight: 600,
-        }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>
-        Mon compte
-      </a>
-      <button
-        onClick={handleCandidatLogout} title="Se déconnecter"
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '7px 12px', borderRadius: 99,
-          background: '#FFFFFF', color: '#B91C1C',
-          border: '1px solid #FCA5A5', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-          fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-        }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Déconnexion
-      </button>
-    </div>
+    <>
+      {/* v2.9.3 — Mobile : icônes pures (32×32) pour ne pas cacher le contenu header.
+          Desktop ≥641px : pills compactes avec libellé. */}
+      <style>{`
+        .tf-acct-btns .tf-acct-label { display: inline; }
+        .tf-acct-btns .tf-acct-btn   { padding: 7px 12px; }
+        @media (max-width: 640px) {
+          .tf-acct-btns { top: 10px !important; right: 10px !important; gap: 4px !important; }
+          .tf-acct-btns .tf-acct-label { display: none; }
+          .tf-acct-btns .tf-acct-btn {
+            padding: 0; width: 32px; height: 32px;
+            justify-content: center; gap: 0;
+          }
+        }
+      `}</style>
+      <div className="tf-acct-btns" style={{
+        position: 'fixed', top: 12, right: 12, zIndex: 100,
+        display: 'flex', alignItems: 'center', gap: 6,
+        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+      }}>
+        <a
+          href="/report/account" title="Mon compte"
+          className="tf-acct-btn"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            borderRadius: 99,
+            background: '#FFFFFF', color: '#1C1A14', textDecoration: 'none',
+            border: '1px solid #E5E7EB', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            fontSize: 12, fontWeight: 600,
+          }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>
+          <span className="tf-acct-label">Mon compte</span>
+        </a>
+        <button
+          onClick={handleCandidatLogout} title="Se déconnecter"
+          className="tf-acct-btn"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            borderRadius: 99,
+            background: '#FFFFFF', color: '#B91C1C',
+            border: '1px solid #FCA5A5', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+          }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <span className="tf-acct-label">Déconnexion</span>
+        </button>
+      </div>
+    </>
   ) : null
 
   // v2.4.0 — Page accueil (landing) mobile-first

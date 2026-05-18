@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.2'
+export const APP_VERSION = '2.9.3'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.3 — Mobile UX : boutons Mon compte / Déconnexion icon-only sur ≤640px
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.3',
+    date: '2026-05-18',
+    label: 'Page rapport candidat : boutons Mon compte/Déconnexion icon-only sur mobile',
+    features: [
+      'RAPPORT CANDIDAT — Les pills « Mon compte » et « Déconnexion » du header /report/[slug] passent en mode icône pure (32×32px) sur ≤640px pour ne plus cacher la photo + nom + boutons d\'action. Desktop ≥641px : libellés conservés.',
+      'PAGE SIGNATURE CLIENT — Vérifiée mobile-friendly (déjà isMobile < 900px : logo réduit, label semaine ellipsis, footer sticky bouton Valider sur mobile vs inline header desktop). Pas de changement requis.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.2 — Sign Templates polish + Rapports : bouton WhatsApp client par submission
   // ─────────────────────────────────────────────────────────────────────
