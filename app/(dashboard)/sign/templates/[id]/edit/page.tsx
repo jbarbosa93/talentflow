@@ -118,16 +118,15 @@ function TemplateEditPage({ params }: PageProps) {
       wizard_steps: stateRef.current.wizardSteps,
       wizard_enabled: stateRef.current.wizardEnabled,
     })
-    try {
-      void fetch(`/api/sign/templates/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-        keepalive: opts?.keepalive === true,
-      })
-    } catch {
-      // best-effort, on n'a pas de chemin de récupération si le navigateur ferme
-    }
+    // v2.9.10 — Best-effort flush. fetch() retourne une Promise → un try/catch sync
+    // ne capte rien. Ajout d'un .catch() pour silencer les "TypeError: Failed to fetch"
+    // qui pollualent Sentry quand le navigateur abort la requête (close onglet, navigation).
+    fetch(`/api/sign/templates/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: opts?.keepalive === true,
+    }).catch(() => { /* best-effort, pas de récupération possible */ })
   }, [id])
 
   // Switch d'onglet → flush avant le changement

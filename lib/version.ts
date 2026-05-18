@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.9'
+export const APP_VERSION = '2.9.10'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.10 — Silence Sentry : "TypeError: Failed to fetch" sur flushSave keepalive
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.10',
+    date: '2026-05-18',
+    label: 'Sentry nettoyé : plus de "Failed to fetch" parasites sur close onglet pendant auto-save',
+    features: [
+      'TemplateEditor flushSave : ajout `.catch(() => {})` sur le fetch keepalive (le try/catch sync ne captait pas la promise rejetée quand le navigateur abort la requête).',
+      'Sentry instrumentation-client : ignoreErrors étendu (`Failed to fetch`, `NetworkError`, `Load failed` Safari) + beforeSend drop les AbortError.',
+      'Effet : fin du bruit Sentry quand un user ferme un onglet pendant qu\'un fetch tourne (cas typique en édition de template).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.9 — Lier/délier une mission à un rapport a posteriori
   // ─────────────────────────────────────────────────────────────────────
