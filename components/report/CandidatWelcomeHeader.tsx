@@ -53,15 +53,19 @@ export default function CandidatWelcomeHeader({ prenom }: Props) {
         display: 'flex',
         alignItems: 'center',
         gap: 16,
-        // v2.9.4 — padding-right généreux pour laisser place aux pills account/logout
-        // fixées top-right (32×32 × 2 + gaps ≈ 78px). Sur ≤640px les icônes sont à 10px du bord.
-        padding: '18px 96px 14px 16px',
+        // v2.9.5 — padding-right réservé aux pills account/logout fixées top-right.
+        // Mobile (≤640px) : icônes 32×32 → 80px. Desktop : pas de réservation
+        // (les libellés flottent au-dessus, la page reste large).
+        padding: '18px 80px 14px 16px',
         background: 'transparent',
+        boxSizing: 'border-box',
+        maxWidth: '100%',
+        overflow: 'hidden',
       }}
     >
       <style>{`
         @media (min-width: 641px) {
-          .tf-welcome-header { padding-right: 220px !important; }
+          .tf-welcome-header { padding-right: 16px !important; }
         }
       `}</style>
       <div style={{ flexShrink: 0 }}>
