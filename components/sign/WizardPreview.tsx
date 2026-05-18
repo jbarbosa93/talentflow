@@ -56,7 +56,11 @@ export default function WizardPreview({ steps, documents, onClose, syncStepIdx, 
           f.metadata, f.defaultValue, f.maxLength, f.conditions,
           f.groupId, f.groupRule, f.groupMin, f.groupMax, f.groupName,
         ])),
-        s: steps.map(s => [s.id, s.title, s.description, s.fieldIds, s.recipientOrder, s.displayMode]),
+        s: steps.map(s => [s.id, s.title, s.description, s.fieldIds, s.recipientOrder, s.displayMode,
+          // v2.9.13 — Inclut attachments dans le hash pour que le rename d'un
+          // attachment label propage au preview (sinon snapshot figé)
+          (s.attachments || []).map(a => [a.id, a.label, a.description, a.docOrder, a.externalUrl]),
+        ]),
       })
       if (hash !== snapshotHashRef.current) {
         snapshotHashRef.current = hash

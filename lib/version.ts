@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.12'
+export const APP_VERSION = '2.9.13'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.13 — Wizard Preview : rename attachment ne propageait pas
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.13',
+    date: '2026-05-18',
+    label: 'Fix Wizard Preview : renommer un attachment se voit maintenant dans l\'aperçu',
+    features: [
+      'WizardPreview hash incluait fields + step (title/description/fieldIds/displayMode) mais PAS `step.attachments`. Conséquence : renommer un attachment ne changeait pas le hash → snapshot figé → preview affichait l\'ancien nom.',
+      'Fix : ajout des attachments dans le hash (id+label+description+docOrder+externalUrl). Le rename propage maintenant immédiatement au preview.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.12 — Sign : autofill cross-template par clé métier
   // ─────────────────────────────────────────────────────────────────────
