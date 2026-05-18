@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.3'
+export const APP_VERSION = '2.9.4'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.4 — Fix chevauchement icônes header /report/[slug] mobile
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.4',
+    date: '2026-05-18',
+    label: 'Header /report/[slug] : padding-right pour ne plus chevaucher les icônes Mon compte/Déconnexion',
+    features: [
+      'RAPPORT CANDIDAT — CandidatWelcomeHeader gagne 96px de padding-right sur mobile (220px desktop) pour réserver la place aux pills account/logout fixées top-right. Le logo L-Agence + salutation + météo ne sont plus cachés.',
+      'PORTAIL CLIENT — Vérifié : pas de chevauchement (les icônes sont intégrées en ligne 1 du header, pas en position fixed). Aucun changement requis.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.3 — Mobile UX : boutons Mon compte / Déconnexion icon-only sur ≤640px
   // ─────────────────────────────────────────────────────────────────────

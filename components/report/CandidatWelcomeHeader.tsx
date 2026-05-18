@@ -47,13 +47,23 @@ export default function CandidatWelcomeHeader({ prenom }: Props) {
   }, [])
 
   return (
-    <header style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 16,
-      padding: '18px 16px 14px',
-      background: 'transparent',
-    }}>
+    <header
+      className="tf-welcome-header"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        // v2.9.4 — padding-right généreux pour laisser place aux pills account/logout
+        // fixées top-right (32×32 × 2 + gaps ≈ 78px). Sur ≤640px les icônes sont à 10px du bord.
+        padding: '18px 96px 14px 16px',
+        background: 'transparent',
+      }}
+    >
+      <style>{`
+        @media (min-width: 641px) {
+          .tf-welcome-header { padding-right: 220px !important; }
+        }
+      `}</style>
       <div style={{ flexShrink: 0 }}>
         <LogoLAgence height={38} color="dark" />
       </div>
