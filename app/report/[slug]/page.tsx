@@ -959,7 +959,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       display: 'flex',
       flexDirection: 'column',
     }}>
-      {accountStickyBar}
+      {/* v2.9.7 — accountActions intégrés dans le header form à côté de l'Aide (voir plus bas) */}
       {/* SignaturePad */}
       <SignaturePad
         open={signaturePadOpen}
@@ -1054,6 +1054,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
 
         {/* v2.4.2 — Bouton Contacter L-Agence COMPACT en haut à droite du header */}
         <ContactAgenceButton variant="compact" />
+        {/* v2.9.7 — Mon compte + Déconnexion à droite de l'Aide (au lieu d'un bandeau sticky moche) */}
+        {accountActions}
       </header>
 
       {/* Mobile : WeekSelector sous le header */}

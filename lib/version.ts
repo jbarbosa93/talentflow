@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.6'
+export const APP_VERSION = '2.9.7'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.7 — Phase form rapport : icônes Mon compte/Déconnexion à côté du bouton Aide
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.7',
+    date: '2026-05-18',
+    label: 'Form rapport : icônes Mon compte/Déconnexion intégrées dans le header à côté du bouton Aide',
+    features: [
+      'Suppression du bandeau sticky-top dédié au-dessus du header (jugé moche).',
+      'Les 2 icônes 32×32 sont maintenant rendues après le bouton Aide jaune, dans la même barre flex → header propre sur mobile et desktop.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.6 — /report/[slug] : icônes account/logout en flow flex (responsive total)
   // ─────────────────────────────────────────────────────────────────────
