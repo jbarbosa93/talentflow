@@ -396,7 +396,39 @@ export default function ReportLinkDetailPage({
           >
             → Voir la mission
           </a>
+          <button
+            type="button"
+            onClick={async () => {
+              if (!confirm('Délier la mission de ce rapport ?')) return
+              const r = await fetch(`/api/admin/reports/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mission_id: null }),
+              })
+              if (r.ok) { toast.success('Mission déliée'); fetchData() }
+              else toast.error('Erreur')
+            }}
+            style={{
+              padding: '7px 10px', borderRadius: 8,
+              background: 'transparent', border: '1.5px solid #FCA5A5',
+              color: '#B91C1C', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+            title="Délier la mission de ce rapport"
+          >
+            Délier
+          </button>
         </div>
+      )}
+
+      {/* v2.9.9 — Bouton "Lier une mission" si aucune mission liée */}
+      {!mission && link && (
+        <LinkMissionButton
+          linkId={id}
+          candidatId={link.candidat_id}
+          candidatName={link.candidat_name}
+          onLinked={fetchData}
+        />
       )}
 
       {/* v2.7.3 — Card "Utiliser portail rapports" */}
@@ -646,5 +678,151 @@ function InfoCard({ label, value }: { label: string; value: string }) {
         {value}
       </div>
     </div>
+  )
+}
+
+// v2.9.9 — Bouton + modal pour lier une mission à un rapport a posteriori
+function LinkMissionButton({
+  linkId, candidatId, candidatName, onLinked,
+}: {
+  linkId: string
+  candidatId: string | null
+  candidatName: string | null
+  onLinked: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [missions, setMissions] = useState<Array<{
+    id: string; client_nom: string | null; metier: string | null; metier_display: string | null;
+    date_debut: string | null; date_fin: string | null; candidat_id: string | null;
+  }>>([])
+  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  const openModal = async () => {
+    setOpen(true)
+    setLoading(true)
+    try {
+      const r = await fetch('/api/missions', { cache: 'no-store' })
+      const d = await r.json()
+      const all = (d.missions || []) as any[]
+      // Filtre prioritaire : missions du candidat lié. Sinon toutes (au cas où le candidat n'est pas en DB).
+      const filtered = candidatId
+        ? all.filter(m => m.candidat_id === candidatId)
+        : all
+      setMissions(filtered.length > 0 ? filtered : all)
+    } catch {
+      toast.error('Erreur chargement missions')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLink = async (missionId: string) => {
+    setBusy(true)
+    const r = await fetch(`/api/admin/reports/${linkId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mission_id: missionId }),
+    })
+    setBusy(false)
+    if (r.ok) {
+      toast.success('Mission liée au rapport')
+      setOpen(false)
+      onLinked()
+    } else {
+      toast.error('Erreur')
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={openModal}
+        style={{
+          marginTop: 14,
+          padding: '10px 14px',
+          borderRadius: 10,
+          background: 'transparent',
+          border: '1.5px dashed rgba(99,102,241,0.4)',
+          color: '#818CF8',
+          fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          fontFamily: 'inherit',
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+        }}
+        title="Lier ce rapport à une mission (utile pour bloquer les soumissions après la fin de mission)"
+      >
+        🔗 Lier une mission
+      </button>
+
+      {open && typeof document !== 'undefined' && createPortal(
+        <div onClick={() => !busy && setOpen(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--card)', borderRadius: 14, padding: 24,
+            maxWidth: 560, width: '100%', maxHeight: '85vh', overflow: 'auto',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.30)',
+          }}>
+            <h3 style={{
+              margin: '0 0 8px',
+              fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+              fontSize: 22, fontWeight: 400, color: 'var(--foreground)',
+            }}>Lier une mission</h3>
+            <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+              {candidatName ? `Missions de ${candidatName} :` : 'Sélectionne la mission à lier à ce rapport.'} Une fois liée, les dates de la mission filtreront les semaines disponibles au candidat.
+            </p>
+            {loading ? (
+              <div style={{ fontSize: 13, color: 'var(--muted)', padding: 12 }}>Chargement…</div>
+            ) : missions.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--muted)', padding: 12 }}>
+                Aucune mission trouvée.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {missions.map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleLink(m.id)}
+                    disabled={busy}
+                    style={{
+                      textAlign: 'left',
+                      padding: '12px 14px',
+                      background: 'var(--surface)',
+                      border: '1.5px solid var(--border)',
+                      borderRadius: 10,
+                      cursor: busy ? 'wait' : 'pointer',
+                      fontFamily: 'inherit',
+                      display: 'flex', flexDirection: 'column', gap: 4,
+                    }}
+                  >
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--foreground)' }}>
+                      {m.metier_display || m.metier || 'Mission'}
+                      {m.client_nom ? ` · ${m.client_nom}` : ''}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                      {m.date_debut
+                        ? <>Du {m.date_debut.split('-').reverse().join('.')}{m.date_fin ? ` au ${m.date_fin.split('-').reverse().join('.')}` : ' (indéterminée)'}</>
+                        : 'Dates non définies'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => setOpen(false)} disabled={busy} style={{
+                padding: '7px 14px', fontSize: 12, fontWeight: 600,
+                background: '#F3F4F6', color: '#374151',
+                border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
+              }}>Annuler</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }

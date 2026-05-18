@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.8'
+export const APP_VERSION = '2.9.9'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.9 — Lier/délier une mission à un rapport a posteriori
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.9',
+    date: '2026-05-18',
+    label: '/sign/rapports/[id] : bouton « Lier une mission » + « Délier » (avant : uniquement à la création)',
+    features: [
+      'PATCH /api/admin/reports/[id] accepte maintenant `mission_id` (lier/délier). Avant : la liaison ne pouvait se faire qu\'à la création du lien.',
+      'Page détail lien : si pas de mission liée → bouton dashed « 🔗 Lier une mission » qui ouvre un modal listant prioritairement les missions du candidat (filtre par candidat_id, fallback sur toutes les missions). Modal portalisé + backdrop blur.',
+      'Card « Mission liée » : nouveau bouton « Délier » (rouge outline) pour casser la liaison sans devoir recréer le lien rapport.',
+      'Impact métier : quand la mission a une `date_fin`, le candidat ne peut plus soumettre de rapports après cette date — la liaison a posteriori permet d\'appliquer ce garde-fou sur des liens créés sans mission au départ.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.8 — Modal Inviter : pre-fill email candidat + createPortal (fix backdrop sticky)
   // ─────────────────────────────────────────────────────────────────────

@@ -119,6 +119,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (typeof body.auth_required === 'boolean') {
       update.auth_required = body.auth_required
     }
+    // v2.9.9 — Lier/délier une mission a posteriori (avant : uniquement à la création)
+    if (body.mission_id !== undefined) {
+      update.mission_id = body.mission_id || null
+    }
 
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })
