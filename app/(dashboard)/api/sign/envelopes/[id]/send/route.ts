@@ -76,88 +76,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   const ttlDays = (env as unknown as { expires_in_days?: number | null }).expires_in_days || undefined
 
-  // v2.8.5 / v2.8.6 — AUTO-SIGN du créateur si preset_signature enregistrée.
-  // Si le user qui envoie est lui-même destinataire (cas classique : consultant
-  // qui s'envoie un contrat candidat→consultant) ET qu'il a une signature
-  // pré-enregistrée dans /parametres/profil → on appose sa signature
-  // automatiquement et on skip son étape. Le candidat reçoit l'email direct.
+  // v2.9.16 — Auto-sign du créateur DÉSACTIVÉ. Chaque destinataire (même
+  // le créateur s'il est dans la chaîne) doit signer manuellement via son
+  // propre lien. Ça garantit la validité juridique (chaque signature reflète
+  // une action consciente du signataire) et permet à João de tester chaque
+  // flow sans contournement automatique.
   //
-  // v2.8.6 — Signature lue depuis table user_preset_signatures (avant : dans
-  // user_metadata du cookie JWT → cookie 70KB → 494 Vercel).
-  let presetSig: string | null = null
-  if (user?.id) {
-    const { data: sigRow } = await supabase
-      .from('user_preset_signatures' as any)
-      .select('data_url')
-      .eq('user_id', user.id)
-      .maybeSingle()
-    const sigData = sigRow as unknown as { data_url?: string } | null
-    presetSig = sigData?.data_url || null
-  }
-  let autoSignedCreator = false
-  if (presetSig && user?.email) {
-    const userEmailLc = user.email.toLowerCase().trim()
-    // v2.9.15 — Ne JAMAIS auto-signer le slot "Candidat" :
-    // (1) Exclusion par roleName : si recipient.roleName contient "candidat" → skip.
-    // (2) Exclusion par order : on ne signe que les destinataires en aval du 1er
-    //     signataire (le 1er = candidat dans la convention TalentFlow).
-    // → Garantit que le candidat doit toujours remplir + signer manuellement,
-    //   même si le créateur a mis son propre email dans le slot candidat (cas test).
-    const signers = (env.recipients as SignRecipient[]).filter(r => r.role !== 'cc')
-    const minOrder = signers.length > 0 ? Math.min(...signers.map(r => r.order ?? 0)) : 0
-    const isCandidatRole = (r: SignRecipient) => {
-      const rn = (r as { roleName?: string }).roleName || ''
-      return /candidat/i.test(rn)
-    }
-    const creatorRecipient = (env.recipients as SignRecipient[])
-      .find(r =>
-        r.email.toLowerCase().trim() === userEmailLc &&
-        r.role !== 'cc' &&
-        r.status !== 'signed' &&
-        !isCandidatRole(r) &&                     // exclu si roleName contient "Candidat"
-        (r.order ?? 0) > minOrder,                // exclu si 1er signataire
-      )
-    if (creatorRecipient) {
-      const nowIso = new Date().toISOString()
-      // 1. Génère un token pour le créateur (single)
-      const [creatorToken] = await generateTokensForEnvelope(id, [creatorRecipient], ttlDays)
-      if (creatorToken) {
-        // 2. Marque le token comme signé directement avec la preset signature
-        await supabase
-          .from('sign_tokens' as any)
-          .update({
-            signature_data_url: presetSig,
-            signature_method: 'drawn',
-            signed_at: nowIso,
-            signed_ip: extractIp(req),
-            used_at: nowIso,
-          })
-          .eq('token', creatorToken.token)
-        // 3. Marque le recipient comme signé dans l'enveloppe
-        const updatedRecipients = (env.recipients as SignRecipient[]).map(r => {
-          if (r.email.toLowerCase().trim() !== userEmailLc) return r
-          return { ...r, status: 'signed' as const, signed_at: nowIso }
-        })
-        await supabase
-          .from('sign_envelopes' as any)
-          .update({ recipients: updatedRecipients })
-          .eq('id', id)
-        // Met à jour env.recipients en local pour la suite de la route
-        env.recipients = updatedRecipients
-        autoSignedCreator = true
-        // 4. Audit log
-        await logAuditEvent(id, 'signed', {
-          recipientEmail: creatorRecipient.email,
-          ip: extractIp(req),
-          metadata: {
-            signed_via: 'preset_signature',
-            auto_signed_at_envelope_send: true,
-            role: 'Signataire',
-          },
-        })
-      }
-    }
-  }
+  // Historique : v2.8.5 introduisait l'auto-sign pour gagner du temps quand
+  // le consultant envoie un doc qu'il doit aussi signer. v2.9.15 l'avait
+  // restreint au rôle non-Candidat. v2.9.16 supprime complètement.
 
   // v2.2.1 — Workflow séquentiel + PARALLÈLE :
   // Plusieurs destinataires peuvent partager le MÊME `order` → ils reçoivent
@@ -259,8 +186,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     tokens: tokens.length,
     sentOk,
     sentErrors: sentErr,
-    // v2.8.5 — Indique si le créateur a été auto-signé via preset signature.
-    // Utile pour le front qui peut afficher un toast spécifique.
-    autoSignedCreator,
+    // v2.9.16 — autoSignedCreator toujours false (auto-sign supprimé).
+    autoSignedCreator: false,
   })
 }

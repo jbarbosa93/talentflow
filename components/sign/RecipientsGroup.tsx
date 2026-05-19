@@ -163,7 +163,7 @@ export default function RecipientsGroup({ recipients, onChange, orderEnabled, re
       {groups.map((g, gIdx) => (
         <div key={`group-${g.order}`}>
           <GroupContainer
-            order={g.order}
+            order={gIdx}
             count={g.recipients.length}
             isParallel={g.recipients.length > 1}
             isDragOver={dragOverTarget?.kind === 'into-group' && dragOverTarget.order === g.order}

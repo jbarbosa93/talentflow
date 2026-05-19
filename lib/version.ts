@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.15'
+export const APP_VERSION = '2.9.16'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.16 — Sign : auto-sign SUPPRIMÉ + preferredViewMode persisté + ÉTAPE 1/2 réellement affichés
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.16',
+    date: '2026-05-19',
+    label: 'Sign : 3 fixes résiduels — auto-sign SUPPRIMÉ, mode wizard candidat persisté, ÉTAPE 1/2 fixé pour de bon',
+    features: [
+      'AUTO-SIGN — Supprimé entièrement (était v2.8.5, restreint v2.9.15, supprimé v2.9.16). Chaque destinataire dans la chaîne signe manuellement via son propre lien, même le créateur s\'il est dans les destinataires. Garantit validité juridique + permet à João de tester chaque flow sans contournement.',
+      'WIZARD CANDIDAT — `/api/sign/envelopes` POST sauvegarde maintenant `preferredViewMode` sur le recipient. Avant : choix wizard/document fait dans /sign/new n\'était PAS persisté → recipient.preferredViewMode = undefined → fallback "auto" → souvent mode document. Maintenant le choix est respecté côté candidat (combiné avec wizard FORCÉ sur mobile de v2.9.15).',
+      'ÉTAPE 1/2 — Le badge utilise maintenant l\'INDEX du groupe (0, 1, 2...) au lieu de l\'order du recipient (qui peut être 1, 2... selon le template). Display 1, 2, 3 garanti peu importe les orders sous-jacents 0/1-based.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.15 — 5 bugs Sign : auto-sign / email contextuel / ÉTAPE / WhatsApp / wizard mobile
   // ─────────────────────────────────────────────────────────────────────

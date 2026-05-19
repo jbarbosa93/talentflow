@@ -78,6 +78,13 @@ export async function POST(req: NextRequest) {
     const normalizedRecipients = recipients.map((r, idx) => {
       const rawPhone = (r as { phone?: string }).phone
       const phone = rawPhone ? normalizePhoneE164(rawPhone) : null
+      // v2.9.16 — preferredViewMode (wizard/document/auto) doit être saved sur
+      // le recipient sinon le candidat tombe toujours en mode 'auto' au signing
+      // → fallback document sur desktop, et même sur mobile si filter wizard fail.
+      const rawPref = (r as { preferredViewMode?: string }).preferredViewMode
+      const preferredViewMode: 'wizard' | 'document' | 'auto' | undefined =
+        rawPref === 'wizard' || rawPref === 'document' ? rawPref :
+        rawPref === 'auto' ? 'auto' : undefined
       return {
         name: r.name.trim(),
         firstName: typeof r.firstName === 'string' ? r.firstName.trim() : undefined,
@@ -89,6 +96,7 @@ export async function POST(req: NextRequest) {
         order: r.order ?? idx,
         status: 'pending' as const,
         signed_at: null,
+        preferredViewMode,
       }
     })
 
