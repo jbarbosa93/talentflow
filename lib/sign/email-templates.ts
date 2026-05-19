@@ -14,6 +14,11 @@ export interface SignEmailParams {
   signUrl: string                 // URL complète /sign/v/{token}
   documentsCount?: number
   expiresAt?: string              // ISO date pour afficher "expire le X"
+  /** v2.9.15 — Si true + candidateName, le headline devient "X a rempli et signé,
+   *  veuillez vérifier et confirmer" au lieu de "vous invite à signer".
+   *  Activé pour les signataires en aval du candidat (consultant valideur). */
+  isReviewAfterCandidate?: boolean
+  candidateName?: string         // Nom du candidat qui a signé en amont
 }
 
 // Palette v2.2.0 Phase 3 — TalentFlow Sign emails
@@ -73,10 +78,16 @@ export function buildSignInviteHtml(p: SignEmailParams): string {
   const noun = docNoun(p.documentsCount)
   const ctaLabel = isCC
     ? (noun === 'documents' ? 'Voir les documents' : 'Voir le document')
-    : (noun === 'documents' ? 'Signer les documents' : 'Signer le document')
+    : (p.isReviewAfterCandidate
+        ? (noun === 'documents' ? 'Vérifier et signer' : 'Vérifier et signer')
+        : (noun === 'documents' ? 'Signer les documents' : 'Signer le document'))
+  // v2.9.15 — Headline contextuel : si le signataire est en aval d'un candidat
+  // qui a déjà rempli + signé, on lui dit explicitement de vérifier et confirmer.
   const headline = isCC
     ? `Vous recevez ${noun === 'documents' ? 'ces documents' : 'ce document'} en copie`
-    : `${senderName} vous invite à ${noun === 'documents' ? 'signer des documents' : 'signer un document'}`
+    : (p.isReviewAfterCandidate && p.candidateName
+        ? `${p.candidateName} a rempli et signé — veuillez vérifier et confirmer avec votre signature`
+        : `${senderName} vous invite à ${noun === 'documents' ? 'signer des documents' : 'signer un document'}`)
 
   const expiresLine = p.expiresAt
     ? `<p style="${pStyle()}; color:${MUTED}; font-size:12px; margin-top:24px;">
@@ -214,10 +225,14 @@ export function buildSignInviteText(p: SignEmailParams): string {
   const senderName = normalizeSenderName(p.senderName)
   const noun = docNoun(p.documentsCount)
   const docPhrase = noun === 'documents' ? 'des documents' : 'un document'
+  // v2.9.15 — Texte contextuel si signataire en aval d'un candidat signé
+  const introLine = !isCC && p.isReviewAfterCandidate && p.candidateName
+    ? `${p.candidateName} a rempli et signé ${docPhrase} : ${p.envelopeTitle}. Veuillez vérifier et confirmer avec votre signature.`
+    : `${senderName} vous invite à ${action} ${docPhrase} : ${p.envelopeTitle}.`
   const lines = [
     `Bonjour ${firstName(p.recipientName)},`,
     '',
-    `${senderName} vous invite à ${action} ${docPhrase} : ${p.envelopeTitle}.`,
+    introLine,
     '',
     p.message ? `Message :\n${p.message}\n` : '',
     `Lien pour ${action} ${noun === 'documents' ? 'les documents' : 'le document'} :`,

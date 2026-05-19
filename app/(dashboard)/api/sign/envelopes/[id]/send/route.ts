@@ -97,8 +97,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   let autoSignedCreator = false
   if (presetSig && user?.email) {
     const userEmailLc = user.email.toLowerCase().trim()
+    // v2.9.15 — Ne JAMAIS auto-signer le slot "Candidat" :
+    // (1) Exclusion par roleName : si recipient.roleName contient "candidat" → skip.
+    // (2) Exclusion par order : on ne signe que les destinataires en aval du 1er
+    //     signataire (le 1er = candidat dans la convention TalentFlow).
+    // → Garantit que le candidat doit toujours remplir + signer manuellement,
+    //   même si le créateur a mis son propre email dans le slot candidat (cas test).
+    const signers = (env.recipients as SignRecipient[]).filter(r => r.role !== 'cc')
+    const minOrder = signers.length > 0 ? Math.min(...signers.map(r => r.order ?? 0)) : 0
+    const isCandidatRole = (r: SignRecipient) => {
+      const rn = (r as { roleName?: string }).roleName || ''
+      return /candidat/i.test(rn)
+    }
     const creatorRecipient = (env.recipients as SignRecipient[])
-      .find(r => r.email.toLowerCase().trim() === userEmailLc && r.role !== 'cc' && r.status !== 'signed')
+      .find(r =>
+        r.email.toLowerCase().trim() === userEmailLc &&
+        r.role !== 'cc' &&
+        r.status !== 'signed' &&
+        !isCandidatRole(r) &&                     // exclu si roleName contient "Candidat"
+        (r.order ?? 0) > minOrder,                // exclu si 1er signataire
+      )
     if (creatorRecipient) {
       const nowIso = new Date().toISOString()
       // 1. Génère un token pour le créateur (single)
@@ -165,9 +183,31 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     recipientByEmail.set(r.email.toLowerCase().trim(), r)
   })
 
+  // v2.9.15 — Calcule si le candidat (1er signataire) a déjà signé (cas typique :
+  // créateur s'est auto-signé en tant que candidat, ou la chaîne est : candidat
+  // → consultant et candidat a signé). Si oui ET le destinataire courant est
+  // après lui, on envoie un email contextuel "X a signé, vérifie et confirme".
+  const candidateSigner = (env.recipients as SignRecipient[]).find(r => {
+    if (r.role === 'cc') return false
+    const rn = (r as { roleName?: string }).roleName || ''
+    return /candidat/i.test(rn) && r.status === 'signed'
+  })
+  const candidateOrder = candidateSigner?.order ?? -1
+  const candidateDisplayName = candidateSigner
+    ? ((candidateSigner as { firstName?: string; name?: string }).firstName
+        || (candidateSigner.name || '').split(/\s+/)[0]
+        || candidateSigner.name)
+    : null
+
   const dispatchResults = await Promise.all(tokens.map(async t => {
     const r = recipientByEmail.get(t.recipient_email.toLowerCase().trim())
     if (!r) return { email: t.recipient_email, ok: false, error: 'recipient introuvable' }
+
+    // v2.9.15 — Wording contextuel si destinataire en aval d'un candidat signé
+    const isReview = candidateSigner
+      && (r.order ?? 0) > candidateOrder
+      && r.role !== 'cc'
+      && r.email.toLowerCase().trim() !== candidateSigner.email.toLowerCase().trim()
 
     const dispatch = await dispatchInvite({
       envelope: env,
@@ -175,6 +215,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       token: t,
       sender: { name: senderName, email: senderEmail },
       documentsCount,
+      reviewAfterCandidate: isReview && candidateDisplayName
+        ? { candidateName: candidateDisplayName }
+        : undefined,
     })
 
     // Audit log par destinataire

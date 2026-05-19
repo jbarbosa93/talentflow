@@ -154,18 +154,34 @@ export default function PublicSignPage({ params }: PageProps) {
   useEffect(() => {
     if (!data?.wizard) return
     const enabled = data.wizard.enabled !== false
-    // v2.2.3 — Compte uniquement les steps du destinataire courant
+    // v2.9.15 — Filter tolérant aux mix 0/1-based (pattern #71). Le template
+    // peut avoir wizard_steps avec recipientOrder=1 (1-based, import DocuSign)
+    // mais l'envelope crée recipients avec order=0 (0-based). Sans tolérance,
+    // stepsForCurrentRecipient = [] et fallback document.
+    const recOrder = data.recipient?.order ?? 0
+    const allStepOrders = Array.from(new Set((data.wizard.steps || []).map(s => s.recipientOrder ?? 1)))
+    // Match exact OU match avec décalage ±1 si recipient et steps utilisent une
+    // convention différente (et qu'aucun match exact n'existe).
+    const matchOrder = allStepOrders.includes(recOrder)
+      ? recOrder
+      : allStepOrders.includes(recOrder + 1)
+        ? recOrder + 1
+        : allStepOrders.includes(recOrder - 1)
+          ? recOrder - 1
+          : recOrder
     const stepsForCurrentRecipient = (data.wizard.steps || [])
-      .filter(s => (s.recipientOrder ?? 1) === (data.recipient?.order ?? 1))
+      .filter(s => (s.recipientOrder ?? 1) === matchOrder)
     const hasSteps = stepsForCurrentRecipient.length > 0
     const wizardAvailable = enabled && hasSteps
     const pref = data.recipient?.preferredViewMode || 'auto'
-    if (pref === 'wizard' && wizardAvailable) {
+
+    // v2.9.15 — Auto-adapt par device :
+    // - Mobile : wizard FORCÉ si disponible (ignore pref=document, le doigt
+    //   et l'écran rendent le mode document quasi-injouable).
+    // - Desktop : respecte la préférence ('wizard', 'document', 'auto'=document).
+    if (isMobile && wizardAvailable) {
       setViewMode('wizard')
-    } else if (pref === 'document') {
-      setViewMode('document')
-    } else if (wizardAvailable && isMobile) {
-      // 'auto' : wizard sur mobile uniquement
+    } else if (pref === 'wizard' && wizardAvailable) {
       setViewMode('wizard')
     } else {
       setViewMode('document')
@@ -904,8 +920,8 @@ export default function PublicSignPage({ params }: PageProps) {
             </h1>
           </div>
 
-          {/* Toggle Mode Wizard ↔ Document — v2.2.4 : icône seule sur mobile pour gagner de la place */}
-          {hasConsented && !completed && data?.wizard?.enabled && (data?.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === recipientOrder).length > 0 && (
+          {/* Toggle Mode Wizard ↔ Document — v2.9.15 : caché sur mobile (wizard forcé) */}
+          {!isMobile && hasConsented && !completed && data?.wizard?.enabled && (data?.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === recipientOrder).length > 0 && (
             <button
               type="button"
               onClick={() => setViewMode(m => m === 'wizard' ? 'document' : 'wizard')}
@@ -1066,7 +1082,7 @@ export default function PublicSignPage({ params }: PageProps) {
               completed={completed}
               finalizing={finalizing}
               onFinalize={handleFinalize}
-              onSwitchToDocumentMode={() => setViewMode('document')}
+              onSwitchToDocumentMode={isMobile ? undefined : () => setViewMode('document')}
               token={token}
               contextData={(envelope as unknown as { context_data?: { weekStartDate?: string | null } | null })?.context_data || null}
               previousFieldValues={data?.previousFieldValues}

@@ -38,6 +38,11 @@ interface DispatchInviteArgs {
   /** Si true, utilise le wording "C'est à votre tour" (transition séquentielle).
    *  Si false (défaut), wording invitation initiale. */
   isNextSignerTransition?: boolean
+  /** v2.9.15 — Si true + candidateName fourni, le headline email devient
+   *  "X a rempli et signé, veuillez vérifier et confirmer" au lieu de
+   *  "vous invite à signer". Calculé dans send/route.ts selon l'ordre du
+   *  destinataire et le roleName des destinataires en amont. */
+  reviewAfterCandidate?: { candidateName: string }
 }
 
 /**
@@ -49,7 +54,7 @@ interface DispatchInviteArgs {
  * a quand même l'email.
  */
 export async function dispatchInvite(args: DispatchInviteArgs): Promise<DispatchResult> {
-  const { envelope, recipient, token, sender, documentsCount, isNextSignerTransition } = args
+  const { envelope, recipient, token, sender, documentsCount, isNextSignerTransition, reviewAfterCandidate } = args
   const channel: SignDeliveryChannel = envelope.delivery_channel || 'email'
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
   const signUrl = `${appUrl}/sign/v/${token.token}`
@@ -67,6 +72,9 @@ export async function dispatchInvite(args: DispatchInviteArgs): Promise<Dispatch
       signUrl,
       documentsCount,
       expiresAt: token.expires_at,
+      // v2.9.15 — Wording contextuel si signataire en aval du candidat
+      isReviewAfterCandidate: !!reviewAfterCandidate,
+      candidateName: reviewAfterCandidate?.candidateName,
     })
     result.email = { ok: r.ok, id: r.id, error: r.error }
   }

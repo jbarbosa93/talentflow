@@ -38,7 +38,7 @@ export default function RecipientsGroup({ recipients, onChange, orderEnabled, re
 
   const addRecipient = () => {
     // Ajout à la dernière étape existante (cohérent UX : on ajoute à la même étape)
-    const lastOrder = groups.length > 0 ? groups[groups.length - 1].order : 1
+    const lastOrder = groups.length > 0 ? groups[groups.length - 1].order : 0
     onChange([
       ...recipients,
       { name: '', email: '', role: 'signer', order: orderEnabled ? lastOrder : 0, status: 'pending', signed_at: null },
@@ -275,15 +275,18 @@ function groupByOrder(recipients: RecipientCandidat[]) {
     .sort((a, b) => a.order - b.order)
 }
 
-/** Renumérote les orders en 1, 2, 3... (préserve les regroupements parallèles). */
+/** Renumérote les orders en 0, 1, 2... (0-based, préserve les regroupements parallèles).
+ *  v2.9.15 — Était 1, 2, 3 (1-based) ce qui combiné avec le rendu `ÉTAPE {order+1}`
+ *  affichait ÉTAPE 2, 3 au lieu de ÉTAPE 1, 2. Maintenant 0-based cohérent avec
+ *  le rendu et avec ce qui est stocké en DB (envelope.recipients[].order). */
 function normalizeOrders(list: RecipientCandidat[], orderEnabled: boolean): RecipientCandidat[] {
   if (!orderEnabled) {
     return list.map(r => ({ ...r, order: 0 }))
   }
   const sortedOrders = Array.from(new Set(list.map(r => r.order ?? 0))).sort((a, b) => a - b)
   const remap = new Map<number, number>()
-  sortedOrders.forEach((o, i) => remap.set(o, i + 1))
-  return list.map(r => ({ ...r, order: remap.get(r.order ?? 0) ?? 1 }))
+  sortedOrders.forEach((o, i) => remap.set(o, i))
+  return list.map(r => ({ ...r, order: remap.get(r.order ?? 0) ?? 0 }))
 }
 
 // ─── GroupContainer ─────────────────────────────────────────────────

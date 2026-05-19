@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.14'
+export const APP_VERSION = '2.9.15'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.15 — 5 bugs Sign : auto-sign / email contextuel / ÉTAPE / WhatsApp / wizard mobile
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.15',
+    date: '2026-05-19',
+    label: 'Sign : 5 bugs corrigés (auto-sign exclu candidat, email contextuel, ÉTAPE 0-based, WhatsApp pré-rempli, wizard auto-mobile)',
+    features: [
+      'BUG #1 — Auto-sign créateur : exclu si roleName contient "Candidat" ET si destinataire est le 1er signataire (min order). Garantit que le candidat doit toujours signer manuellement, même si on a mis son propre email dans le slot Candidat pour tester.',
+      'BUG #2 — Email contextuel : nouveau wording quand le destinataire est en aval d\'un candidat ayant signé. "X a rempli et signé — veuillez vérifier et confirmer avec votre signature" au lieu de "L-Agence vous invite". CTA bouton "Vérifier et signer".',
+      'BUG #3 — ÉTAPE 2/3 → ÉTAPE 1/2 : `normalizeOrders` dans `/sign/new` passe en 0-based (était 1-based, ce qui combiné avec `order+1` du rendu affichait 2, 3). Plus de double-incrémentation.',
+      'BUG #4 — Wizard auto-mobile : (a) filter steps tolérant aux mix 0/1-based (pattern #71) — match recipientOrder ±1 si pas de match exact. (b) Mobile : wizard FORCÉ si disponible (ignore pref=document). (c) Toggle wizard/document caché sur mobile.',
+      'BUG #5 — WhatsApp pré-rempli : `sendViaWhatsApp` lit `envelope.recipients[].phone` (saisi à /sign/new) au lieu de demander à chaque clic. Fallback prompt seulement si phone absent.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.14 — Annotation = info-text + ESC global désactive l'outil placement
   // ─────────────────────────────────────────────────────────────────────

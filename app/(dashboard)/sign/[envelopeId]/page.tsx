@@ -214,26 +214,32 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
   }
 
   // v2.2.0 — Envoi du lien de signature via WhatsApp (deeplink wa.me)
-  // 1) Demande le numéro à l'utilisateur (CH +41 par défaut)
-  // 2) Construit un message pré-rempli "Bonjour {nom}, voici votre lien de signature pour {titre}: {url}"
-  // 3) Ouvre wa.me dans un nouvel onglet → l'utilisateur appuie envoyer
-  const sendViaWhatsApp = (recipientName: string, url: string, envelopeTitle: string) => {
-    // Récupère un téléphone par destinataire si déjà saisi auparavant (localStorage)
-    const storageKey = `sign_wa_phone_${recipientName.toLowerCase().replace(/\s+/g, '_')}`
-    const previous = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null
-    const raw = window.prompt(
-      `Numéro WhatsApp de ${recipientName} (avec indicatif pays)\nEx: +41 79 123 45 67`,
-      previous || '+41 ',
+  // v2.9.15 — Lit le phone saisi dans /sign/new (envelope.recipients[].phone)
+  // au lieu de prompter. Skip le prompt si déjà saisi. Fallback prompt si absent.
+  const sendViaWhatsApp = (recipientEmail: string, recipientName: string, url: string, envelopeTitle: string) => {
+    // 1. Cherche le phone saisi dans /sign/new sur l'envelope (source de vérité)
+    const recipient = (envelope?.recipients || []).find(
+      r => r.email?.toLowerCase().trim() === recipientEmail.toLowerCase().trim(),
     )
-    if (!raw) return
-    // Normalise : garde uniquement chiffres, ajoute "+" si absent
-    const digits = raw.replace(/\D/g, '')
-    if (digits.length < 8) {
-      toast.error('Numéro invalide')
-      return
+    const savedPhone = (recipient as { phone?: string | null } | undefined)?.phone
+    let digits = savedPhone ? savedPhone.replace(/\D/g, '') : ''
+
+    // 2. Si pas de phone saisi, fallback prompt avec localStorage
+    if (!digits || digits.length < 8) {
+      const storageKey = `sign_wa_phone_${recipientName.toLowerCase().replace(/\s+/g, '_')}`
+      const previous = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null
+      const raw = window.prompt(
+        `Numéro WhatsApp de ${recipientName} (non saisi à l'envoi)\nEx: +41 79 123 45 67`,
+        previous || '+41 ',
+      )
+      if (!raw) return
+      digits = raw.replace(/\D/g, '')
+      if (digits.length < 8) {
+        toast.error('Numéro invalide')
+        return
+      }
+      localStorage.setItem(storageKey, '+' + digits)
     }
-    // Sauvegarde pour réutilisation
-    localStorage.setItem(storageKey, '+' + digits)
 
     // v2.3.9 Bug 7 — toWhatsAppSafe (LATIN→ASCII) sur prenom + message complet
     const firstName = toWhatsAppSafe(recipientName.split(/\s+/)[0] || recipientName)
@@ -562,7 +568,7 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                           </button>
                           <button
                             type="button"
-                            onClick={() => sendViaWhatsApp(t.recipient_name, url, envelope?.title || '')}
+                            onClick={() => sendViaWhatsApp(t.recipient_email, t.recipient_name, url, envelope?.title || '')}
                             className="neo-btn-sm"
                             style={{
                               fontSize: 12,
