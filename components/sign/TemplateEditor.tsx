@@ -188,6 +188,21 @@ export default function TemplateEditor({
     if (serverVersion > 0) setDirty(false)
   }, [serverVersion])
 
+  // v2.9.14 — ESC global désactive l'outil actif (placement de champ)
+  useEffect(() => {
+    if (!activeTool) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Ne pas intercepter si focus dans un input/textarea (l'utilisateur tape)
+        const tag = (e.target as HTMLElement)?.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+        setActiveTool(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [activeTool])
+
   // URL du PDF (route authentifiée)
   const fileUrl = useMemo(() => {
     if (!activeDoc) return ''

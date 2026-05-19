@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.13'
+export const APP_VERSION = '2.9.14'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.14 — Annotation = info-text + ESC global désactive l'outil placement
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.14',
+    date: '2026-05-19',
+    label: 'Sign : champ `annotation` rendu comme info-text dans le wizard + ESC désactive l\'outil de placement',
+    features: [
+      'FIX — Type `annotation` rendait un input texte vide dans le wizard. Correction : rendu en bandeau amber italique avec 💡 et le texte du label, non éditable. Toujours exclu du stamp PDF (pas dans le document signé final). C\'est désormais ce que l\'admin attend : info contextuelle pour le candidat.',
+      'UX — Touche `Escape` désactive maintenant l\'outil de placement actif en mode Document, peu importe où est le focus (sauf inputs/textareas pour ne pas interrompre la frappe).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.13 — Wizard Preview : rename attachment ne propageait pas
   // ─────────────────────────────────────────────────────────────────────

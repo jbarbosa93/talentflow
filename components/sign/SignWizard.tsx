@@ -988,6 +988,28 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
     )
   }
 
+  // v2.9.14 — Annotation : texte informatif (pas un champ à remplir, pas stampé sur PDF).
+  // Rendu en bandeau amber italique pour différencier visuellement d'un input.
+  if (t === 'annotation') {
+    const text = field.label || field.tooltip || field.helpText || ''
+    if (!text.trim()) return null
+    return (
+      <div style={{
+        padding: '10px 14px',
+        background: '#FEF3C7',
+        border: '1px solid #FCD34D',
+        borderRadius: 8,
+        fontSize: 13,
+        color: '#78350F',
+        fontStyle: 'italic',
+        lineHeight: 1.45,
+        whiteSpace: 'pre-wrap',
+      }}>
+        💡 {text}
+      </div>
+    )
+  }
+
   if (t === 'checkbox') {
     // v2.7.7 — Si l'utilisateur n'a pas explicitement cliqué (value undefined),
     // utilise l'auto-cochage des conditions check/uncheck. Sinon respecte le choix user.
