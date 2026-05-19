@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.16'
+export const APP_VERSION = '2.9.17'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.17 — Sign wizard mobile : filter strict répliqué dans 5 endroits, centralisé
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.17',
+    date: '2026-05-19',
+    label: 'Sign : wizard mobile fix DÉFINITIF — filter ±1 centralisé via effectiveRecipientOrder',
+    features: [
+      'CAUSE RACINE — v2.9.15 ajoutait un filter tolérant ±1 dans le useEffect viewMode setter UNIQUEMENT. Mais 5 autres endroits avaient un filter strict identique (fields candidat, canFinalize, nextFieldsQueue, toggle button, render wizard). Donc viewMode passait à wizard mais wizardStepsForRecipient = [] → fallback document.',
+      'FIX — Nouveau useMemo `effectiveRecipientOrder` qui résout le mismatch 0/1-based (recipient.order vs template wizard_steps.recipientOrder + fields.recipientOrder). Utilisé partout : fields filter, wizardSteps filter, toggle button visibility, render wizard condition.',
+      'Pattern #71 (mix 0/1-based) maintenant complètement neutralisé côté lecture (signing page). Le candidat sur iPhone avec recipient.order=0 et wizard_steps[].recipientOrder=1 voit enfin le wizard.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.16 — Sign : auto-sign SUPPRIMÉ + preferredViewMode persisté + ÉTAPE 1/2 réellement affichés
   // ─────────────────────────────────────────────────────────────────────

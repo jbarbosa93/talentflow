@@ -154,19 +154,17 @@ export default function PublicSignPage({ params }: PageProps) {
   useEffect(() => {
     if (!data?.wizard) return
     const enabled = data.wizard.enabled !== false
-    // v2.9.15 — Filter tolérant aux mix 0/1-based (pattern #71). Le template
-    // peut avoir wizard_steps avec recipientOrder=1 (1-based, import DocuSign)
-    // mais l'envelope crée recipients avec order=0 (0-based). Sans tolérance,
-    // stepsForCurrentRecipient = [] et fallback document.
-    const recOrder = data.recipient?.order ?? 0
-    const allStepOrders = Array.from(new Set((data.wizard.steps || []).map(s => s.recipientOrder ?? 1)))
-    // Match exact OU match avec décalage ±1 si recipient et steps utilisent une
-    // convention différente (et qu'aucun match exact n'existe).
-    const matchOrder = allStepOrders.includes(recOrder)
+    // v2.9.17 — Inline calcul effectiveRecipientOrder (tolérance ±1 pattern #71).
+    // Le useMemo `effectiveRecipientOrder` est déclaré plus bas dans la fonction
+    // (ordre d'apparition), on duplique la logique ici pour ne pas avoir de
+    // référence avant déclaration.
+    const recOrder = data.recipient?.order ?? 1
+    const stepOrders = new Set<number>((data.wizard.steps || []).map(s => s.recipientOrder ?? 1))
+    const matchOrder = stepOrders.has(recOrder)
       ? recOrder
-      : allStepOrders.includes(recOrder + 1)
+      : stepOrders.has(recOrder + 1)
         ? recOrder + 1
-        : allStepOrders.includes(recOrder - 1)
+        : stepOrders.has(recOrder - 1)
           ? recOrder - 1
           : recOrder
     const stepsForCurrentRecipient = (data.wizard.steps || [])
@@ -176,9 +174,8 @@ export default function PublicSignPage({ params }: PageProps) {
     const pref = data.recipient?.preferredViewMode || 'auto'
 
     // v2.9.15 — Auto-adapt par device :
-    // - Mobile : wizard FORCÉ si disponible (ignore pref=document, le doigt
-    //   et l'écran rendent le mode document quasi-injouable).
-    // - Desktop : respecte la préférence ('wizard', 'document', 'auto'=document).
+    // - Mobile : wizard FORCÉ si disponible (ignore pref=document)
+    // - Desktop : respecte la préférence
     if (isMobile && wizardAvailable) {
       setViewMode('wizard')
     } else if (pref === 'wizard' && wizardAvailable) {
@@ -186,7 +183,7 @@ export default function PublicSignPage({ params }: PageProps) {
     } else {
       setViewMode('document')
     }
-  }, [data?.wizard, data?.recipient, isMobile])
+  }, [data, isMobile])
 
   useEffect(() => {
     fetch('/api/sign/verify-token', {
@@ -333,7 +330,25 @@ export default function PublicSignPage({ params }: PageProps) {
   }, [activeDocIdx])
 
   // ─── Phase 4a-bis — Hooks calcul fields (DOIVENT rester AVANT les early returns) ───
+  // v2.9.17 — recipientOrder est le RAW order du destinataire courant (depuis envelope).
+  // effectiveRecipientOrder est l'order qui MATCH les wizard_steps + fields du template.
+  // Pattern #71 : envelope.recipients utilise 0-based, template wizard_steps/fields
+  // peuvent être 1-based (import DocuSign). Si pas de match exact, essaie ±1.
   const recipientOrder = data?.recipient?.order ?? 1
+  const effectiveRecipientOrder = useMemo(() => {
+    if (!data) return recipientOrder
+    const stepOrders = new Set<number>((data.wizard?.steps || []).map(s => s.recipientOrder ?? 1))
+    const fieldOrders = new Set<number>()
+    for (const doc of (data.documents || [])) {
+      for (const f of (doc.fields || [])) fieldOrders.add(f.recipientOrder ?? 1)
+    }
+    const allOrders = new Set<number>([...stepOrders, ...fieldOrders])
+    if (allOrders.size === 0) return recipientOrder
+    if (allOrders.has(recipientOrder)) return recipientOrder
+    if (allOrders.has(recipientOrder + 1)) return recipientOrder + 1
+    if (allOrders.has(recipientOrder - 1)) return recipientOrder - 1
+    return recipientOrder
+  }, [data, recipientOrder])
   const recipientName = data?.recipient?.name || ''
   const recipientEmail = data?.recipient?.email || ''
   const isCC = data?.recipient?.isCC === true
@@ -378,16 +393,16 @@ export default function PublicSignPage({ params }: PageProps) {
 
   const fieldsForCurrentRecipient = useMemo(() => {
     if (!activeDoc) return []
-    return (activeDoc.fields || []).filter(f => f.recipientOrder === recipientOrder)
-  }, [activeDoc, recipientOrder])
+    return (activeDoc.fields || []).filter(f => f.recipientOrder === effectiveRecipientOrder)
+  }, [activeDoc, effectiveRecipientOrder])
 
   const canFinalize = useMemo(() => {
     if (isCC) return true
     const allRecipientFields = documents.flatMap(d =>
-      (d.fields || []).filter(f => f.recipientOrder === recipientOrder)
+      (d.fields || []).filter(f => f.recipientOrder === effectiveRecipientOrder)
     )
     return areAllRequiredFieldsFilled(allRecipientFields, fieldValues, signatureDataUrl, autoFill)
-  }, [documents, recipientOrder, fieldValues, signatureDataUrl, autoFill, isCC])
+  }, [documents, effectiveRecipientOrder, fieldValues, signatureDataUrl, autoFill, isCC])
 
   // v2.2.0 — Liste ordonnée des champs requis non-remplis (signature exclue ici, gérée à part)
   // Ordre lecture document : doc → page → y → x
@@ -395,7 +410,7 @@ export default function PublicSignPage({ params }: PageProps) {
     const queue: Array<{ fieldId: string; docIdx: number; page: number }> = []
     documents.forEach((doc, dIdx) => {
       const fields = (doc.fields || [])
-        .filter(f => f.recipientOrder === recipientOrder && !f.metadata?.hidden)
+        .filter(f => f.recipientOrder === effectiveRecipientOrder && !f.metadata?.hidden)
         .filter(f => f.type !== 'annotation')
         .filter(f => f.required || f.type === 'signature' || f.type === 'initial')
         .filter(f => !isFieldFilledExt(f, fieldValues[f.id], signatureDataUrl, autoFill))
@@ -403,7 +418,7 @@ export default function PublicSignPage({ params }: PageProps) {
       fields.forEach(f => queue.push({ fieldId: f.id, docIdx: dIdx, page: f.page }))
     })
     return queue
-  }, [documents, recipientOrder, fieldValues, signatureDataUrl, autoFill])
+  }, [documents, effectiveRecipientOrder, fieldValues, signatureDataUrl, autoFill])
 
   // v2.2.0 — Aller au prochain champ (scroll + focus + halo)
   const goToNextField = useCallback(() => {
@@ -921,7 +936,7 @@ export default function PublicSignPage({ params }: PageProps) {
           </div>
 
           {/* Toggle Mode Wizard ↔ Document — v2.9.15 : caché sur mobile (wizard forcé) */}
-          {!isMobile && hasConsented && !completed && data?.wizard?.enabled && (data?.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === recipientOrder).length > 0 && (
+          {!isMobile && hasConsented && !completed && data?.wizard?.enabled && (data?.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === effectiveRecipientOrder).length > 0 && (
             <button
               type="button"
               onClick={() => setViewMode(m => m === 'wizard' ? 'document' : 'wizard')}
@@ -1065,12 +1080,12 @@ export default function PublicSignPage({ params }: PageProps) {
             Avant : le candidat voyait aussi les steps du client (ÉTAPE 1/6 alors qu'il devrait voir 1/4). */}
         {(() => {
           const wizardStepsForRecipient = (data?.wizard?.steps || [])
-            .filter(s => (s.recipientOrder ?? 1) === recipientOrder)
+            .filter(s => (s.recipientOrder ?? 1) === effectiveRecipientOrder)
           return viewMode === 'wizard' && hasConsented && data?.wizard && wizardStepsForRecipient.length > 0
         })() ? (
           <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
             <SignWizard
-              steps={(data?.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === recipientOrder)}
+              steps={(data?.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === effectiveRecipientOrder)}
               documents={documents}
               fieldValues={fieldValues}
               onValueChange={handleFieldChange}
