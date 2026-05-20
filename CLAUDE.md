@@ -115,7 +115,14 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.9.0 (Auth portail client + rapports candidat + UX polish + Bilan ETP)** — 18/05/2026
+**v2.9.25 (Sign : sections + audit champs + pièce jointe candidat + Conformité + fiabilisation workflow)** — 20/05/2026
+
+### v2.9.21 → v2.9.25 — Marathon Sign (20/05)
+- **v2.9.21** : panneau « Gérer les sections » (`SectionManager.tsx`) — renommer / replier / réordonner / supprimer, partagé Mode Wizard + Document (pattern #79).
+- **v2.9.22** : audit champs — conditions show/hide/require branchées en Mode Document (`effectiveFieldState` était wizard-only) ; champ signature dans étape wizard normale ; champ formule lecture seule en Document.
+- **v2.9.23** : champ `attachment` (pièce jointe candidat) rendu fonctionnel — upload URL signée, contrôle Claude Vision (lisibilité non-bloquante + date d'expiration), case à cocher liée, intégration onglet 🛡 Conformité de la fiche candidat, bouton « Envoyer à signer » sur la fiche (pattern #80).
+- **v2.9.24** : fiabilisation workflow Sign — 15 bugs du diagnostic corrigés (flush garanti avant finalize, verrou de complétion atomique, validation email envoi, fallback recipientOrder…) (pattern #81).
+- **v2.9.25** : recto + verso d'un même champ pièce jointe assemblés en 1 PDF A4 « type scan » dans l'email créateur (pattern #82).
 
 ### v2.9.0 — Auth email + mot de passe sur portails + UX polish
 **Feature majeure** : auth email + mot de passe pour `/client-portal/[slug]` et `/report/[slug]`. Sign / signatures / validation client rapport NON TOUCHÉS (gardent leur fonctionnement par token email). Multi-comptes par portail (plusieurs emails partagent le même portal_id via UNIQUE partiel). Flag `auth_required` DEFAULT FALSE → activation portail par portail (zéro régression sur l'existant).
@@ -767,6 +774,15 @@ One-shot DB pour template existant : `UPDATE documents` JSONB pour passer `requi
 - **Contrôle Vision** : route PUBLIQUE `/api/sign/attachment-check` → `lib/sign/attachment-vision.ts` `analyzeAttachment()` (Claude `claude-sonnet-4-6`, UN appel) renvoie `{readable, expiryDate}`. Lisibilité = feedback **NON-BLOQUANT** (bandeau jaune, le candidat continue toujours). expiryDate stockée dans le fichier → réutilisée à la finalisation. Best-effort total : toute erreur → `{readable:'ok', expiryDate:null}`.
 - **2 propriétés** sur `SignField` (JSONB, pas de migration) : `attachmentLinkedCheckboxId` (case cochée auto au chargement — géré dans `handleFieldChange` de `app/sign/v/[token]/page.tsx`, pas par une condition) + `attachmentComplianceTypeId` (id `document_types` Conformité, vide = ne pas ajouter, ex CV). Éditeur : 2 sélecteurs dans `TypeSpecificOptions` de `TemplateEditor` (le catalogue `document_types` vient de `GET /api/document-types`, cache module-level).
 - **Finalisation** (`app/api/sign/finalize/route.ts` → `processCandidateUploads`) : collecte les fichiers de tous les tokens, **email au créateur** (`sendSignUploadedDocsEmail`, jamais au candidat), et si `envelope.candidate_id` → `writeComplianceDoc` insère dans `candidat_documents` + copie le fichier dans le bucket `candidat-documents` (pattern #59, helper `uploadComplianceFile`). 1 ligne Conformité = 2 fichiers max (recto/verso). `maxDuration = 120` ajouté.
+
+**81. SIGN — Fiabilité du workflow finalize (anti-race + flush)** (v2.9.24) — Issu d'un diagnostic complet du pipeline Sign. Règles à respecter pour tout code touchant `finalize` / le remplissage candidat :
+- **Flush avant action irréversible** : la page `/sign/v/[token]` sauve `field_values` en **debounce 600 ms** (`syncFieldValues`). Toute action qui fige l'état (finalisation) DOIT appeler `flushFieldValues()` AVANT (annule le timer + POST `sign-field` synchrone). Sinon les 600 dernières ms — dont une pièce jointe — sont perdues. La page flush aussi en `keepalive` sur `pagehide`/`visibilitychange` (pattern #64 étendu au candidat). `handleFinalize` envoie aussi `fieldValues` dans le body de `finalize` (filet de sécurité serveur).
+- **Verrou de complétion ATOMIQUE** : ne JAMAIS décider la complétion via `if (allSignersSigned && envelope.status !== 'completed')` sur une copie en mémoire (race → PDF/emails en double, ou enveloppe bloquée `in_progress`). Pattern correct : `UPDATE sign_envelopes SET status='completed' WHERE id=? AND status!='completed'` puis `.select('id')` — le bloc de complétion ne s'exécute que si **1 ligne** est revenue (`weCompletedIt`).
+- **`allSignersSigned` depuis `sign_tokens`** (1 ligne/destinataire, pas de race JSONB), jamais depuis le tableau `recipients` JSONB. Le `recipients` JSONB est ré-écrit après re-lecture FRAÎCHE (sinon écrasement d'un statut signé concurrent — incident #77).
+- **Validation email avant `.toLowerCase()`** : un destinataire sans email faisait planter tout l'envoi. Valider comme le téléphone. Si 0 lien envoyé → garder `status='draft'` (réenvoi possible).
+- **recipientOrder fallback** : un champ sans `recipientOrder` → fallback = **ordre minimum** des destinataires (pas `1` figé — sinon les champs d'un destinataire 0-based ne sont pas stampés). `triggerNextSigner` : ordre effectif par index si `order` absent.
+
+**82. SIGN — Composition recto/verso en PDF** (v2.9.25) — `lib/sign/compose-attachment-pdf.ts` `composeImagesToPdf()` : assemble des images JPEG/PNG en un PDF A4 (2 images/page empilées) via pdf-lib. Utilisé par `processCandidateUploads` : les images d'un MÊME champ pièce jointe (recto + verso) → 1 PDF « type scan » dans l'email créateur. `embedJpg`/`embedPng` uniquement (webp/heic/pdf laissés bruts, try/catch fallback). La Conformité garde recto/verso comme 2 faces distinctes (modèle `file_recto_path`/`file_verso_path`). Limite connue : pas de correction d'orientation EXIF (photo de travers → PDF de travers).
 
 ---
 
