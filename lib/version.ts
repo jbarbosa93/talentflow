@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.19'
+export const APP_VERSION = '2.9.20'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.20 — Sign : affichage 100% auto selon l'appareil (wizard mobile / document desktop)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.20',
+    date: '2026-05-20',
+    label: 'Sign : mode d\'affichage 100% automatique (wizard sur mobile, document sur desktop)',
+    features: [
+      'Le mode d\'affichage de la page de signature est maintenant purement déterminé par l\'appareil : wizard guidé sur mobile, document complet sur desktop. Le réglage "preferredViewMode" du destinataire ne force plus le wizard sur desktop.',
+      'Sur desktop, le toggle en haut permet toujours de basculer manuellement en wizard si on le souhaite.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.19 — Sign flow : recap supprimé, texte confirmation, 1 seul email consultant, fix signature consultant
   // ─────────────────────────────────────────────────────────────────────

@@ -180,14 +180,12 @@ export default function PublicSignPage({ params }: PageProps) {
       .filter(s => (s.recipientOrder ?? 1) === matchOrder)
     const hasSteps = stepsForCurrentRecipient.length > 0
     const wizardAvailable = enabled && hasSteps
-    const pref = data.recipient?.preferredViewMode || 'auto'
 
-    // v2.9.15 — Auto-adapt par device :
-    // - Mobile : wizard FORCÉ si disponible (ignore pref=document)
-    // - Desktop : respecte la préférence
+    // v2.9.20 — Auto-adapt 100% basé sur l'appareil (plus de preferredViewMode) :
+    // - Mobile  : wizard guidé si disponible (doigt + petit écran).
+    // - Desktop : document complet par défaut. Le toggle en haut permet de
+    //   basculer en wizard manuellement si l'utilisateur le souhaite.
     if (isMobile && wizardAvailable) {
-      setViewMode('wizard')
-    } else if (pref === 'wizard' && wizardAvailable) {
       setViewMode('wizard')
     } else {
       setViewMode('document')
