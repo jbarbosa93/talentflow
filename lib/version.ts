@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.25'
+export const APP_VERSION = '2.9.26'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.26 — Sign : 3 correctifs du flux « Envoyer à signer »
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.26',
+    date: '2026-05-20',
+    label: 'Sign : flux « Envoyer à signer » — candidat préservé au choix du template + 2 fixes',
+    features: [
+      'CANDIDAT PRÉSERVÉ — Bug corrigé : choisir un template délié le candidat de sa fiche et effaçait son téléphone. Le lien candidat et le téléphone sont désormais conservés quand on sélectionne le template.',
+      'BOUTONS FICHE — Les boutons « Conformité » et « Envoyer à signer » n\'apparaissent que sur les fiches de candidats traités (Actif).',
+      'ÉTAPES — « Définir des étapes de signature » n\'est plus coché par défaut : quand un template a des rôles, c\'est le template qui définit le routing, pas les étapes libres.',
+      'RECHERCHE CANDIDAT — L\'autocomplétion des destinataires remonte plus de résultats (un candidat moins récent pouvait être absent de la liste).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.25 — Sign : pièces jointes recto/verso assemblées en 1 PDF type scan
   // ─────────────────────────────────────────────────────────────────────

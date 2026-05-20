@@ -414,9 +414,11 @@ export function FirstNameAutocomplete({
     debounceRef.current = setTimeout(async () => {
       setSearching(true)
       try {
-        const r = await fetch(`/api/candidats?search=${encodeURIComponent(q)}&per_page=8&sort=date_desc`)
+        // v2.9.26 — per_page élargi (8 → 25) : avec 8, un candidat peu récent
+        // pouvait être absent du résultat même en tapant son nom.
+        const r = await fetch(`/api/candidats?search=${encodeURIComponent(q)}&per_page=25&sort=date_desc`)
         const d = await r.json()
-        setResults((d.candidats || []).slice(0, 8))
+        setResults((d.candidats || []).slice(0, 12))
         setOpen(true)
       } catch {
         setResults([])

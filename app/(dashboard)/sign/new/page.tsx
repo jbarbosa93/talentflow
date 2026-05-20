@@ -50,7 +50,10 @@ function SignNewPage() {
   const [recipients, setRecipients] = useState<RecipientCandidat[]>([
     { name: '', email: '', role: 'signer', order: 0, status: 'pending', signed_at: null },
   ])
-  const [orderEnabled, setOrderEnabled] = useState(true)
+  // v2.9.26 — Défaut OFF : « Définir des étapes » n'est plus coché d'office.
+  // Quand un template a des rôles, le routing vient du template (pas des étapes
+  // libres) — partir en mode « par étapes » par défaut était trompeur.
+  const [orderEnabled, setOrderEnabled] = useState(false)
   // v2.8.6 — Subject email auto-généré depuis le Titre + nombre de docs.
   // Champ "Objet" UI supprimé (jamais utilisé, code mort).
   const [message, setMessage] = useState('')
@@ -225,6 +228,11 @@ function SignNewPage() {
           firstName: (existing as any)?.firstName,
           lastName: (existing as any)?.lastName,
           email: existing?.email || schemaItem?.email || '',
+          // v2.9.26 — Préserve le téléphone ET le lien candidat (candidat_id) du
+          // destinataire pré-rempli. Avant : le choix d'un template les effaçait
+          // → le candidat était délié de la DB et le téléphone perdu.
+          phone: (existing as any)?.phone,
+          candidat_id: (existing as any)?.candidat_id ?? null,
           role: schemaItem?.role === 'cc' ? 'cc' : 'signer',
           roleName: schemaItem?.roleName || existing?.roleName || `Rôle ${order}`,
           order,

@@ -958,24 +958,30 @@ export default function CandidatDetailPage() {
               </span>
             )}
           </button>
-          {/* v2.5.0 — Bouton Conformité (permis, CQC, identité, formations) */}
-          <button
-            onClick={() => setShowCompliance(true)}
-            className="neo-btn-ghost neo-btn-sm"
-            title="Permis, CQC, identité — gérer les documents de conformité"
-          >
-            <ShieldCheck size={13} />
-            Conformité
-          </button>
-          {/* v2.9.23 — Envoi de documents à signer (Sign) avec ce candidat pré-rempli */}
-          <button
-            onClick={() => router.push(`/sign/new?candidatId=${candidat.id}`)}
-            className="neo-btn-ghost neo-btn-sm"
-            title="Créer un envoi de signature TalentFlow Sign — candidat pré-rempli (nom, email, téléphone)"
-          >
-            <Send size={13} />
-            Envoyer à signer
-          </button>
+          {/* v2.5.0 — Conformité + v2.9.23 — Envoyer à signer.
+              v2.9.26 — Affichés uniquement pour les candidats traités (Actif) :
+              ce sont des actions de suivi/placement, pas pertinentes sur un
+              candidat « À traiter » ou « Archivé ». */}
+          {candidat.import_status === 'traite' && (
+            <>
+              <button
+                onClick={() => setShowCompliance(true)}
+                className="neo-btn-ghost neo-btn-sm"
+                title="Permis, CQC, identité — gérer les documents de conformité"
+              >
+                <ShieldCheck size={13} />
+                Conformité
+              </button>
+              <button
+                onClick={() => router.push(`/sign/new?candidatId=${candidat.id}`)}
+                className="neo-btn-ghost neo-btn-sm"
+                title="Créer un envoi de signature TalentFlow Sign — candidat pré-rempli (nom, email, téléphone)"
+              >
+                <Send size={13} />
+                Envoyer à signer
+              </button>
+            </>
+          )}
           {/* v2.8.8 — Bouton Notes partagées (visible client + consultant) */}
           <button
             onClick={() => setShowSharedNotes(true)}
