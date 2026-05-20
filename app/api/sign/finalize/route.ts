@@ -207,16 +207,23 @@ export async function POST(req: NextRequest) {
 
       // Phase 4c — Notif email sender ("X a signé, en attente de Y")
       // v2.8.0 — Skip si le sender EST le signataire (sait déjà qu'il a signé).
+      // v2.9.19 — Skip AUSSI si le sender est le prochain signataire : il va
+      // recevoir l'email d'invitation contextuel ("X a signé, vérifie et confirme")
+      // → inutile de lui envoyer un 2e email de notification.
       if (senderInfo.email && senderInfo.email.toLowerCase() !== lcEmail) {
         const nextSigner = findNextPendingSigner(updatedRecipients, lcEmail)
-        await sendSenderNotif({
-          envelope,
-          senderEmail: senderInfo.email,
-          signerName: tokenObj.recipient_name,
-          signerEmail: lcEmail,
-          signedAt: new Date(nowIso),
-          nextSignerName: nextSigner?.name || null,
-        })
+        const senderIsNextSigner = !!nextSigner
+          && nextSigner.email.toLowerCase().trim() === senderInfo.email.toLowerCase().trim()
+        if (!senderIsNextSigner) {
+          await sendSenderNotif({
+            envelope,
+            senderEmail: senderInfo.email,
+            signerName: tokenObj.recipient_name,
+            signerEmail: lcEmail,
+            signedAt: new Date(nowIso),
+            nextSignerName: nextSigner?.name || null,
+          })
+        }
       }
     }
 

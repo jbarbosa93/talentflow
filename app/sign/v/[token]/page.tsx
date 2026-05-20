@@ -154,19 +154,28 @@ export default function PublicSignPage({ params }: PageProps) {
   useEffect(() => {
     if (!data?.wizard) return
     const enabled = data.wizard.enabled !== false
-    // v2.9.17 — Inline calcul effectiveRecipientOrder (tolérance ±1 pattern #71).
-    // Le useMemo `effectiveRecipientOrder` est déclaré plus bas dans la fonction
-    // (ordre d'apparition), on duplique la logique ici pour ne pas avoir de
-    // référence avant déclaration.
+    // v2.9.19 — Inline calcul effectiveRecipientOrder (mapping par index, pattern #71).
+    // Le useMemo `effectiveRecipientOrder` est déclaré plus bas (ordre d'apparition),
+    // on duplique la logique ici. Index-based : Nème destinataire ↔ Nème order template.
     const recOrder = data.recipient?.order ?? 1
-    const stepOrders = new Set<number>((data.wizard.steps || []).map(s => s.recipientOrder ?? 1))
-    const matchOrder = stepOrders.has(recOrder)
-      ? recOrder
-      : stepOrders.has(recOrder + 1)
-        ? recOrder + 1
-        : stepOrders.has(recOrder - 1)
-          ? recOrder - 1
-          : recOrder
+    const orderSet = new Set<number>()
+    for (const s of (data.wizard.steps || [])) orderSet.add(s.recipientOrder ?? 1)
+    for (const doc of (data.documents || [])) {
+      for (const f of (doc.fields || [])) orderSet.add(f.recipientOrder ?? 1)
+    }
+    const templateOrders = Array.from(orderSet).sort((a, b) => a - b)
+    let matchOrder = recOrder
+    if (templateOrders.length > 0) {
+      const sortedRec = [...(data.allRecipients || [])]
+        .filter(r => r.role !== 'cc')
+        .sort((a, b) => a.order - b.order)
+      const myIdx = sortedRec.findIndex(r => r.isCurrent)
+      matchOrder = myIdx >= 0
+        ? templateOrders[Math.min(myIdx, templateOrders.length - 1)]
+        : (templateOrders.includes(recOrder) ? recOrder
+          : templateOrders.includes(recOrder + 1) ? recOrder + 1
+          : templateOrders.includes(recOrder - 1) ? recOrder - 1 : recOrder)
+    }
     const stepsForCurrentRecipient = (data.wizard.steps || [])
       .filter(s => (s.recipientOrder ?? 1) === matchOrder)
     const hasSteps = stepsForCurrentRecipient.length > 0
@@ -333,20 +342,36 @@ export default function PublicSignPage({ params }: PageProps) {
   // v2.9.17 — recipientOrder est le RAW order du destinataire courant (depuis envelope).
   // effectiveRecipientOrder est l'order qui MATCH les wizard_steps + fields du template.
   // Pattern #71 : envelope.recipients utilise 0-based, template wizard_steps/fields
-  // peuvent être 1-based (import DocuSign). Si pas de match exact, essaie ±1.
+  // peuvent être 1-based (import DocuSign).
+  // v2.9.19 — Le fuzzy ±1 (v2.9.15) échouait quand 2 orders existent : un consultant
+  // avec order=1 matchait l'order 1 (candidat) au lieu de 2 → voyait les champs
+  // du candidat. Nouvelle approche ROBUSTE : mapping par index. Le Nème destinataire
+  // (trié par order) correspond au Nème order distinct du template.
   const recipientOrder = data?.recipient?.order ?? 1
   const effectiveRecipientOrder = useMemo(() => {
     if (!data) return recipientOrder
-    const stepOrders = new Set<number>((data.wizard?.steps || []).map(s => s.recipientOrder ?? 1))
-    const fieldOrders = new Set<number>()
+    // Orders distincts du template (steps + fields), triés.
+    const orderSet = new Set<number>()
+    for (const s of (data.wizard?.steps || [])) orderSet.add(s.recipientOrder ?? 1)
     for (const doc of (data.documents || [])) {
-      for (const f of (doc.fields || [])) fieldOrders.add(f.recipientOrder ?? 1)
+      for (const f of (doc.fields || [])) orderSet.add(f.recipientOrder ?? 1)
     }
-    const allOrders = new Set<number>([...stepOrders, ...fieldOrders])
-    if (allOrders.size === 0) return recipientOrder
-    if (allOrders.has(recipientOrder)) return recipientOrder
-    if (allOrders.has(recipientOrder + 1)) return recipientOrder + 1
-    if (allOrders.has(recipientOrder - 1)) return recipientOrder - 1
+    const templateOrders = Array.from(orderSet).sort((a, b) => a - b)
+    if (templateOrders.length === 0) return recipientOrder
+
+    // Index du destinataire courant dans la liste des destinataires triée par order.
+    const sortedRecipients = [...(data.allRecipients || [])]
+      .filter(r => r.role !== 'cc')
+      .sort((a, b) => a.order - b.order)
+    const myIdx = sortedRecipients.findIndex(r => r.isCurrent)
+    if (myIdx >= 0) {
+      // Nème destinataire ↔ Nème order du template (clampé).
+      return templateOrders[Math.min(myIdx, templateOrders.length - 1)]
+    }
+    // Fallback (recipient courant introuvable dans allRecipients) : match exact ou ±1.
+    if (templateOrders.includes(recipientOrder)) return recipientOrder
+    if (templateOrders.includes(recipientOrder + 1)) return recipientOrder + 1
+    if (templateOrders.includes(recipientOrder - 1)) return recipientOrder - 1
     return recipientOrder
   }, [data, recipientOrder])
   const recipientName = data?.recipient?.name || ''
@@ -547,10 +572,10 @@ export default function PublicSignPage({ params }: PageProps) {
     return (
       <CenteredCard>
         <div style={iconWrap('#D1FAE5', '#059669')}><CheckCircle2 size={32} /></div>
-        <h1 style={titleStyle}>Merci pour votre signature !</h1>
+        <h1 style={titleStyle}>Merci, c&apos;est terminé !</h1>
         <p style={textStyle}>
-          Votre signature a bien été enregistrée. Une copie complète signée
-          vous a été envoyée par email.
+          Nous allons analyser et valider votre dossier. Une copie complète
+          vous sera envoyée par email.
         </p>
         <p style={{ ...textStyle, marginTop: 16, fontSize: 12, color: '#9CA3AF' }}>
           Vous pouvez fermer cette fenêtre en toute sécurité.
@@ -1110,6 +1135,11 @@ export default function PublicSignPage({ params }: PageProps) {
                 return prevRecipient?.name
               })()}
               allDocumentFields={activeDoc?.fields || []}
+              hideRecap
+              completedTitle="Merci, c'est terminé !"
+              completedSubtitle={
+                <>Nous allons analyser et valider votre dossier. Une copie complète vous sera envoyée par email à <strong>{autoFill.email || 'votre adresse'}</strong>.</>
+              }
             />
           </div>
         ) : documents.length === 0 ? (

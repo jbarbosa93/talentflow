@@ -41,8 +41,9 @@ interface DispatchInviteArgs {
   /** v2.9.15 — Si true + candidateName fourni, le headline email devient
    *  "X a rempli et signé, veuillez vérifier et confirmer" au lieu de
    *  "vous invite à signer". Calculé dans send/route.ts selon l'ordre du
-   *  destinataire et le roleName des destinataires en amont. */
-  reviewAfterCandidate?: { candidateName: string }
+   *  destinataire et le roleName des destinataires en amont.
+   *  v2.9.19 — candidateEmail + signedAt pour le bloc « Détails » de l'email. */
+  reviewAfterCandidate?: { candidateName: string; candidateEmail?: string; signedAt?: string }
 }
 
 /**
@@ -75,6 +76,8 @@ export async function dispatchInvite(args: DispatchInviteArgs): Promise<Dispatch
       // v2.9.15 — Wording contextuel si signataire en aval du candidat
       isReviewAfterCandidate: !!reviewAfterCandidate,
       candidateName: reviewAfterCandidate?.candidateName,
+      candidateEmail: reviewAfterCandidate?.candidateEmail,
+      candidateSignedAt: reviewAfterCandidate?.signedAt,
     })
     result.email = { ok: r.ok, id: r.id, error: r.error }
   }
@@ -180,6 +183,20 @@ export async function triggerNextSigner(args: TriggerNextArgs): Promise<number> 
     if (newTokens.length === 0) continue
     const tok = newTokens[0]
 
+    // v2.9.19 — Si le signataire qui vient de signer est le "Candidat", on passe
+    // son nom au prochain signataire → email contextuel "X a rempli et signé,
+    // veuillez vérifier et confirmer" + bloc détails (au lieu de "L-Agence vous invite").
+    const currentRoleName = (currentSigner as { roleName?: string }).roleName || ''
+    const reviewAfterCandidate = /candidat/i.test(currentRoleName)
+      ? {
+          candidateName: (currentSigner as { firstName?: string }).firstName
+            || (currentSigner.name || '').split(/\s+/)[0]
+            || currentSigner.name,
+          candidateEmail: currentSigner.email,
+          signedAt: (currentSigner as { signed_at?: string }).signed_at || new Date().toISOString(),
+        }
+      : undefined
+
     try {
       const dispatch = await dispatchInvite({
         envelope,
@@ -187,6 +204,7 @@ export async function triggerNextSigner(args: TriggerNextArgs): Promise<number> 
         token: tok,
         sender,
         isNextSignerTransition: true,
+        reviewAfterCandidate,
       })
 
       await logAuditEvent(envelope.id, 'sent', {

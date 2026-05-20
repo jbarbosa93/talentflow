@@ -19,6 +19,9 @@ export interface SignEmailParams {
    *  Activé pour les signataires en aval du candidat (consultant valideur). */
   isReviewAfterCandidate?: boolean
   candidateName?: string         // Nom du candidat qui a signé en amont
+  /** v2.9.19 — Bloc « Détails » de l'email (affiché si isReviewAfterCandidate). */
+  candidateEmail?: string
+  candidateSignedAt?: string     // ISO date
 }
 
 // Palette v2.2.0 Phase 3 — TalentFlow Sign emails
@@ -110,6 +113,20 @@ export function buildSignInviteHtml(p: SignEmailParams): string {
     ? `<p style="${pStyle()};">${p.documentsCount} documents à examiner.</p>`
     : ''
 
+  // v2.9.19 — Bloc « Détails » : affiché quand un candidat a signé en amont.
+  const detailsBlock = (p.isReviewAfterCandidate && p.candidateName)
+    ? `<div style="background:${FOOTER_BG}; border:1px solid ${BORDER}; border-radius:8px; padding:14px 16px; margin:20px 0;">
+         <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:${MUTED}; margin-bottom:8px;">
+           Détails
+         </div>
+         <table style="width:100%; font-size:13px; color:${FOREGROUND}; border-collapse:collapse;">
+           <tr><td style="padding:2px 0; color:${MUTED}; width:120px;">Enveloppe</td><td style="padding:2px 0;">${escapeHtml(p.envelopeTitle)}</td></tr>
+           <tr><td style="padding:2px 0; color:${MUTED};">Signataire</td><td style="padding:2px 0;">${escapeHtml(p.candidateName)}${p.candidateEmail ? ` (${escapeHtml(p.candidateEmail)})` : ''}</td></tr>
+           ${p.candidateSignedAt ? `<tr><td style="padding:2px 0; color:${MUTED};">Signé le</td><td style="padding:2px 0;">${formatExpiryDate(p.candidateSignedAt)}</td></tr>` : ''}
+         </table>
+       </div>`
+    : ''
+
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -150,6 +167,7 @@ export function buildSignInviteHtml(p: SignEmailParams): string {
                 <strong style="color:${FOREGROUND};">${escapeHtml(p.envelopeTitle)}</strong>.
               </p>
               ${docsLine}
+              ${detailsBlock}
               ${messageBlock}
             </td>
           </tr>

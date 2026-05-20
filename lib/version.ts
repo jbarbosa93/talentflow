@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.18'
+export const APP_VERSION = '2.9.19'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.19 — Sign flow : recap supprimé, texte confirmation, 1 seul email consultant, fix signature consultant
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.19',
+    date: '2026-05-20',
+    label: 'Sign : page Récap supprimée + texte confirmation + 1 email consultant + fix signature consultant cachée',
+    features: [
+      'RÉCAPITULATIF — La page Récap finale du wizard de signature est supprimée (hideRecap), comme pour les rapports. La dernière étape déclenche directement la finalisation.',
+      'CONFIRMATION — Le texte post-signature ne dit plus "Votre signature a bien été enregistrée…" mais "Nous allons analyser et valider votre dossier. Une copie complète vous sera envoyée par email." (plus juste : le dossier n\'est pas encore validé).',
+      'EMAIL CONSULTANT — Un seul email au lieu de deux. Avant : le consultant recevait l\'invitation à signer ET la notification "X a signé". Maintenant : si le consultant est aussi le prochain signataire, seule l\'invitation est envoyée — avec le wording "[Candidat] a rempli et signé — veuillez vérifier et confirmer" + un bloc Détails (Enveloppe, Signataire, Signé le).',
+      'SIGNATURE CONSULTANT — Corrigé : le consultant voyait la signature du candidat et sa propre case était cachée. Cause : le mapping d\'ordre fuzzy ±1 échouait quand 2 ordres coexistent. Nouveau mapping robuste par index (Nème destinataire ↔ Nème ordre du template). Le consultant peut signer sa partie et corriger les champs du candidat si besoin.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.18 — Sign Templates : 5 améliorations (sections casse, champ date, doc header, téléphone, listes préset)
   // ─────────────────────────────────────────────────────────────────────
