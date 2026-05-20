@@ -13,9 +13,10 @@ import {
   ChevronLeft, ChevronRight, Check, CheckCircle2, PenLine,
   AlertCircle, Loader2, FileText, ListChecks, Paperclip,
 } from 'lucide-react'
-import type { SignField, SignFieldType, SignDocument } from '@/lib/sign/types'
+import type { SignField, SignFieldType, SignDocument, SignAttachmentValue } from '@/lib/sign/types'
 import type { WizardStep, WizardStepAttachment } from '@/lib/sign/wizard-builder'
 import { fieldsByStep } from '@/lib/sign/wizard-builder'
+import AttachmentField from './AttachmentField'
 
 const AttachmentViewerModal = dynamic(() => import('./AttachmentViewerModal'), { ssr: false })
 
@@ -686,6 +687,7 @@ function StepContent({
         weekStartDate={weekStartDate}
         signatureDataUrl={signatureDataUrl}
         onRequestSignature={onRequestSignature}
+        token={token}
       />
     </div>
   )
@@ -694,7 +696,7 @@ function StepContent({
 // ─── GroupedFields — rendu list (sub-titres) ou cards (1 carte / section) ───
 function GroupedFields({
   fields, displayMode, values, onChange, autoFill, weekStartDate,
-  signatureDataUrl, onRequestSignature,
+  signatureDataUrl, onRequestSignature, token,
 }: {
   fields: SignField[]
   displayMode: 'list' | 'cards'
@@ -704,6 +706,7 @@ function GroupedFields({
   weekStartDate?: string | null
   signatureDataUrl: string | null
   onRequestSignature: () => void
+  token?: string
 }) {
   if (fields.length === 0) {
     return (
@@ -729,7 +732,7 @@ function GroupedFields({
     return (
       <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {fields.map(f => (
-          <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} />
+          <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
         ))}
       </div>
     )
@@ -787,7 +790,7 @@ function GroupedFields({
                 gap: 12,
               }}>
                 {g.fields.map(f => (
-                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} hideLabelIfEmpty />
+                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} hideLabelIfEmpty />
                 ))}
               </div>
             </div>
@@ -795,7 +798,7 @@ function GroupedFields({
             // Fields hors-section : empilage vertical normal
             <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {g.fields.map(f => (
-                <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} />
+                <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
               ))}
             </div>
           )
@@ -842,7 +845,7 @@ function GroupedFields({
               </div>
             )}
             {g.fields.map(f => (
-              <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} />
+              <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
             ))}
           </div>
         )
@@ -940,9 +943,11 @@ interface FieldRowProps {
   /** v2.9.22 — Pour rendre un champ signature/paraphe placé dans une étape normale. */
   signatureDataUrl?: string | null
   onRequestSignature?: () => void
+  /** v2.9.23 — Token de signature, requis pour les champs pièce jointe (upload). */
+  token?: string
 }
 
-function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpty, signatureDataUrl, onRequestSignature }: FieldRowProps) {
+function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpty, signatureDataUrl, onRequestSignature, token }: FieldRowProps) {
   const t = field.type as SignFieldType
   // v2.7.6 — Si on est dans une carte ET aucun libellé explicite (tooltip ET label vides
   // ou label = UUID DocuSign), on masque l'étiquette du field (la carte porte déjà le titre).
@@ -1209,6 +1214,20 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
     )
   }
 
+  // v2.9.23 — Pièce jointe : widget de chargement (upload + contrôle Vision)
+  if (t === 'attachment') {
+    const attVal = (value && typeof value === 'object' && 'files' in (value as object))
+      ? (value as SignAttachmentValue)
+      : undefined
+    return (
+      <div>
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>}
+        <HelpText text={field.helpText} />
+        <AttachmentField field={field} value={attVal} onChange={v => onChange(v)} token={token} />
+      </div>
+    )
+  }
+
   // text / number / fallback (avec auto-detect date)
   const isNumber = t === 'number'
   // v2.7.6 — Numéro avec source 'phone' → pré-remplit avec le téléphone du candidat.
@@ -1432,6 +1451,11 @@ function isFieldFilled(
   }
   if (t === 'annotation') return true
   if (t === 'formula') return true  // calcul auto, toujours "rempli" même si 0
+  // v2.9.23 — Pièce jointe : remplie si au moins un fichier chargé
+  if (t === 'attachment') {
+    const v = value as { files?: unknown[] } | undefined
+    return !!v && Array.isArray(v.files) && v.files.length > 0
+  }
   // v2.2.4 — Heuristique : title/text avec tooltip "société/entreprise" → traité comme company
   if (looksLikeCompanyField(f) && t !== 'company') {
     const auto = getAutoFillValue('company', autoFill, value)

@@ -3342,6 +3342,28 @@ function SelectOptionsEditor({
 // - date : format d'affichage
 // - auto-fill (firstname/lastname/fullname/email/company/title) : toggle
 // ─────────────────────────────────────────────────────────────────
+// v2.9.23 — Catalogue des types de documents Conformité (cache module-level :
+// fetch une seule fois pour tout l'éditeur).
+let _complianceDocTypesCache: { id: string; name: string; category?: string }[] | null = null
+function useComplianceDocTypes() {
+  const [types, setTypes] = useState<{ id: string; name: string; category?: string }[]>(
+    () => _complianceDocTypesCache || [],
+  )
+  useEffect(() => {
+    if (_complianceDocTypesCache) return
+    fetch('/api/document-types')
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d?.document_types)) {
+          _complianceDocTypesCache = d.document_types
+          setTypes(d.document_types)
+        }
+      })
+      .catch(() => { /* silencieux — le sélecteur restera vide */ })
+  }, [])
+  return types
+}
+
 function TypeSpecificOptions({
   field, allFields, onPatch,
 }: {
@@ -3350,6 +3372,7 @@ function TypeSpecificOptions({
   onPatch: (patch: Partial<SignField>) => void
 }) {
   const t = field.type
+  const complianceDocTypes = useComplianceDocTypes()
   const isAutoFillable = AUTO_FILL_FIELD_TYPES.includes(t)
   // Types avec formatage texte (police/taille/B/I/U/couleur)
   const supportsFormatting = (
@@ -3574,8 +3597,51 @@ function TypeSpecificOptions({
               checked={!!field.attachmentMultiple}
               onChange={e => onPatch({ attachmentMultiple: e.target.checked || undefined })}
             />
-            Plusieurs fichiers autorisés
+            Plusieurs fichiers autorisés (recto + verso…)
           </label>
+
+          {/* v2.9.23 — Cocher automatiquement une case à cocher au chargement */}
+          <Field label="Cocher automatiquement la case">
+            <select
+              className="neo-input"
+              value={field.attachmentLinkedCheckboxId || ''}
+              onChange={e => onPatch({ attachmentLinkedCheckboxId: e.target.value || undefined })}
+            >
+              <option value="">— Aucune —</option>
+              {allFields
+                .filter(cf => cf.type === 'checkbox'
+                  && cf.recipientOrder === field.recipientOrder
+                  && cf.id !== field.id)
+                .map(cf => (
+                  <option key={cf.id} value={cf.id}>
+                    {(cf.wizardSection ? cf.wizardSection + ' — ' : '')
+                      + (cf.tooltip || cf.label || 'Case à cocher')}
+                  </option>
+                ))}
+            </select>
+          </Field>
+          <div style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5, marginTop: -2 }}>
+            La case se coche dès qu&apos;un fichier est chargé (et se décoche si tout est retiré).
+          </div>
+
+          {/* v2.9.23 — Classement dans la Conformité de la fiche candidat */}
+          <Field label="Classer dans la Conformité comme">
+            <select
+              className="neo-input"
+              value={field.attachmentComplianceTypeId || ''}
+              onChange={e => onPatch({ attachmentComplianceTypeId: e.target.value || undefined })}
+            >
+              <option value="">— Ne pas ajouter à la Conformité (ex : CV) —</option>
+              {complianceDocTypes.map(dt => (
+                <option key={dt.id} value={dt.id}>{dt.name}</option>
+              ))}
+            </select>
+          </Field>
+          <div style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5, marginTop: -2 }}>
+            À la finalisation, les fichiers chargés sont ajoutés à l&apos;onglet 🛡 Conformité
+            de la fiche candidat (si l&apos;enveloppe est liée à un candidat). Claude lit
+            automatiquement la date d&apos;expiration des documents officiels.
+          </div>
         </>
       )}
 

@@ -967,6 +967,15 @@ export default function CandidatDetailPage() {
             <ShieldCheck size={13} />
             Conformité
           </button>
+          {/* v2.9.23 — Envoi de documents à signer (Sign) avec ce candidat pré-rempli */}
+          <button
+            onClick={() => router.push(`/sign/new?candidatId=${candidat.id}`)}
+            className="neo-btn-ghost neo-btn-sm"
+            title="Créer un envoi de signature TalentFlow Sign — candidat pré-rempli (nom, email, téléphone)"
+          >
+            <Send size={13} />
+            Envoyer à signer
+          </button>
           {/* v2.8.8 — Bouton Notes partagées (visible client + consultant) */}
           <button
             onClick={() => setShowSharedNotes(true)}

@@ -6,7 +6,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export const SIGN_BUCKET = 'talentflow-sign'
 
-export type SignFolder = 'templates' | 'envelopes' | 'signed'
+// v2.9.23 — 'uploads' : fichiers chargés par le candidat pendant la signature
+// (pièces jointes — CI, permis, etc.). Préfixe uploads/{envelopeId}/{tokenId}/.
+export type SignFolder = 'templates' | 'envelopes' | 'signed' | 'uploads'
 
 /**
  * Upload un PDF dans le bucket sign.

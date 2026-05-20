@@ -13,7 +13,7 @@ import {
   ArrowRight, BookOpen, ListChecks,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { SignDocument } from '@/lib/sign/types'
+import type { SignDocument, SignField, SignAttachmentValue } from '@/lib/sign/types'
 
 const PublicPdfViewer = dynamic(() => import('@/components/sign/PublicPdfViewer'), {
   ssr: false,
@@ -516,13 +516,28 @@ export default function PublicSignPage({ params }: PageProps) {
     }, 600)
   }, [token, saveLocalBackup])
 
+  // v2.9.23 — Index de tous les champs (tous documents) pour résoudre les
+  // pièces jointes et leur case à cocher liée.
+  const allFieldsById = useMemo(() => {
+    const m = new Map<string, SignField>()
+    for (const d of documents) for (const f of (d.fields || [])) m.set(f.id, f)
+    return m
+  }, [documents])
+
   const handleFieldChange = useCallback((fieldId: string, value: unknown) => {
     setFieldValues(prev => {
       const next = { ...prev, [fieldId]: value }
+      // v2.9.23 — Pièce jointe : coche/décoche automatiquement la case à cocher
+      // liée (attachmentLinkedCheckboxId) selon la présence de fichiers.
+      const fld = allFieldsById.get(fieldId)
+      if (fld?.type === 'attachment' && fld.attachmentLinkedCheckboxId) {
+        const files = (value as SignAttachmentValue | undefined)?.files
+        next[fld.attachmentLinkedCheckboxId] = Array.isArray(files) && files.length > 0
+      }
       syncFieldValues(next)
       return next
     })
-  }, [syncFieldValues])
+  }, [syncFieldValues, allFieldsById])
 
   // ── ÉTATS D'ERREUR ──────────────────────────────────────────────────────────
   if (state === 'loading') {
@@ -1185,6 +1200,7 @@ export default function PublicSignPage({ params }: PageProps) {
                   registerFieldEl={registerFieldEl}
                   currentRecipientOrder={recipientOrder}
                   previousSignerNames={data?.previousSignerNames}
+                  token={token}
                 />
               ) : undefined}
             />

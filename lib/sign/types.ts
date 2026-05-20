@@ -100,6 +100,14 @@ export interface SignField {
   attachmentMaxSizeMb?: number
   attachmentMimeTypes?: string[]  // ['application/pdf', 'image/jpeg']
   attachmentMultiple?: boolean
+  // v2.9.23 — Pièce jointe : id de la case à cocher cochée automatiquement
+  // dès que le candidat charge un fichier (ex: « Copie CV » sur la fiche
+  // d'inscription). Décochée si tous les fichiers sont retirés.
+  attachmentLinkedCheckboxId?: string
+  // v2.9.23 — Pièce jointe : id du `document_types` de la Conformité où classer
+  // les fichiers chargés (à la finalisation, si l'enveloppe est liée à un
+  // candidat). Vide / undefined = ne pas ajouter à la Conformité (ex: le CV).
+  attachmentComplianceTypeId?: string
   // Date
   dateFormat?: string          // 'dd/MM/yyyy' | 'yyyy-MM-dd' | 'd MMMM yyyy' | 'MM/dd/yyyy'
   // Email
@@ -159,6 +167,25 @@ export interface SignField {
 
   // Métadonnées spécifiques (ex: DocuSign listItems pour 'select', tabType original)
   metadata?: Record<string, unknown>
+}
+
+// v2.9.23 — Valeur d'un champ `attachment` (pièce jointe), stockée dans
+// sign_tokens.field_values[fieldId]. Un fichier = un objet SignAttachmentFile.
+export interface SignAttachmentFile {
+  /** Chemin Storage dans le bucket talentflow-sign (préfixe `uploads/`) */
+  path: string
+  /** Nom de fichier original */
+  name: string
+  /** Taille en octets */
+  size: number
+  mimeType?: string
+  /** v2.9.23 — Lisibilité estimée par Claude Vision (feedback candidat) */
+  readable?: 'ok' | 'poor' | 'unreadable'
+  /** v2.9.23 — Date d'expiration extraite par Claude Vision (ISO yyyy-MM-dd) ou null */
+  expiryDate?: string | null
+}
+export interface SignAttachmentValue {
+  files: SignAttachmentFile[]
 }
 
 // Polices disponibles pour le rendu (DocuSign-like)

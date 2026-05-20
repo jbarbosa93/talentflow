@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.22'
+export const APP_VERSION = '2.9.23'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.23 — Sign : champ pièce jointe + intégration Conformité de la fiche candidat
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.23',
+    date: '2026-05-20',
+    label: 'Sign : pièce jointe candidat (upload + lecture IA) reliée à la Conformité de la fiche',
+    features: [
+      'CHAMP PIÈCE JOINTE — Le champ « Pièce jointe » est désormais fonctionnel : le candidat charge un fichier ou une photo (recto + verso possibles), directement depuis le wizard ou le document. Champ vert une fois chargé.',
+      'CONTRÔLE DE LISIBILITÉ — Après chaque chargement de photo, Claude vérifie qu\'elle est lisible. Si elle est douteuse, un message non-bloquant invite à reprendre la photo — mais le candidat peut toujours continuer.',
+      'DATE D\'EXPIRATION AUTO — Pour les documents officiels (carte d\'identité, passeport, permis…), Claude lit automatiquement la date d\'expiration. Si la lecture est sûre, elle est remplie ; sinon rien n\'est noté.',
+      'CASE À COCHER LIÉE — Sur un champ pièce jointe, on peut choisir une case à cocher qui se coche automatiquement dès qu\'un fichier est chargé (ex : « Copie CV ☑ »).',
+      'BOUTON FICHE CANDIDAT — Nouveau bouton « Envoyer à signer » sur la fiche candidat : ouvre la création d\'envoi avec le candidat déjà pré-rempli (nom, email, téléphone).',
+      'INTÉGRATION CONFORMITÉ — Chaque champ pièce jointe peut être classé dans une catégorie de la Conformité. À la finalisation, les documents chargés par le candidat atterrissent automatiquement dans l\'onglet 🛡 Conformité de sa fiche (le CV est exclu). Le créateur reçoit aussi tous les fichiers par email ; le candidat ne reçoit jamais ses propres scans.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.22 — Sign : audit champs — conditions en Mode Document + signature wizard + formule
   // ─────────────────────────────────────────────────────────────────────

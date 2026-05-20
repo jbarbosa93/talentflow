@@ -99,10 +99,15 @@ function SignNewPage() {
       if (d.candidat) {
         const c = d.candidat
         const fullName = [c.prenom, c.nom].filter(Boolean).join(' ').trim()
+        // v2.9.23 — Pré-remplit aussi prénom / nom / téléphone (le bouton
+        // « Envoyer à signer » de la fiche candidat ouvre cette page).
         setRecipients(prev => prev.map((r, i) => i === 0 ? {
           ...r,
           name: fullName,
+          firstName: c.prenom || '',
+          lastName: c.nom || '',
           email: c.email || '',
+          phone: c.telephone || '',
           roleName: 'Candidat',
           candidat_id: c.id,
         } : r))

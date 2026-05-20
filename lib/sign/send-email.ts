@@ -411,3 +411,91 @@ function buildSignerSignedText(p: SignerSignedNotifyParams, isCompleted: boolean
     `Voir l'enveloppe : ${p.envelopeUrl}`,
   ].join('\n')
 }
+
+// ─── v2.9.23 — Documents chargés par le candidat → email au créateur ───────
+export interface SignUploadedDocsEmailParams {
+  envelopeTitle: string
+  uploaderName: string
+  fileCount: number
+  /** Fichiers chargés par le candidat (filename + content base64) */
+  attachments: { filename: string; content: string }[]
+  envelopeUrl: string
+}
+
+/**
+ * Envoie au CRÉATEUR de l'enveloppe les fichiers chargés par le candidat
+ * pendant la signature (pièces jointes — CI, permis, etc.).
+ * Le candidat ne reçoit JAMAIS ses propres scans : cet email est dédié au créateur.
+ */
+export async function sendSignUploadedDocsEmail(
+  to: string,
+  params: SignUploadedDocsEmailParams,
+): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
+  if (!to) return { ok: false, error: 'destinataire vide' }
+
+  const n = params.fileCount
+  const noun = n > 1 ? 'documents' : 'document'
+  const subject = `${n} ${noun} chargé${n > 1 ? 's' : ''} par ${params.uploaderName} — ${params.envelopeTitle}`
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" width="200" style="height:42px;width:200px;object-fit:contain;" alt="L-Agence">
+    </div>
+    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:26px 24px;">
+      <h1 style="font-family:Georgia,serif;font-size:21px;font-weight:400;color:#1C1A14;margin:0 0 12px;">
+        ${escapeHtml(params.uploaderName)} a chargé ${n} ${noun}
+      </h1>
+      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 16px;">
+        En remplissant « <strong>${escapeHtml(params.envelopeTitle)}</strong> », ${escapeHtml(params.uploaderName)}
+        a joint ${n} ${noun}. ${n > 1 ? 'Ils sont' : 'Il est'} en pièce${n > 1 ? 's' : ''} jointe${n > 1 ? 's' : ''} de cet email.
+      </p>
+      <p style="font-size:13px;color:#6B7280;line-height:1.55;margin:0 0 18px;">
+        Ces fichiers ne sont PAS envoyés au candidat — seul vous les recevez.
+      </p>
+      <a href="${params.envelopeUrl}" style="display:inline-block;background:#1C1A14;color:#EAB308;text-decoration:none;font-weight:700;font-size:14px;padding:11px 20px;border-radius:9px;">
+        Voir l'enveloppe
+      </a>
+    </div>
+    <p style="text-align:center;font-size:11px;color:#9CA3AF;margin-top:18px;">
+      Notification automatique TalentFlow Sign
+    </p>
+  </div>
+</body></html>`
+  const text = [
+    `${params.uploaderName} a chargé ${n} ${noun} en remplissant « ${params.envelopeTitle} ».`,
+    `${n > 1 ? 'Ils sont' : 'Il est'} en pièce${n > 1 ? 's' : ''} jointe${n > 1 ? 's' : ''} de cet email.`,
+    'Ces fichiers ne sont pas envoyés au candidat.',
+    '',
+    `Voir l'enveloppe : ${params.envelopeUrl}`,
+  ].join('\n')
+
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: FROM_DEFAULT,
+        to: [to],
+        subject,
+        html,
+        text,
+        attachments: params.attachments,
+      }),
+    })
+    if (!r.ok) {
+      const err = await r.text()
+      console.error('[sign/send-email] Resend uploaded-docs error', r.status, err)
+      return { ok: false, error: `Resend ${r.status}: ${err.slice(0, 200)}` }
+    }
+    const data = await r.json() as { id?: string }
+    return { ok: true, id: data.id }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Erreur réseau'
+    console.error('[sign/send-email] uploaded-docs exception', e)
+    return { ok: false, error: msg }
+  }
+}

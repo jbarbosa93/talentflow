@@ -17,10 +17,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { PenLine, Check } from 'lucide-react'
-import type { SignField, SignFieldType } from '@/lib/sign/types'
+import { createPortal } from 'react-dom'
+import { PenLine, Check, Paperclip, X } from 'lucide-react'
+import type { SignField, SignFieldType, SignAttachmentValue } from '@/lib/sign/types'
 import { formatDate } from '@/lib/sign/pdf-stamp'
 import { effectiveCheckedState, effectiveFieldState, computeFormulaValue, formatFormulaValue } from '@/lib/sign/field-helpers'
+import AttachmentField from './AttachmentField'
 
 interface Props {
   page: number
@@ -66,6 +68,8 @@ interface Props {
    *  le sélecteur de semaine en haut → l'utilisateur ne doit pas pouvoir les modifier.
    *  Affichage : valeur formatée selon dateFormat (vs input date natif qui ignore le format). */
   lockedFields?: Set<string>
+  /** v2.9.23 — Token de signature, requis pour les champs pièce jointe (upload). */
+  token?: string
 }
 
 export default function PublicFieldsLayer({
@@ -73,7 +77,7 @@ export default function PublicFieldsLayer({
   signatureDataUrl, onRequestSignature, recipientColor, autoFill,
   currentFieldId, registerFieldEl,
   currentRecipientOrder, previousSignerNames,
-  blockedFields, lockedFields,
+  blockedFields, lockedFields, token,
 }: Props) {
   // v2.9.22 — Applique aussi les conditions show/hide via effectiveFieldState.
   // Avant : seul `metadata.hidden` (flag statique) était pris en compte → les
@@ -188,6 +192,7 @@ export default function PublicFieldsLayer({
                 isCurrent={isCurrent}
                 forceReadOnly={belongsToPrevious || !!lockedFields?.has(f.id)}
                 allValues={values}
+                token={token}
               />
             )}
           </div>
@@ -223,11 +228,13 @@ interface FieldInputProps {
   forceReadOnly?: boolean
   /** v2.7.7 — Toutes les valeurs courantes (pour évaluer les conditions check/uncheck) */
   allValues?: Record<string, unknown>
+  /** v2.9.23 — Token de signature, requis pour les champs pièce jointe (upload). */
+  token?: string
 }
 
 function FieldInput({
   field, value, onChange, signatureDataUrl, onRequestSignature,
-  recipientColor, autoFill, widthPx, heightPx, isCurrent, forceReadOnly, allValues,
+  recipientColor, autoFill, widthPx, heightPx, isCurrent, forceReadOnly, allValues, token,
 }: FieldInputProps) {
   const t = field.type as SignFieldType
   const isRequired = !!field.required
@@ -235,6 +242,7 @@ function FieldInput({
   const isAutoFill = isAutoFillType(t)
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null)
   const [tooltipOpen, setTooltipOpen] = useState(false)
+  const [attachmentModalOpen, setAttachmentModalOpen] = useState(false)
 
   // v2.5.1 — FIX CRITICAL : useEffect doit être appelé AVANT tout early return,
   // sinon les Rules of Hooks sont violées (l'ordre des hooks change quand
@@ -266,6 +274,11 @@ function FieldInput({
       if (t === 'formula') {
         const c = allValues ? computeFormulaValue(field, allValues) : null
         return <span>{formatFormulaValue(field, c) || '0'}</span>
+      }
+      // v2.9.23 — Pièce jointe (signataire précédent) : nombre de fichiers chargés
+      if (t === 'attachment') {
+        const c = (value as { files?: unknown[] } | undefined)?.files?.length || 0
+        return <span style={{ fontSize: 10, color: '#15803D' }}>📎 {c} fichier{c > 1 ? 's' : ''}</span>
       }
       if (value === undefined || value === null || value === '') return null
       // v2.3.12 Bug 1 — Format date ISO → format configuré dans le template
@@ -579,6 +592,92 @@ function FieldInput({
     )
   }
 
+  // ─── PIÈCE JOINTE ───
+  // v2.9.23 — Box compacte sur le PDF → ouvre un modal avec le widget de chargement.
+  if (t === 'attachment') {
+    const attVal = (value && typeof value === 'object' && 'files' in (value as object))
+      ? (value as SignAttachmentValue)
+      : undefined
+    const count = attVal?.files?.length || 0
+    const done = count > 0
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <button
+          type="button"
+          onClick={() => setAttachmentModalOpen(true)}
+          onMouseEnter={showOnFocus}
+          onMouseLeave={hideOnBlur}
+          style={{
+            width: '100%', height: '100%',
+            background: done ? 'rgba(34,197,94,0.10)' : bgColor,
+            border: `1.5px ${done ? 'solid' : 'dashed'} ${done ? '#15803D' : borderColor}`,
+            borderRadius: 3, cursor: 'pointer', padding: 0, fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            fontSize: Math.min(heightPx * 0.4, 11), fontWeight: 700,
+            color: done ? '#15803D' : recipientColor.text,
+          }}
+        >
+          <Paperclip size={Math.min(heightPx * 0.5, 13)} />
+          {done ? `${count} fichier${count > 1 ? 's' : ''}` : 'Joindre'}
+        </button>
+        {tooltipBubble}
+        {attachmentModalOpen && typeof document !== 'undefined' && createPortal(
+          <div
+            onClick={() => setAttachmentModalOpen(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 10000,
+              background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+            }}
+          >
+            <div onClick={e => e.stopPropagation()} style={{
+              width: 'min(460px, 95vw)', background: '#fff', borderRadius: 14,
+              overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '16px 18px', borderBottom: '1px solid #E5E7EB',
+              }}>
+                <Paperclip size={16} style={{ color: '#A16207' }} />
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#1C1A14' }}>
+                  {field.tooltip || field.label || 'Pièce jointe'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAttachmentModalOpen(false)}
+                  style={{
+                    width: 30, height: 30, borderRadius: 7, border: '1px solid #E5E7EB',
+                    background: '#fff', cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+              <div style={{ padding: 18 }}>
+                <AttachmentField field={field} value={attVal} onChange={v => onChange(v)} token={token} />
+              </div>
+              <div style={{ padding: '12px 18px', borderTop: '1px solid #E5E7EB', textAlign: 'right' }}>
+                <button
+                  type="button"
+                  onClick={() => setAttachmentModalOpen(false)}
+                  style={{
+                    padding: '8px 16px', background: '#1C1A14', color: '#EAB308',
+                    border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  Terminé
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+      </div>
+    )
+  }
+
   // ─── FORMULE (calcul automatique, lecture seule) ───
   // v2.9.22 — Avant : `formula` tombait dans le fallback input texte → le
   // candidat voyait un champ éditable et pouvait écraser le calcul. Maintenant :
@@ -772,6 +871,11 @@ function isFieldFilled(
   }
   if (t === 'annotation') return true // toujours "rempli" (informatif)
   if (t === 'formula') return true // calcul auto
+  // v2.9.23 — Pièce jointe : remplie si au moins un fichier chargé
+  if (t === 'attachment') {
+    const v = value as { files?: unknown[] } | undefined
+    return !!v && Array.isArray(v.files) && v.files.length > 0
+  }
   if (isAutoFillType(t)) {
     const auto = getAutoFillValue(t, autoFill, value)
     return !!auto && auto.trim() !== ''

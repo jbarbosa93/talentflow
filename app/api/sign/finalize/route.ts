@@ -15,13 +15,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyToken } from '@/lib/sign/tokens'
 import { logAuditEvent, extractIp } from '@/lib/sign/audit'
-import type { SignEnvelope, SignRecipient, SignToken } from '@/lib/sign/types'
-import { sendSignCompletedEmail, sendSignerSignedNotificationEmail } from '@/lib/sign/send-email'
+import type {
+  SignEnvelope, SignRecipient, SignToken,
+  SignDocument, SignField, SignAttachmentValue, SignAttachmentFile,
+} from '@/lib/sign/types'
+import {
+  sendSignCompletedEmail, sendSignerSignedNotificationEmail, sendSignUploadedDocsEmail,
+} from '@/lib/sign/send-email'
 import { sendSignCompletedWhatsApp } from '@/lib/sign/send-whatsapp'
 import { generateAndPersistSignedPdfs } from '@/lib/sign/pdf-generator'
 import { triggerNextSigner } from '@/lib/sign/sequential'
+import { downloadSignDocument } from '@/lib/sign/storage'
+import { uploadComplianceFile } from '@/lib/compliance/storage'
+import { safeContentType } from '@/lib/utils/mime'
 
 export const runtime = 'nodejs'
+// v2.9.23 — Marge pour le traitement des pièces jointes candidat (download +
+// email créateur + écriture Conformité) en plus du stamping PDF + emails.
+export const maxDuration = 120
 
 export async function POST(req: NextRequest) {
   try {
@@ -181,6 +192,11 @@ export async function POST(req: NextRequest) {
           nextSignerName: null,
         })
       }
+
+      // v2.9.23 — Pièces jointes candidat : email des fichiers au créateur
+      // (le candidat ne reçoit pas ses propres scans) + écriture dans l'onglet
+      // Conformité de la fiche candidat. Best-effort, ne bloque jamais.
+      await processCandidateUploads({ supabase, envelope, senderInfo })
 
       await logAuditEvent(envelope.id, 'completed', {
         ip,
@@ -401,6 +417,185 @@ async function sendSenderNotif(args: {
     })
   } catch (e) {
     console.warn('[sign/finalize] sender notif failed', e)
+  }
+}
+
+// ─── v2.9.23 — Pièces jointes candidat → email créateur + Conformité ───────
+//
+// À la finalisation : on collecte les fichiers chargés par le candidat dans les
+// champs `attachment`, on les envoie au CRÉATEUR (jamais au candidat), et si
+// l'enveloppe est liée à un candidat, on les classe dans l'onglet Conformité de
+// sa fiche (sauf les champs marqués « ne pas ajouter », ex : le CV).
+async function processCandidateUploads(args: {
+  supabase: ReturnType<typeof createAdminClient>
+  envelope: SignEnvelope
+  senderInfo: { name: string; email?: string }
+}): Promise<void> {
+  const { supabase, envelope, senderInfo } = args
+  try {
+    if (!envelope.template_id) return
+
+    // 1. Champs `attachment` du template
+    const { data: tpl } = await supabase
+      .from('sign_templates' as any)
+      .select('documents')
+      .eq('id', envelope.template_id)
+      .maybeSingle()
+    const tplDocs = ((tpl as unknown as { documents?: SignDocument[] })?.documents || [])
+    const attachmentFields: SignField[] = []
+    for (const d of tplDocs) {
+      for (const f of (d.fields || [])) {
+        if (f.type === 'attachment') attachmentFields.push(f)
+      }
+    }
+    if (attachmentFields.length === 0) return
+
+    // 2. field_values de tous les tokens de l'enveloppe
+    const { data: tokRows } = await supabase
+      .from('sign_tokens' as any)
+      .select('field_values, recipient_name')
+      .eq('envelope_id', envelope.id)
+    const tokens = (tokRows || []) as unknown as Array<{
+      field_values: Record<string, unknown> | null
+      recipient_name: string | null
+    }>
+
+    // 3. Collecte des fichiers chargés par champ
+    type Collected = { field: SignField; files: SignAttachmentFile[]; uploaderName: string }
+    const collected: Collected[] = []
+    for (const af of attachmentFields) {
+      for (const tok of tokens) {
+        const v = (tok.field_values || {})[af.id] as SignAttachmentValue | undefined
+        const files = (v?.files || []).filter(f => f && typeof f.path === 'string')
+        if (files.length > 0) {
+          collected.push({ field: af, files, uploaderName: tok.recipient_name || 'le candidat' })
+        }
+      }
+    }
+    const allFiles = collected.flatMap(c => c.files)
+    if (allFiles.length === 0) return
+
+    // Cache de téléchargement (un fichier peut servir email + Conformité)
+    const blobCache = new Map<string, Blob>()
+    const fetchBlob = async (path: string): Promise<Blob | null> => {
+      if (blobCache.has(path)) return blobCache.get(path)!
+      try {
+        const b = await downloadSignDocument(path)
+        blobCache.set(path, b)
+        return b
+      } catch (e) {
+        console.warn('[finalize] download pièce jointe échoué', path, e)
+        return null
+      }
+    }
+
+    // 4. Email au créateur avec les fichiers en pièces jointes
+    const recipientEmail = senderInfo.email || process.env.ADMIN_EMAIL
+    if (recipientEmail) {
+      try {
+        const attachments: { filename: string; content: string }[] = []
+        for (const f of allFiles) {
+          const blob = await fetchBlob(f.path)
+          if (!blob) continue
+          const buf = Buffer.from(await blob.arrayBuffer())
+          attachments.push({ filename: f.name || 'document', content: buf.toString('base64') })
+        }
+        if (attachments.length > 0) {
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
+          await sendSignUploadedDocsEmail(recipientEmail, {
+            envelopeTitle: envelope.title,
+            uploaderName: collected[0]?.uploaderName || 'le candidat',
+            fileCount: attachments.length,
+            attachments,
+            envelopeUrl: `${appUrl}/sign/${envelope.id}`,
+          })
+        }
+      } catch (e) {
+        console.warn('[finalize] email pièces jointes au créateur échoué', e)
+      }
+    }
+
+    // 5. Conformité — uniquement si l'enveloppe est liée à un candidat
+    if (envelope.candidate_id) {
+      for (const c of collected) {
+        const docTypeId = c.field.attachmentComplianceTypeId
+        if (!docTypeId) continue  // ex: CV → « ne pas ajouter »
+        // Paires recto/verso : un document Conformité = 2 fichiers max
+        for (let i = 0; i < c.files.length; i += 2) {
+          await writeComplianceDoc({
+            supabase,
+            candidatId: envelope.candidate_id,
+            documentTypeId: docTypeId,
+            label: (c.field.tooltip || c.field.label || 'Document').slice(0, 200),
+            files: c.files.slice(i, i + 2),
+            envelopeId: envelope.id,
+            createdBy: envelope.created_by,
+            fetchBlob,
+          })
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[sign/finalize] processCandidateUploads échoué (non-bloquant)', e)
+  }
+}
+
+/** Crée une ligne candidat_documents (1 ou 2 fichiers) dans la Conformité. */
+async function writeComplianceDoc(args: {
+  supabase: ReturnType<typeof createAdminClient>
+  candidatId: string
+  documentTypeId: string
+  label: string
+  files: SignAttachmentFile[]
+  envelopeId: string
+  createdBy: string | null
+  fetchBlob: (path: string) => Promise<Blob | null>
+}): Promise<void> {
+  const { supabase, candidatId, documentTypeId, label, files, envelopeId, createdBy, fetchBlob } = args
+  try {
+    const expiry = files.map(f => f.expiryDate).find(d => !!d) || null
+    // 1. INSERT de la ligne (pour récupérer l'id)
+    const { data: inserted, error: insErr } = await (supabase as any)
+      .from('candidat_documents')
+      .insert({
+        candidat_id: candidatId,
+        document_type_id: documentTypeId,
+        label,
+        expiry_date: expiry,
+        notes: 'Importé depuis TalentFlow Sign',
+        created_by: createdBy,
+        metadata: { source: 'sign_envelope', envelope_id: envelopeId },
+      })
+      .select('id')
+      .single()
+    if (insErr || !inserted) {
+      console.warn('[finalize] candidat_documents insert échoué', insErr)
+      return
+    }
+    const docId = inserted.id as string
+
+    // 2. Upload des fichiers (recto = 1er, verso = 2e)
+    const patch: Record<string, string> = {}
+    for (let i = 0; i < files.length && i < 2; i++) {
+      const f = files[i]
+      const side: 'recto' | 'verso' = i === 0 ? 'recto' : 'verso'
+      const blob = await fetchBlob(f.path)
+      if (!blob) continue
+      try {
+        const mime = safeContentType(f.mimeType || blob.type || 'application/octet-stream', f.name)
+        const path = await uploadComplianceFile({
+          candidatId, documentId: docId, side, file: blob, mimeType: mime,
+        })
+        patch[side === 'recto' ? 'file_recto_path' : 'file_verso_path'] = path
+      } catch (e) {
+        console.warn('[finalize] upload fichier Conformité échoué', f.path, e)
+      }
+    }
+    if (Object.keys(patch).length > 0) {
+      await (supabase as any).from('candidat_documents').update(patch).eq('id', docId)
+    }
+  } catch (e) {
+    console.warn('[finalize] writeComplianceDoc échoué', e)
   }
 }
 
