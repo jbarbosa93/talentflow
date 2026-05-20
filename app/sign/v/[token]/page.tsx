@@ -30,7 +30,7 @@ const SignWizard = dynamic(() => import('@/components/sign/SignWizard'), { ssr: 
 import PublicFieldsLayer, { areAllRequiredFieldsFilled, isFieldFilledExt } from '@/components/sign/PublicFieldsLayer'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
-import { getDayOffsetFromSection, dateForDayOfWeek } from '@/lib/sign/field-helpers'
+import { getDayOffsetFromSection, dateForDayOfWeek, effectiveFieldState } from '@/lib/sign/field-helpers'
 import LogoLAgence from '@/components/report/LogoLAgence'
 
 interface PageProps {
@@ -435,7 +435,13 @@ export default function PublicSignPage({ params }: PageProps) {
       const fields = (doc.fields || [])
         .filter(f => f.recipientOrder === effectiveRecipientOrder && !f.metadata?.hidden)
         .filter(f => f.type !== 'annotation')
-        .filter(f => f.required || f.type === 'signature' || f.type === 'initial')
+        // v2.9.22 — Conditions appliquées : on saute les champs cachés par
+        // condition, et "requis" suit effectiveFieldState (require/unrequire).
+        .filter(f => {
+          const eff = effectiveFieldState(f, fieldValues)
+          if (!eff.visible) return false
+          return eff.required || f.type === 'signature' || f.type === 'initial'
+        })
         .filter(f => !isFieldFilledExt(f, fieldValues[f.id], signatureDataUrl, autoFill))
         .sort((a, b) => (a.page - b.page) || (a.y - b.y) || (a.x - b.x))
       fields.forEach(f => queue.push({ fieldId: f.id, docIdx: dIdx, page: f.page }))

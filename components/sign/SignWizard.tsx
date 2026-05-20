@@ -684,6 +684,8 @@ function StepContent({
         onChange={onChange}
         autoFill={autoFill}
         weekStartDate={weekStartDate}
+        signatureDataUrl={signatureDataUrl}
+        onRequestSignature={onRequestSignature}
       />
     </div>
   )
@@ -692,6 +694,7 @@ function StepContent({
 // ─── GroupedFields — rendu list (sub-titres) ou cards (1 carte / section) ───
 function GroupedFields({
   fields, displayMode, values, onChange, autoFill, weekStartDate,
+  signatureDataUrl, onRequestSignature,
 }: {
   fields: SignField[]
   displayMode: 'list' | 'cards'
@@ -699,6 +702,8 @@ function GroupedFields({
   onChange: (fieldId: string, value: unknown) => void
   autoFill: AutoFill
   weekStartDate?: string | null
+  signatureDataUrl: string | null
+  onRequestSignature: () => void
 }) {
   if (fields.length === 0) {
     return (
@@ -724,7 +729,7 @@ function GroupedFields({
     return (
       <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {fields.map(f => (
-          <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} />
+          <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} />
         ))}
       </div>
     )
@@ -782,7 +787,7 @@ function GroupedFields({
                 gap: 12,
               }}>
                 {g.fields.map(f => (
-                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} hideLabelIfEmpty />
+                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} hideLabelIfEmpty />
                 ))}
               </div>
             </div>
@@ -790,7 +795,7 @@ function GroupedFields({
             // Fields hors-section : empilage vertical normal
             <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {g.fields.map(f => (
-                <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} />
+                <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} />
               ))}
             </div>
           )
@@ -837,7 +842,7 @@ function GroupedFields({
               </div>
             )}
             {g.fields.map(f => (
-              <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} />
+              <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} />
             ))}
           </div>
         )
@@ -932,9 +937,12 @@ interface FieldRowProps {
   /** v2.7.6 — Si true et que le field n'a aucun label/tooltip explicite,
    *  on n'affiche pas l'étiquette (évite le doublon avec le titre de la carte). */
   hideLabelIfEmpty?: boolean
+  /** v2.9.22 — Pour rendre un champ signature/paraphe placé dans une étape normale. */
+  signatureDataUrl?: string | null
+  onRequestSignature?: () => void
 }
 
-function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpty }: FieldRowProps) {
+function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpty, signatureDataUrl, onRequestSignature }: FieldRowProps) {
   const t = field.type as SignFieldType
   // v2.7.6 — Si on est dans une carte ET aucun libellé explicite (tooltip ET label vides
   // ou label = UUID DocuSign), on masque l'étiquette du field (la carte porte déjà le titre).
@@ -997,6 +1005,57 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
           placeholder={val}
           style={inputStyle}
         />
+      </div>
+    )
+  }
+
+  // v2.9.22 — Champ signature / paraphe placé dans une étape NORMALE (hors étape
+  // signature dédiée). Avant : tombait dans le fallback input texte → le candidat
+  // voyait une case texte au lieu d'un pad de signature. Maintenant : box cliquable
+  // qui ouvre le même pad de signature global.
+  if (t === 'signature' || t === 'initial') {
+    return (
+      <div>
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>}
+        <HelpText text={field.helpText} />
+        {signatureDataUrl ? (
+          <div
+            onClick={onRequestSignature}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '12px 14px',
+              background: '#F0FDF4',
+              border: '2px solid #15803D',
+              borderRadius: 10,
+              cursor: 'pointer',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={signatureDataUrl} alt="Signature" style={{ maxWidth: 150, maxHeight: 56, objectFit: 'contain' }} />
+            <span style={{ fontSize: 12.5, color: '#15803D', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <Check size={14} /> Signature adoptée — toucher pour modifier
+            </span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onRequestSignature}
+            style={{
+              width: '100%',
+              padding: 14,
+              background: '#FEF3C7',
+              border: '2px dashed #EAB308',
+              borderRadius: 10,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              fontSize: 14, fontWeight: 700, color: '#A16207',
+            }}
+          >
+            <PenLine size={16} />
+            {t === 'initial' ? 'Apposer mon paraphe' : 'Signer ici'}
+          </button>
+        )}
       </div>
     )
   }

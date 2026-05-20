@@ -20,7 +20,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PenLine, Check } from 'lucide-react'
 import type { SignField, SignFieldType } from '@/lib/sign/types'
 import { formatDate } from '@/lib/sign/pdf-stamp'
-import { effectiveCheckedState } from '@/lib/sign/field-helpers'
+import { effectiveCheckedState, effectiveFieldState, computeFormulaValue, formatFormulaValue } from '@/lib/sign/field-helpers'
 
 interface Props {
   page: number
@@ -75,7 +75,16 @@ export default function PublicFieldsLayer({
   currentRecipientOrder, previousSignerNames,
   blockedFields, lockedFields,
 }: Props) {
-  const visible = fields.filter(f => f.page === page && !f.metadata?.hidden)
+  // v2.9.22 — Applique aussi les conditions show/hide via effectiveFieldState.
+  // Avant : seul `metadata.hidden` (flag statique) était pris en compte → les
+  // règles conditionnelles « masquer si X » / « afficher si X » ne marchaient
+  // PAS en Mode Document (elles ne marchaient qu'en Mode Wizard). Cohérence
+  // totale entre les 2 modes maintenant.
+  const visible = fields.filter(f =>
+    f.page === page
+    && !f.metadata?.hidden
+    && effectiveFieldState(f, values).visible
+  )
   const curOrder = currentRecipientOrder ?? 1
 
   // v2.7.6 — Wrapper appliquant les règles de groupe checkbox (radio-like si max=1,
@@ -252,6 +261,11 @@ function FieldInput({
       }
       if (t === 'checkbox') {
         return <span style={{ fontSize: Math.min(widthPx, heightPx) * 0.7 }}>{value === true || value === 'true' ? '✓' : ''}</span>
+      }
+      // v2.9.22 — Formule : valeur calculée (jamais stockée → on recalcule)
+      if (t === 'formula') {
+        const c = allValues ? computeFormulaValue(field, allValues) : null
+        return <span>{formatFormulaValue(field, c) || '0'}</span>
       }
       if (value === undefined || value === null || value === '') return null
       // v2.3.12 Bug 1 — Format date ISO → format configuré dans le template
@@ -565,6 +579,34 @@ function FieldInput({
     )
   }
 
+  // ─── FORMULE (calcul automatique, lecture seule) ───
+  // v2.9.22 — Avant : `formula` tombait dans le fallback input texte → le
+  // candidat voyait un champ éditable et pouvait écraser le calcul. Maintenant :
+  // affiché en lecture seule, vert, valeur calculée — cohérent avec le Mode Wizard.
+  if (t === 'formula') {
+    const computed = allValues ? computeFormulaValue(field, allValues) : null
+    const formatted = formatFormulaValue(field, computed)
+    return (
+      <div style={{
+        width: '100%', height: '100%',
+        background: 'rgba(34,197,94,0.10)',
+        border: '1px solid #15803D',
+        borderRadius: 2,
+        fontSize: Math.min(heightPx * 0.6, 13),
+        color: '#15803D',
+        fontWeight: 700,
+        padding: '0 6px',
+        display: 'flex', alignItems: 'center',
+        fontFamily: 'inherit',
+        fontVariantNumeric: 'tabular-nums',
+        position: 'relative',
+      }}>
+        {formatted || '0'}
+        {tooltipBubble}
+      </div>
+    )
+  }
+
   // ─── TEXT / NUMBER (par défaut) ───
   const isNumber = t === 'number'
   // v2.9.18 — isPhoneNumber basé sur autoFillSource (pas sur la dispo de l'autofill).
@@ -753,18 +795,25 @@ export function areAllRequiredFieldsFilled(
    *  car ils ne peuvent pas être remplis volontairement par le candidat. */
   blockedFieldIds?: Set<string>,
 ): boolean {
-  const requiredFields = fields.filter(f =>
-    f.required &&
-    !f.metadata?.hidden &&
-    f.type !== 'annotation' &&
-    !(blockedFieldIds?.has(f.id)) &&
+  // v2.9.22 — Conditions appliquées : un champ caché par condition n'est PAS
+  // requis (impossible à remplir) ; le caractère obligatoire suit
+  // effectiveFieldState (require/unrequire conditionnels). Cohérent Mode Wizard.
+  const requiredFields = fields.filter(f => {
+    if (f.metadata?.hidden) return false
+    if (f.type === 'annotation') return false
+    if (blockedFieldIds?.has(f.id)) return false
     // v2.8.10 — Checkboxes groupées : validées via la règle du groupe (plus bas),
     // pas individuellement (sinon Oui+Non tous requis = impossible).
-    !(f.type === 'checkbox' && f.groupId && f.groupRule)
-  )
-  // Aussi : tous les champs signature/initial doivent avoir une signature globale
+    if (f.type === 'checkbox' && f.groupId && f.groupRule) return false
+    const eff = effectiveFieldState(f, values)
+    if (!eff.visible) return false
+    return eff.required
+  })
+  // Aussi : tous les champs signature/initial visibles doivent avoir une signature globale
   const hasSignatureField = fields.some(f =>
-    (f.type === 'signature' || f.type === 'initial') && !f.metadata?.hidden
+    (f.type === 'signature' || f.type === 'initial')
+    && !f.metadata?.hidden
+    && effectiveFieldState(f, values).visible
   )
   if (hasSignatureField && !signatureDataUrl) return false
   if (!requiredFields.every(f => isFieldFilled(f, values[f.id], signatureDataUrl, autoFill))) return false
@@ -777,6 +826,8 @@ export function areAllRequiredFieldsFilled(
     if (f.type !== 'checkbox' || !f.groupId) continue
     if (blockedFieldIds?.has(f.id)) continue
     if (!fieldIdSet.has(f.id)) continue
+    // v2.9.22 — Groupe masqué par condition → on ne valide pas sa règle
+    if (!effectiveFieldState(f, values).visible) continue
     const g = groupsToCheck.get(f.groupId)
     if (g) g.members.push(f)
     else groupsToCheck.set(f.groupId, { rule: f.groupRule, min: f.groupMin, max: f.groupMax, members: [f] })

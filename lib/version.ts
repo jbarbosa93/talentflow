@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.21'
+export const APP_VERSION = '2.9.22'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.22 — Sign : audit champs — conditions en Mode Document + signature wizard + formule
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.22',
+    date: '2026-05-20',
+    label: 'Sign : conditions réparées en Mode Document + champ signature wizard + champ formule',
+    features: [
+      'CONDITIONS (correctif majeur) — Les règles « afficher si… / masquer si… / rendre obligatoire si… » ne fonctionnaient PAS en Mode Document (uniquement en Mode Wizard). Comme le Mode Document est l\'affichage par défaut sur ordinateur, les conditions semblaient cassées. Désormais elles s\'appliquent au rendu, à la file « Suivant » et à la validation finale — comportement identique dans les 2 modes.',
+      'CHAMP SIGNATURE — Un champ Signature/Paraphe placé dans une étape normale du wizard s\'affichait comme une simple case texte. Il affiche maintenant une vraie zone de signature cliquable (ouvre le pad de signature).',
+      'CHAMP FORMULE — En Mode Document, un champ Formule (calcul automatique) était éditable comme un champ texte (le candidat pouvait écraser le calcul). Il est maintenant en lecture seule avec la valeur calculée, comme en Mode Wizard.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.21 — Sign : panneau « Gérer les sections » (renommer / replier / réordonner / supprimer)
   // ─────────────────────────────────────────────────────────────────────
