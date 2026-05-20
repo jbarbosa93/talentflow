@@ -32,10 +32,12 @@ export async function generateTokensForEnvelope(
   const expiresAt = new Date(Date.now() + safeTtl * 24 * 60 * 60 * 1000).toISOString()
 
   // v2.2.5 Phase 4d — propage recipient_phone si le destinataire en a un (E.164).
+  // v2.9.24 — Garde-fous : un destinataire sans email/nom ne fait plus planter
+  // la génération de tokens (`.toLowerCase()` / `.trim()` sur null).
   const rows = recipients.map(r => ({
     envelope_id: envelopeId,
-    recipient_email: r.email.toLowerCase().trim(),
-    recipient_name: r.name.trim(),
+    recipient_email: (r.email || '').toLowerCase().trim(),
+    recipient_name: (r.name || '').trim(),
     expires_at: expiresAt,
     recipient_phone: r.phone || null,
   }))

@@ -43,10 +43,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (channel === 'whatsapp' || channel === 'both') {
     const missing = (env.recipients as SignRecipient[])
       .filter(r => !r.phone || !/^\+\d{10,15}$/.test(r.phone))
-      .map(r => r.name || r.email)
+      .map(r => r.name || r.email || '(sans nom)')
     if (missing.length > 0) {
       return NextResponse.json({
         error: `Numéro WhatsApp manquant ou invalide pour : ${missing.join(', ')}`,
+      }, { status: 400 })
+    }
+  }
+  // v2.9.24 — Validation email : indispensable pour le canal email/both. Sans
+  // ça, un destinataire sans email faisait planter TOUT l'envoi (.toLowerCase()
+  // sur null → 500). On bloque proprement avec un message clair.
+  if (channel === 'email' || channel === 'both') {
+    const missingEmail = (env.recipients as SignRecipient[])
+      .filter(r => !r.email || !/.+@.+\..+/.test(r.email.trim()))
+      .map(r => r.name || '(sans nom)')
+    if (missingEmail.length > 0) {
+      return NextResponse.json({
+        error: `Email manquant ou invalide pour : ${missingEmail.join(', ')}`,
       }, { status: 400 })
     }
   }
@@ -107,6 +120,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   // Envoi par dispatchInvite (gère email + whatsapp selon channel)
   const recipientByEmail = new Map<string, SignRecipient>()
   ;(env.recipients as SignRecipient[]).forEach(r => {
+    // v2.9.24 — Garde-fou : un destinataire sans email ne plante plus la route.
+    if (!r.email) return
     recipientByEmail.set(r.email.toLowerCase().trim(), r)
   })
 
@@ -128,7 +143,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   const dispatchResults = await Promise.all(tokens.map(async t => {
     const r = recipientByEmail.get(t.recipient_email.toLowerCase().trim())
-    if (!r) return { email: t.recipient_email, ok: false, error: 'recipient introuvable' }
+    if (!r) {
+      // v2.9.24 — Traçabilité : un token sans destinataire correspondant est anormal.
+      console.warn('[sign/send] destinataire introuvable pour le token', t.recipient_email)
+      return { email: t.recipient_email, ok: false, error: 'recipient introuvable' }
+    }
 
     // v2.9.15 — Wording contextuel si destinataire en aval d'un candidat signé
     const isReview = candidateSigner
@@ -170,7 +189,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const sentOk = dispatchResults.filter(r => r.ok).length
   const sentErr = dispatchResults.filter(r => !r.ok)
 
-  // Bascule status + sent_at (même si certains emails ont échoué, l'enveloppe est partie)
+  // v2.9.24 — Si AUCUN lien n'a pu être envoyé, on garde le statut 'draft' :
+  // l'enveloppe ne doit pas paraître « envoyée » alors que personne n'a rien
+  // reçu (sinon impossible de réenvoyer — la route refuse hors 'draft').
+  if (dispatchResults.length > 0 && sentOk === 0) {
+    return NextResponse.json({
+      error: 'Aucun lien n\'a pu être envoyé (email/WhatsApp en échec). L\'enveloppe reste en brouillon — vérifiez les coordonnées et réessayez.',
+      sentErrors: sentErr,
+    }, { status: 502 })
+  }
+
+  // Bascule status + sent_at (un envoi partiel reste « envoyé » ; les échecs
+  // individuels sont remontés dans sentErrors pour affichage côté UI).
   const { error: updErr } = await supabase
     .from('sign_envelopes' as any)
     .update({ status: 'sent', sent_at: new Date().toISOString() })

@@ -117,7 +117,11 @@ export async function GET(request: Request) {
       if (pendingSigners.length > 0) {
         for (const tok of tokens) {
           if (new Date(tok.expires_at).getTime() < now.getTime()) continue
-          const r = pendingSigners.find(p => p.email.toLowerCase().trim() === tok.recipient_email)
+          // v2.9.24 — Normalise les DEUX côtés : sans ça, un token dont la
+          // casse de l'email diffère du recipient ne matchait pas → rappel
+          // jamais envoyé à un signataire en attente.
+          const r = pendingSigners.find(p =>
+            p.email.toLowerCase().trim() === (tok.recipient_email || '').toLowerCase().trim())
           if (!r) continue
           try {
             await sendSignReminderEmail(tok.recipient_email, {

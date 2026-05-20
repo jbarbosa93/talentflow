@@ -126,6 +126,10 @@ export default function PublicSignPage({ params }: PageProps) {
   // v2.2.0 Phase 4a-bis — Valeurs des champs remplis (state local + sync DB debounced)
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
   const fieldSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // v2.9.24 — Ref synchrone des valeurs courantes : permet un flush fiable
+  // (finalisation, fermeture d'onglet) sans dépendre du state capturé.
+  const fieldValuesRef = useRef<Record<string, unknown>>({})
+  fieldValuesRef.current = fieldValues
   // v2.2.0 — Guidage SUIVANT : champ courant + flag "a démarré" + refs pour scroll
   const [currentFieldId, setCurrentFieldId] = useState<string | null>(null)
   const [hasStarted, setHasStarted] = useState(false)
@@ -516,6 +520,44 @@ export default function PublicSignPage({ params }: PageProps) {
     }, 600)
   }, [token, saveLocalBackup])
 
+  // v2.9.24 — Flush GARANTI des valeurs courantes vers la DB. Annule le debounce
+  // en attente et envoie immédiatement. Appelé avant la finalisation (sinon les
+  // 600 dernières ms — dont une pièce jointe — peuvent ne jamais être sauvées)
+  // et sur fermeture d'onglet (keepalive).
+  const flushFieldValues = useCallback(async (opts?: { keepalive?: boolean }) => {
+    if (fieldSyncTimerRef.current) {
+      clearTimeout(fieldSyncTimerRef.current)
+      fieldSyncTimerRef.current = null
+    }
+    if (!token) return
+    try {
+      await fetch('/api/sign/sign-field', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, fieldValues: fieldValuesRef.current }),
+        keepalive: opts?.keepalive,
+      })
+    } catch (e) {
+      console.warn('[sign/v] flush field_values error', e)
+    }
+  }, [token])
+
+  // v2.9.24 — Flush sur fermeture/masquage d'onglet (pattern #64 — déjà fait
+  // côté éditeur, manquait côté page candidat).
+  useEffect(() => {
+    if (!token) return
+    const onPageHide = () => { void flushFieldValues({ keepalive: true }) }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') void flushFieldValues({ keepalive: true })
+    }
+    window.addEventListener('pagehide', onPageHide)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [token, flushFieldValues])
+
   // v2.9.23 — Index de tous les champs (tous documents) pour résoudre les
   // pièces jointes et leur case à cocher liée.
   const allFieldsById = useMemo(() => {
@@ -817,10 +859,15 @@ export default function PublicSignPage({ params }: PageProps) {
     if (!confirm('Finaliser la signature ? Cette action est définitive.')) return
     setFinalizing(true)
     try {
+      // v2.9.24 — Flush GARANTI des dernières valeurs (pièces jointes incluses)
+      // AVANT de finaliser : le debounce 600ms peut ne pas avoir encore tiré.
+      await flushFieldValues()
       const r = await fetch('/api/sign/finalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
+        // v2.9.24 — fieldValues envoyé aussi dans le body : filet de sécurité
+        // (le serveur fait un dernier merge avant de lire le token).
+        body: JSON.stringify({ token, fieldValues: fieldValuesRef.current }),
       })
       const d = await r.json()
       if (!r.ok || !d.ok) throw new Error(d.error || 'Erreur')

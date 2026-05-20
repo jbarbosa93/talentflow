@@ -145,10 +145,19 @@ export async function triggerNextSigner(args: TriggerNextArgs): Promise<number> 
   const currentSigner = allSigners.find(r => r.email.toLowerCase().trim() === lcCurrent)
   if (!currentSigner) return 0
 
-  const currentOrder = currentSigner.order ?? 0
+  // v2.9.24 — Ordre EFFECTIF : si un destinataire n'a pas d'`order` (données
+  // legacy / import), on retombe sur son index dans la liste → les
+  // destinataires gardent des ordres distincts et le séquençage progresse
+  // (avant : tous traités comme order 0 → le 2e signataire jamais déclenché).
+  const orderOf = (r: SignRecipient): number => {
+    if (typeof r.order === 'number') return r.order
+    const idx = allSigners.indexOf(r)
+    return idx >= 0 ? idx : 0
+  }
+  const currentOrder = orderOf(currentSigner)
 
   // 1. Tous les signers de l'order courant ont-ils signé ?
-  const sameOrderSigners = allSigners.filter(r => (r.order ?? 0) === currentOrder)
+  const sameOrderSigners = allSigners.filter(r => orderOf(r) === currentOrder)
   const allSameOrderSigned = sameOrderSigners.every(r => r.status === 'signed')
   if (!allSameOrderSigned) {
     console.log(`[sequential] order ${currentOrder} pas encore complète (parallèle), attente`)
@@ -157,12 +166,12 @@ export async function triggerNextSigner(args: TriggerNextArgs): Promise<number> 
 
   // 2. Prochain order
   const upcoming = allSigners
-    .filter(r => r.status !== 'signed' && (r.order ?? 0) > currentOrder)
-    .map(r => r.order ?? 0)
+    .filter(r => r.status !== 'signed' && orderOf(r) > currentOrder)
+    .map(r => orderOf(r))
   if (upcoming.length === 0) return 0
   const nextOrder = Math.min(...upcoming)
   const nextSigners = allSigners.filter(r =>
-    (r.order ?? 0) === nextOrder && r.status !== 'signed',
+    orderOf(r) === nextOrder && r.status !== 'signed',
   )
   if (nextSigners.length === 0) return 0
 

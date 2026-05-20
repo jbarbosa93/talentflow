@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.23'
+export const APP_VERSION = '2.9.24'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.24 — Sign : fiabilisation du workflow (diagnostic 15 bugs corrigés)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.24',
+    date: '2026-05-20',
+    label: 'Sign : workflow fiabilisé — données garanties, anti-double, validations',
+    features: [
+      'DONNÉES GARANTIES À LA FINALISATION — Avant : si le candidat validait juste après avoir tapé/chargé un fichier, les 600 dernières millisecondes pouvaient être perdues (pièce jointe non enregistrée). Maintenant les données sont forcées en base avant la finalisation, et aussi en cas de fermeture d\'onglet.',
+      'ANTI-DOUBLE FINALISATION — Quand deux signataires terminaient à quelques secondes d\'intervalle, l\'enveloppe pouvait rester bloquée « en cours » ou générer le PDF + les emails en double. Verrou atomique ajouté : la complétion ne s\'exécute plus jamais deux fois.',
+      'STATUT SIGNATAIRES FIABLE — Le statut d\'un signataire ne peut plus régresser (« signé » → « en attente ») quand deux signatures s\'enregistrent en parallèle.',
+      'ENVOI — Un destinataire sans email ne fait plus planter tout l\'envoi. Et si aucun lien n\'a pu être envoyé, l\'enveloppe reste en brouillon (réenvoi possible) au lieu d\'être marquée « envoyée » à vide.',
+      'PDF — Les champs sans destinataire explicite sont désormais correctement attribués au premier signataire (avant : parfois non imprimés sur le PDF).',
+      'SÉQUENÇAGE — Le passage au signataire suivant fonctionne même si les ordres de signature sont incomplets. Rappels automatiques : correction d\'un cas où le rappel n\'était pas envoyé selon la casse de l\'email.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.23 — Sign : champ pièce jointe + intégration Conformité de la fiche candidat
   // ─────────────────────────────────────────────────────────────────────

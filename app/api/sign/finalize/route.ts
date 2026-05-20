@@ -38,6 +38,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
     const token = body.token as string | undefined
+    // v2.9.24 — Filet de sécurité : le client envoie aussi ses field_values
+    // dans le body (au cas où le debounce 600ms n'aurait pas encore tiré).
+    const bodyFieldValues = (body.fieldValues && typeof body.fieldValues === 'object')
+      ? body.fieldValues as Record<string, unknown>
+      : null
     if (!token || typeof token !== 'string') {
       return NextResponse.json({ ok: false, error: 'token manquant' }, { status: 400 })
     }
@@ -83,13 +88,20 @@ export async function POST(req: NextRequest) {
 
     // 3. Marque le token comme signé/utilisé
     const nowIso = new Date().toISOString()
+    const tokenUpdate: Record<string, unknown> = {
+      signed_at: nowIso,
+      signed_ip: ip,
+      used_at: nowIso,
+    }
+    // v2.9.24 — On réécrit les field_values transmis par le client juste avant
+    // de figer le token : garantit que les dernières valeurs (pièces jointes
+    // incluses) sont en DB même si le debounce client a sauté.
+    if (bodyFieldValues) {
+      tokenUpdate.field_values = bodyFieldValues
+    }
     const { error: tokErr } = await supabase
       .from('sign_tokens' as any)
-      .update({
-        signed_at: nowIso,
-        signed_ip: ip,
-        used_at: nowIso,
-      })
+      .update(tokenUpdate)
       .eq('id', tokenObj.id)
 
     if (tokErr) {
@@ -97,40 +109,66 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Erreur enregistrement' }, { status: 500 })
     }
 
-    // 4. Update sign_envelopes.recipients[i].status
-    const updatedRecipients = recipients.map(r => {
+    // 4. v2.9.24 — Re-lecture FRAÎCHE de l'enveloppe avant de toucher recipients[]
+    // (sinon on écrase le status d'un autre signataire ayant signé entre-temps —
+    // même faille de lecture-modification-écriture JSONB que l'incident #77).
+    const { data: freshEnv } = await supabase
+      .from('sign_envelopes' as any)
+      .select('recipients, status')
+      .eq('id', envelope.id)
+      .maybeSingle()
+    const freshRecipients = (((freshEnv as unknown as { recipients?: SignRecipient[] })?.recipients)
+      || recipients) as SignRecipient[]
+    const freshStatus = (freshEnv as unknown as { status?: string })?.status || envelope.status
+
+    const updatedRecipients = freshRecipients.map(r => {
       if (r.email.toLowerCase().trim() !== lcEmail) return r
-      return {
-        ...r,
-        status: 'signed' as const,
-        signed_at: nowIso,
-      }
+      return { ...r, status: 'signed' as const, signed_at: nowIso }
     })
 
-    // 5. Détermine si tous les signers ont signé → status completed
-    const allSignersSigned = updatedRecipients
-      .filter(r => r.role !== 'cc')
-      .every(r => r.status === 'signed')
-
-    const envelopeUpdate: Record<string, unknown> = {
-      recipients: updatedRecipients,
-    }
-    if (allSignersSigned && envelope.status !== 'completed') {
-      envelopeUpdate.status = 'completed'
-      envelopeUpdate.completed_at = nowIso
-    } else if (envelope.status === 'sent') {
-      // Au moins un signer a signé → status devient in_progress
-      envelopeUpdate.status = 'in_progress'
-    }
-
+    // Écrit recipients[] (pour l'affichage). La décision de complétion ne dépend
+    // PAS de ce JSONB mais de la table sign_tokens (1 ligne/destinataire, fiable).
     const { error: envUpdErr } = await supabase
       .from('sign_envelopes' as any)
-      .update(envelopeUpdate)
+      .update({ recipients: updatedRecipients })
       .eq('id', envelope.id)
-
     if (envUpdErr) {
-      console.error('[sign/finalize] update envelope error', envUpdErr)
-      // Pas fatal — le token est marqué signé, mais le status enveloppe reste à recalculer
+      console.error('[sign/finalize] update recipients error', envUpdErr)
+    }
+
+    // 5. v2.9.24 — allSignersSigned dérivé de sign_tokens (source fiable, pas de
+    // race JSONB) : chaque signataire doit avoir un token avec signed_at.
+    const { data: allTokRows } = await supabase
+      .from('sign_tokens' as any)
+      .select('recipient_email, signed_at')
+      .eq('envelope_id', envelope.id)
+    const signedEmails = new Set(
+      ((allTokRows || []) as unknown as Array<{ recipient_email: string; signed_at: string | null }>)
+        .filter(t => t.signed_at)
+        .map(t => (t.recipient_email || '').toLowerCase().trim()),
+    )
+    const signerRecipients = updatedRecipients.filter(r => r.role !== 'cc')
+    const allSignersSigned = signerRecipients.length > 0
+      && signerRecipients.every(r => signedEmails.has(r.email.toLowerCase().trim()))
+
+    // 5b. v2.9.24 — Verrou de complétion ATOMIQUE. L'UPDATE conditionnel
+    // `WHERE status != 'completed'` ne réussit que pour UNE seule requête → le
+    // bloc de complétion (PDF + emails) ne s'exécute jamais en double, et
+    // l'enveloppe n'est plus jamais bloquée en « in_progress ».
+    let weCompletedIt = false
+    if (allSignersSigned) {
+      const { data: completedRows } = await supabase
+        .from('sign_envelopes' as any)
+        .update({ status: 'completed', completed_at: nowIso })
+        .eq('id', envelope.id)
+        .neq('status', 'completed')
+        .select('id')
+      weCompletedIt = Array.isArray(completedRows) && completedRows.length > 0
+    } else if (freshStatus === 'sent') {
+      await supabase
+        .from('sign_envelopes' as any)
+        .update({ status: 'in_progress' })
+        .eq('id', envelope.id)
     }
 
     // 6. Audit log
@@ -148,7 +186,7 @@ export async function POST(req: NextRequest) {
     // ─── Récup info sender (créateur enveloppe) — 1 fois pour completed + notif ───
     const senderInfo = await fetchSenderInfo(supabase, envelope.created_by)
 
-    if (allSignersSigned && envelope.status !== 'completed') {
+    if (weCompletedIt) {
       // Phase 4b + 4c — Stamp tous les PDFs + envoie copie à tous (best-effort)
       let signedPdfPaths: { name: string; path: string; sha256: string }[] = []
       try {
@@ -207,8 +245,10 @@ export async function POST(req: NextRequest) {
           channel: envelope.delivery_channel || 'email',
         },
       })
-    } else if (!isCC) {
-      // Workflow séquentiel : déclenche le prochain signer (selon canal email/whatsapp)
+    } else if (!isCC && !allSignersSigned) {
+      // Workflow séquentiel : déclenche le prochain signer (selon canal email/whatsapp).
+      // v2.9.24 — `&& !allSignersSigned` : si tout est signé mais qu'on a perdu la
+      // course au verrou de complétion, on ne déclenche rien (le gagnant gère tout).
       try {
         await triggerNextSigner({
           envelope,
@@ -246,7 +286,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       completed: allSignersSigned,
-      envelopeStatus: envelopeUpdate.status || envelope.status,
+      envelopeStatus: allSignersSigned ? 'completed' : 'in_progress',
     })
   } catch (e) {
     console.error('[sign/finalize] error', e)

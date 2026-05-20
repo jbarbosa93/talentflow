@@ -151,6 +151,13 @@ export async function generateAndPersistSignedPdfs(
       // et stamp notre Envelope ID. Appliqué AVANT les passes de signature pour que le
       // PDF final ne contienne plus de référence DocuSign.
       let currentBuf: Uint8Array = await stampTalentflowEnvelopeId(sourceBuf, envelope.id)
+      // v2.9.24 — Ordre minimum des destinataires : sert de fallback pour les
+      // champs SANS recipientOrder explicite. Avant : fallback figé à `1` →
+      // si le 1er destinataire est en 0-based (order:0), ses champs sans
+      // recipientOrder n'étaient JAMAIS stampés (1 !== 0).
+      const recipientOrders = recipients.map((r, i) =>
+        (typeof r.order === 'number' ? r.order : (i + 1)))
+      const minRecipientOrder = recipientOrders.length > 0 ? Math.min(...recipientOrders) : 1
       for (let recIdx = 0; recIdx < recipients.length; recIdx++) {
         const rec = recipients[recIdx]
         // v2.8.5 — Avant : `recIdx + 1` forçait 1-based → les fields des rôles
@@ -162,8 +169,10 @@ export async function generateAndPersistSignedPdfs(
           t.recipient_email.toLowerCase().trim() === rec.email.toLowerCase().trim(),
         )
         if (!tok) continue
-        // Fallback `?? 1` pour les fields sans recipientOrder explicite.
-        const recFields = (doc.fields || []).filter(f => (f.recipientOrder ?? 1) === recipientOrder)
+        // v2.9.24 — Fallback = ordre minimum (les champs sans recipientOrder
+        // appartiennent au 1er destinataire, qu'il soit 0-based ou 1-based).
+        const recFields = (doc.fields || []).filter(f =>
+          (f.recipientOrder ?? minRecipientOrder) === recipientOrder)
         if (recFields.length === 0) continue
 
         const nameParts = (rec.name || '').trim().split(/\s+/)
