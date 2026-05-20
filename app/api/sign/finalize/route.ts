@@ -28,6 +28,7 @@ import { triggerNextSigner } from '@/lib/sign/sequential'
 import { downloadSignDocument } from '@/lib/sign/storage'
 import { uploadComplianceFile } from '@/lib/compliance/storage'
 import { safeContentType } from '@/lib/utils/mime'
+import { composeImagesToPdf, isComposableImage, type ComposableImage } from '@/lib/sign/compose-attachment-pdf'
 
 export const runtime = 'nodejs'
 // v2.9.23 — Marge pour le traitement des pièces jointes candidat (download +
@@ -529,16 +530,49 @@ async function processCandidateUploads(args: {
       }
     }
 
-    // 4. Email au créateur avec les fichiers en pièces jointes
+    // 4. Email au créateur avec les fichiers en pièces jointes.
+    // v2.9.25 — Les images JPEG/PNG d'un MÊME champ (recto + verso) sont
+    // assemblées en UN seul PDF A4 « type scan » (recto en haut / verso en bas).
     const recipientEmail = senderInfo.email || process.env.ADMIN_EMAIL
     if (recipientEmail) {
       try {
         const attachments: { filename: string; content: string }[] = []
-        for (const f of allFiles) {
+        const pushRaw = async (f: SignAttachmentFile, fallback: string) => {
           const blob = await fetchBlob(f.path)
-          if (!blob) continue
-          const buf = Buffer.from(await blob.arrayBuffer())
-          attachments.push({ filename: f.name || 'document', content: buf.toString('base64') })
+          if (blob) attachments.push({
+            filename: f.name || fallback,
+            content: Buffer.from(await blob.arrayBuffer()).toString('base64'),
+          })
+        }
+        for (const c of collected) {
+          const imgFiles = c.files.filter(f => isComposableImage(f.mimeType, f.name))
+          const otherFiles = c.files.filter(f => !isComposableImage(f.mimeType, f.name))
+          const baseName = ((c.field.tooltip || c.field.label || 'Document')
+            .replace(/[^\w\s.-]+/g, ' ').trim() || 'Document').slice(0, 80)
+
+          // ≥ 2 images → 1 PDF A4 combiné (recto/verso). Sinon → fichier brut.
+          if (imgFiles.length >= 2) {
+            const composable: ComposableImage[] = []
+            for (const f of imgFiles) {
+              const blob = await fetchBlob(f.path)
+              if (!blob) continue
+              composable.push({
+                buffer: Buffer.from(await blob.arrayBuffer()),
+                mimeType: f.mimeType || blob.type || '',
+                name: f.name || 'image',
+              })
+            }
+            const composed = composable.length >= 2 ? await composeImagesToPdf(composable) : null
+            if (composed) {
+              attachments.push({ filename: `${baseName}.pdf`, content: composed.toString('base64') })
+            } else {
+              for (const f of imgFiles) await pushRaw(f, 'image')
+            }
+          } else {
+            for (const f of imgFiles) await pushRaw(f, 'image')
+          }
+          // Fichiers non composables (PDF, webp, heic…) → bruts
+          for (const f of otherFiles) await pushRaw(f, 'document')
         }
         if (attachments.length > 0) {
           const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'

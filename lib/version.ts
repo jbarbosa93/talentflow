@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.24'
+export const APP_VERSION = '2.9.25'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.25 — Sign : pièces jointes recto/verso assemblées en 1 PDF type scan
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.25',
+    date: '2026-05-20',
+    label: 'Sign : recto + verso d\'un document assemblés en un seul PDF dans l\'email',
+    features: [
+      'Quand le candidat charge plusieurs photos dans un même champ pièce jointe (ex : recto puis verso d\'une carte d\'identité), l\'email reçu par le créateur contient désormais un seul PDF propre — recto en haut, verso en bas sur une page A4, comme un vrai scan — au lieu de deux fichiers séparés.',
+      'Fonctionne pour les photos JPEG / PNG. Les autres formats (PDF déjà fourni, etc.) restent attachés tels quels. L\'onglet Conformité conserve recto et verso comme deux faces distinctes.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.24 — Sign : fiabilisation du workflow (diagnostic 15 bugs corrigés)
   // ─────────────────────────────────────────────────────────────────────
