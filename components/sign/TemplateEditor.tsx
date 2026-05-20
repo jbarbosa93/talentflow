@@ -28,7 +28,7 @@ import type { WizardStep } from '@/lib/sign/wizard-builder'
 // v2.2.4 — Composant partagé Mode Wizard ↔ Mode Document pour éditer les options Formule
 import FieldFormulaOptions from './FieldFormulaOptions'
 // v2.7.8 — Helpers pour afficher des noms lisibles dans les dropdowns conditions
-import { getFieldDisplayLabel, groupFieldsBySection } from '@/lib/sign/field-helpers'
+import { getFieldDisplayLabel, groupFieldsBySection, LIST_PRESETS } from '@/lib/sign/field-helpers'
 import {
   RECIPIENT_COLORS, FIELD_TYPE_LABELS, FIELD_TYPE_CATEGORIES,
   CONDITION_OPERATOR_LABELS, CONDITION_ACTION_LABELS,
@@ -3077,6 +3077,30 @@ function SelectOptionsEditor({
         Options de la liste
       </div>
 
+      {/* v2.9.18 — Charger une liste prédéfinie (permis, nationalités, cantons…) */}
+      <Field label="Liste prédéfinie">
+        <select
+          className="neo-input"
+          value=""
+          onChange={e => {
+            const preset = LIST_PRESETS.find(p => p.key === e.target.value)
+            if (!preset) return
+            const replace = items.length === 0 || confirm(
+              `Remplacer les ${items.length} option(s) actuelle(s) par « ${preset.label} » (${preset.items.length} options) ?`,
+            )
+            if (replace) {
+              updateItems(preset.items.map(it => ({ text: it.text, value: it.value, selected: false })))
+              toast.success(`${preset.items.length} options chargées`)
+            }
+          }}
+        >
+          <option value="">— Choisir une liste à charger —</option>
+          {LIST_PRESETS.map(p => (
+            <option key={p.key} value={p.key}>{p.label} ({p.items.length})</option>
+          ))}
+        </select>
+      </Field>
+
       {items.length === 0 ? (
         <div style={{ fontSize: 11.5, color: 'var(--muted)', textAlign: 'center', padding: 8 }}>
           Aucune option. Ajoutez-en au moins une.
@@ -3225,26 +3249,35 @@ function TypeSpecificOptions({
       {/* NUMÉRO */}
       {t === 'number' && (
         <>
-          {/* v2.7.6 — Source auto-fill : téléphone candidat */}
-          <Field label="Auto-remplir avec">
+          {/* v2.9.18 — "Format du champ" : Nombre pur OU Téléphone.
+              Téléphone → input tel (accepte +, espaces, zéros de tête) +
+              pré-remplissage auto depuis le téléphone du candidat si l'enveloppe
+              est liée à un candidat. Le candidat peut toujours corriger. */}
+          <Field label="Format du champ">
             <select
               className="neo-input"
-              value={field.autoFillSource || ''}
-              onChange={e => onPatch({ autoFillSource: (e.target.value || undefined) as 'phone' | undefined })}
+              value={field.autoFillSource === 'phone' ? 'phone' : 'number'}
+              onChange={e => onPatch({ autoFillSource: e.target.value === 'phone' ? 'phone' : undefined })}
             >
-              <option value="">— Aucun —</option>
-              <option value="phone">📱 Téléphone du candidat</option>
+              <option value="number">🔢 Nombre (chiffres uniquement)</option>
+              <option value="phone">📱 Téléphone (+, espaces, format libre)</option>
             </select>
           </Field>
           {field.autoFillSource === 'phone' && (
-            <label style={checkboxLabelStyle}>
-              <input
-                type="checkbox"
-                checked={!!field.autoFillLocked}
-                onChange={e => onPatch({ autoFillLocked: e.target.checked || undefined })}
-              />
-              Verrouiller (lecture seule — sinon le candidat peut corriger)
-            </label>
+            <>
+              <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5, marginTop: -2 }}>
+                Le candidat peut saisir n&apos;importe quel numéro (portable, fixe, urgence).
+                Si l&apos;enveloppe est liée à un candidat, son téléphone est pré-rempli.
+              </div>
+              <label style={checkboxLabelStyle}>
+                <input
+                  type="checkbox"
+                  checked={!!field.autoFillLocked}
+                  onChange={e => onPatch({ autoFillLocked: e.target.checked || undefined })}
+                />
+                Verrouiller (lecture seule — sinon le candidat peut corriger)
+              </label>
+            </>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <Field label="Min">

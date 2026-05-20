@@ -567,17 +567,19 @@ function FieldInput({
 
   // ─── TEXT / NUMBER (par défaut) ───
   const isNumber = t === 'number'
-  // v2.7.6 — Numéro avec source 'phone' → pré-remplit avec téléphone candidat (modifiable)
-  const phoneAutoValue = isNumber && field.autoFillSource === 'phone' ? (autoFill.telephone || '') : ''
+  // v2.9.18 — isPhoneNumber basé sur autoFillSource (pas sur la dispo de l'autofill).
+  // Un champ téléphone reste type=tel même sans valeur pré-remplie → accepte +, espaces, zéros.
+  const isPhoneNumber = isNumber && field.autoFillSource === 'phone'
+  const phoneAutoValue = isPhoneNumber ? (autoFill.telephone || '') : ''
   const stringValue = value !== undefined && value !== null
     ? String(value)
     : phoneAutoValue
-  const isPhoneNumber = isNumber && !!phoneAutoValue
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <input
         ref={el => { inputRef.current = el }}
         type={isPhoneNumber ? 'tel' : (isNumber ? 'number' : 'text')}
+        inputMode={isPhoneNumber ? 'tel' : (isNumber ? 'decimal' : 'text')}
         value={stringValue}
         onChange={e => {
           const v = e.target.value

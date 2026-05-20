@@ -2311,7 +2311,7 @@ function SectionHeader({
           }}
           style={{
             fontSize: 12, fontWeight: 700, color: 'var(--foreground)',
-            textTransform: 'uppercase', letterSpacing: 0.4,
+            letterSpacing: 0.2,
             background: 'var(--card)',
             border: '1px solid var(--primary, #EAB308)',
             borderRadius: 4,
@@ -2326,8 +2326,8 @@ function SectionHeader({
           onClick={() => setEditing(true)}
           title="Cliquer pour renommer la section"
           style={{
-            fontSize: 11, fontWeight: 700, color: 'var(--foreground)',
-            textTransform: 'uppercase', letterSpacing: 0.4,
+            fontSize: 11.5, fontWeight: 700, color: 'var(--foreground)',
+            letterSpacing: 0.2,
             cursor: 'pointer',
             padding: '2px 6px',
             borderRadius: 4,

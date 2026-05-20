@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.17'
+export const APP_VERSION = '2.9.18'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.18 — Sign Templates : 5 améliorations (sections casse, champ date, doc header, téléphone, listes préset)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.18',
+    date: '2026-05-19',
+    label: 'Sign : casse sections + champ date respecté + nom doc dans wizard + champ téléphone réparé + listes prédéfinies',
+    features: [
+      'SECTIONS — Le nom des sections s\'affiche en casse normale (avant : tout en MAJUSCULE forcé). Lisible dans l\'éditeur Wizard et côté candidat.',
+      'CHAMP DATE — Un champ type "texte libre" dont le label contient le mot "date" (ex: "lieu et date de début") n\'est plus converti automatiquement en sélecteur de date. Le type choisi est respecté.',
+      'WIZARD — Le nom du PDF de l\'étape courante s\'affiche dans le header du wizard candidat (à côté de "Étape X / Y"). Le candidat sait quel document il remplit.',
+      'CHAMP TÉLÉPHONE — Réparé. Un champ Numéro en format "Téléphone" reste un input tel (accepte +, espaces, zéros de tête) même sans pré-remplissage. Avant : il tombait en input number HTML qui effaçait les + et zéros. Sélecteur éditeur clarifié : "Format du champ" = Nombre OU Téléphone.',
+      'LISTES PRÉDÉFINIES — Nouveau sélecteur "Liste prédéfinie" dans l\'éditeur de champ Liste : charge en un clic Permis de conduire (A→G), Permis de séjour (B/C/L/G…), Nationalités (Europe+monde), Cantons suisses, État civil, Civilité, Oui/Non, Taux d\'occupation, Caisses maladie.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.17 — Sign wizard mobile : filter strict répliqué dans 5 endroits, centralisé
   // ─────────────────────────────────────────────────────────────────────

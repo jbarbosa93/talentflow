@@ -231,6 +231,20 @@ export default function SignWizard({
   const currentStep: WizardStep | null = isRecapStep ? null : steps[currentIdx]
   const stepFields = currentStep ? (fieldsByStepMap.get(currentStep.id) || []) : []
 
+  // v2.9.18 — Nom du PDF de l'étape courante : on cherche le document qui
+  // contient les fields de l'étape. Affiché dans le header pour que le
+  // candidat sache quel document il est en train de remplir.
+  const currentDocName = useMemo(() => {
+    if (!currentStep || stepFields.length === 0) return ''
+    const stepFieldIds = new Set(stepFields.map(f => f.id))
+    for (const doc of documents) {
+      if ((doc.fields || []).some(f => stepFieldIds.has(f.id))) {
+        return (doc.name || '').replace(/\.pdf$/i, '').trim()
+      }
+    }
+    return ''
+  }, [currentStep, stepFields, documents])
+
   // Reset erreur quand on change d'étape
   useEffect(() => { setValidationError(null) }, [currentIdx])
 
@@ -359,8 +373,18 @@ export default function SignWizard({
             <ListChecks size={12} />
             Étape {Math.min(currentIdx + 1, totalSteps)} / {totalSteps}
           </div>
-          {/* v2.2.3 — Bouton "Document complet" retiré du wizard pour éviter doublon
-              avec le toggle "Document" présent dans le header global de la page. */}
+          {/* v2.9.18 — Nom du document courant (à droite, discret) */}
+          {currentDocName && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              fontSize: 11, fontWeight: 600, color: '#6B7280',
+              maxWidth: '55%', overflow: 'hidden',
+              textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              <FileText size={11} style={{ flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentDocName}</span>
+            </div>
+          )}
         </div>
         {/* Progress bar */}
         <div style={{ height: 4, background: '#F3F4F6', borderRadius: 999, overflow: 'hidden' }}>
@@ -786,10 +810,9 @@ function GroupedFields({
             {g.name && (
               <div style={{ marginTop: gi > 0 ? 8 : 0, borderBottom: '1px solid #E5E7EB', paddingBottom: 6 }}>
                 <div style={{
-                  fontSize: 11.5,
+                  fontSize: 14,
                   fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
+                  letterSpacing: '0.01em',
                   color: '#A16207',
                   display: 'flex', alignItems: 'center', gap: 8,
                 }}>
@@ -928,8 +951,11 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
   // masque le `*` alors que l'admin a explicitement coché "Champ obligatoire".
   const isRequired = !!field.required || eff.required
 
-  // Auto-detect : text qui ressemble à une date → date picker
-  const renderAsDate = looksLikeDateField(field)
+  // v2.9.18 — Heuristique "text ressemble à une date" SUPPRIMÉE. Avant : un champ
+  // type=text dont le label contenait "date" (ex: "lieu et date de début") était
+  // rendu en date picker → faux positif. Maintenant le type choisi est respecté :
+  // si l'admin veut une date, il met le type `date`, sinon c'est du texte libre.
+  const renderAsDate = false
   // Auto-detect : select Nationalité/Pays avec liste pauvre → liste Europe complète
   const enrichedSelectItems = t === 'select' && looksLikeCountrySelect(field)
     ? EUROPEAN_COUNTRIES
@@ -1168,23 +1194,32 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
       </div>
     )
   }
+  // v2.9.18 — Un field number marqué autoFillSource='phone' EST un champ téléphone,
+  // qu'il y ait ou non une valeur d'autofill disponible. Avant : si phoneAutoValue
+  // était vide (enveloppe non liée à un candidat DB), le champ tombait en
+  // type=number → l'input HTML strip les +, espaces, zéros de tête → impossible
+  // de taper un numéro suisse. Maintenant : type=tel dès que c'est un champ phone.
+  const isPhoneField = isNumber && field.autoFillSource === 'phone'
+  const inputType = isPhoneField ? 'tel' : (isNumber ? 'number' : 'text')
   return (
     <div>
       {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
         <HelpText text={field.helpText} />
       <input
-        type={isNumber && !phoneAutoValue ? 'number' : (isNumber && phoneAutoValue ? 'tel' : 'text')}
-        inputMode={isNumber && phoneAutoValue ? 'tel' : (isNumber ? 'decimal' : 'text')}
+        type={inputType}
+        inputMode={isPhoneField ? 'tel' : (isNumber ? 'decimal' : 'text')}
         value={stringValue}
         onChange={e => {
           const v = e.target.value
-          if (isNumber && phoneAutoValue) onChange(v)
+          // Champ téléphone : on garde la string brute (+, espaces, zéros préservés).
+          // Champ number pur : cast en Number. Texte : string.
+          if (isPhoneField) onChange(v)
           else if (isNumber) onChange(v ? Number(v) : v)
           else onChange(v)
         }}
         readOnly={!!field.readOnly}
         maxLength={field.maxLength}
-        placeholder={phoneAutoValue || field.defaultValue || ''}
+        placeholder={isPhoneField ? (phoneAutoValue || '+41 79 123 45 67') : (field.defaultValue || '')}
         style={inputStyle}
       />
     </div>

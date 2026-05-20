@@ -144,6 +144,73 @@ export const EUROPEAN_COUNTRIES: { text: string; value: string }[] = [
   { text: 'Autre', value: 'Autre' },
 ]
 
+// ─────────────────────────────────────────────────────────────────────
+// v2.9.18 — Listes prédéfinies pour les champs `select` (liste déroulante).
+// L'admin peut charger une liste d'un clic dans l'éditeur de template au
+// lieu de saisir chaque option à la main.
+// ─────────────────────────────────────────────────────────────────────
+type ListItem = { text: string; value: string }
+const li = (...labels: string[]): ListItem[] => labels.map(l => ({ text: l, value: l }))
+
+/** Permis de conduire CH + UE (catégories officielles OFROU/SECO). */
+export const PERMIS_CONDUIRE: ListItem[] = li(
+  'A', 'A1', 'A35kW', 'B', 'B1', 'BE', 'C', 'C1', 'C1E', 'CE',
+  'D', 'D1', 'D1E', 'DE', 'F', 'G', 'M', 'Aucun',
+)
+
+/** Permis de séjour suisse (catégories officielles SEM). */
+export const PERMIS_SEJOUR: ListItem[] = li(
+  'Citoyen suisse', 'Permis C (établissement)', 'Permis B (séjour)',
+  'Permis L (courte durée)', 'Permis G (frontalier)', 'Permis Ci',
+  'Permis F (admission provisoire)', 'Permis N (requérant d\'asile)',
+  'Permis S', 'En cours', 'Autre',
+)
+
+/** Cantons suisses (26). */
+export const CANTONS_SUISSES: ListItem[] = li(
+  'Argovie', 'Appenzell Rh.-Ext.', 'Appenzell Rh.-Int.', 'Bâle-Campagne',
+  'Bâle-Ville', 'Berne', 'Fribourg', 'Genève', 'Glaris', 'Grisons', 'Jura',
+  'Lucerne', 'Neuchâtel', 'Nidwald', 'Obwald', 'Schaffhouse', 'Schwytz',
+  'Soleure', 'St-Gall', 'Tessin', 'Thurgovie', 'Uri', 'Valais', 'Vaud',
+  'Zoug', 'Zurich',
+)
+
+/** État civil. */
+export const ETAT_CIVIL: ListItem[] = li(
+  'Célibataire', 'Marié(e)', 'Partenariat enregistré', 'Séparé(e)',
+  'Divorcé(e)', 'Veuf/Veuve',
+)
+
+/** Oui / Non. */
+export const OUI_NON: ListItem[] = li('Oui', 'Non')
+
+/** Genre / civilité. */
+export const CIVILITE: ListItem[] = li('Monsieur', 'Madame')
+
+/** Taux d'occupation fréquents. */
+export const TAUX_OCCUPATION: ListItem[] = li(
+  '100%', '90%', '80%', '70%', '60%', '50%', '40%', '< 40%',
+)
+
+/** Caisses maladie suisses principales. */
+export const CAISSES_MALADIE: ListItem[] = li(
+  'Helsana', 'CSS', 'Swica', 'Groupe Mutuel', 'Visana', 'Concordia',
+  'Sanitas', 'Assura', 'Sympany', 'KPT', 'Atupri', 'EGK', 'Autre',
+)
+
+/** Registre central des presets — utilisé par le sélecteur de l'éditeur. */
+export const LIST_PRESETS: { key: string; label: string; items: ListItem[] }[] = [
+  { key: 'countries',  label: '🌍 Nationalités / Pays (Europe + monde)', items: EUROPEAN_COUNTRIES },
+  { key: 'permis_conduire', label: '🚗 Permis de conduire (A→G)',         items: PERMIS_CONDUIRE },
+  { key: 'permis_sejour',   label: '🪪 Permis de séjour (B, C, L, G…)',   items: PERMIS_SEJOUR },
+  { key: 'cantons',    label: '🏔️ Cantons suisses (26)',                  items: CANTONS_SUISSES },
+  { key: 'etat_civil', label: '💍 État civil',                            items: ETAT_CIVIL },
+  { key: 'civilite',   label: '👤 Civilité (M./Mme)',                     items: CIVILITE },
+  { key: 'oui_non',    label: '✅ Oui / Non',                             items: OUI_NON },
+  { key: 'taux',       label: '📊 Taux d\'occupation',                    items: TAUX_OCCUPATION },
+  { key: 'caisses',    label: '🏥 Caisses maladie',                       items: CAISSES_MALADIE },
+]
+
 /**
  * Évalue une SignFieldCondition au runtime contre les valeurs courantes.
  * Retourne true si la condition est satisfaite (= action s'applique).
