@@ -603,10 +603,25 @@ export default function PublicSignPage({ params }: PageProps) {
     if (phonePrefilledRef.current) return
     const tel = autoFill.telephone
     if (!tel) return
+    // v2.9.28 — Champs du candidat = ceux de ses étapes wizard OU de son
+    // recipientOrder. Avant : filtre strict `recipientOrder === effective…`
+    // qui ratait les champs présents dans le wizard mais d'order divergent
+    // (pattern #71 — 0/1-based) → aucun champ téléphone n'était pré-rempli.
+    const candidateFieldIds = new Set<string>()
+    for (const s of (data?.wizard?.steps || [])) {
+      if ((s.recipientOrder ?? 1) === effectiveRecipientOrder) {
+        for (const fid of (s.fieldIds || [])) candidateFieldIds.add(fid)
+      }
+    }
+    for (const d of documents) {
+      for (const f of (d.fields || [])) {
+        if (f.recipientOrder === effectiveRecipientOrder) candidateFieldIds.add(f.id)
+      }
+    }
     const phoneFieldIds: string[] = []
     for (const d of documents) {
       for (const f of (d.fields || [])) {
-        if (f.recipientOrder !== effectiveRecipientOrder) continue
+        if (!candidateFieldIds.has(f.id)) continue
         if (!looksLikePhoneField(f)) continue
         const v = fieldValues[f.id]
         if (v === undefined || v === null || v === '') phoneFieldIds.push(f.id)
@@ -626,7 +641,7 @@ export default function PublicSignPage({ params }: PageProps) {
       if (touched) syncFieldValues(next)
       return next
     })
-  }, [documents, autoFill, effectiveRecipientOrder, fieldValues, syncFieldValues])
+  }, [documents, autoFill, effectiveRecipientOrder, fieldValues, syncFieldValues, data])
 
   // ── ÉTATS D'ERREUR ──────────────────────────────────────────────────────────
   if (state === 'loading') {

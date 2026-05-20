@@ -17,6 +17,9 @@
 import { useRef, useState } from 'react'
 import { Camera, Check, X, Loader2, AlertTriangle, FileText, Paperclip } from 'lucide-react'
 import type { SignField, SignAttachmentValue, SignAttachmentFile } from '@/lib/sign/types'
+import { createClient } from '@/lib/supabase/client'
+
+const SIGN_BUCKET = 'talentflow-sign'
 
 type Side = 'recto' | 'verso'
 
@@ -126,13 +129,16 @@ export default function AttachmentField({ field, value, onChange, token, readOnl
         body: JSON.stringify({ token, filename: file.name }),
       })
       const d = await r.json().catch(() => ({}))
-      if (!r.ok || !d.uploadUrl || !d.path) throw new Error(d.error || 'Upload impossible')
-      const put = await fetch(d.uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-      })
-      if (!put.ok) throw new Error('Échec de l\'envoi du fichier')
+      if (!r.ok || !d.path || !d.token) throw new Error(d.error || 'Upload impossible')
+      // v2.9.28 — Upload via le SDK Supabase (uploadToSignedUrl). Avant : un PUT
+      // HTTP brut vers l'URL signée → rejeté par Supabase (« Échec de l'envoi »).
+      const supabase = createClient()
+      const { error: upErr } = await supabase.storage
+        .from(SIGN_BUCKET)
+        .uploadToSignedUrl(d.path, d.token, file, {
+          contentType: file.type || 'application/octet-stream',
+        })
+      if (upErr) throw new Error(upErr.message || 'Échec de l\'envoi du fichier')
       patch(id, { path: d.path, status: 'checking' })
       try {
         const cr = await fetch('/api/sign/attachment-check', {

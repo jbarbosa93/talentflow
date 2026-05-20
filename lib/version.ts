@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.27'
+export const APP_VERSION = '2.9.28'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.28 — Sign : upload réparé, téléphone, champ masqué, hyperlien, drag
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.28',
+    date: '2026-05-20',
+    label: 'Sign : upload pièce jointe réparé + champ masqué wizard + hyperlien cliquable + fixes',
+    features: [
+      'UPLOAD RÉPARÉ — Le chargement des pièces jointes échouait (« Échec de l\'envoi du fichier ») : le fichier est désormais envoyé correctement vers le stockage Supabase.',
+      'TÉLÉPHONE — Le numéro du candidat pré-remplit vraiment les champs téléphone du wizard maintenant (le filtre interne ratait le champ selon son ordre). Détection par libellé « Tél. portable / Natel… ».',
+      'CHAMP MASQUÉ DU WIZARD — Nouveau réglage « Masquer dans le wizard » : un champ reste sur le PDF et en Mode Document mais n\'apparaît pas au candidat — idéal pour un champ rempli automatiquement (adresse via clé partagée).',
+      'LIEN HYPERTEXTE — Nouveau réglage « Lien hypertexte » sur un champ : un lien cliquable (texte personnalisable, ex « QUIZ ») s\'affiche dans le wizard et ouvre un nouvel onglet. Sur une case à cocher, cliquer le lien coche aussi la case automatiquement.',
+      'GLISSER-DÉPOSER — En Mode Wizard, déplacer un champ ne le colle plus à la section voisine ; le drag ne fait que réordonner.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.27 — Sign : sections en liste, autofill tel, undo/redo wizard, recto/verso
   // ─────────────────────────────────────────────────────────────────────

@@ -2497,6 +2497,54 @@ function SelectedFieldsPanel({
             </Field>
           )}
 
+          {/* v2.9.28 — Masquer dans le wizard (champ rempli automatiquement) */}
+          {f.type !== 'annotation' && (
+            <>
+              <label style={checkboxLabelStyle}>
+                <input
+                  type="checkbox"
+                  checked={!!f.wizardHidden}
+                  onChange={e => onPatch(f.id, { wizardHidden: e.target.checked || undefined })}
+                />
+                Masquer dans le wizard (rempli automatiquement)
+              </label>
+              <div style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5, marginTop: -2 }}>
+                Le champ reste sur le PDF et en Mode Document, mais le candidat ne
+                le voit pas dans le wizard — pour un champ rempli via une clé
+                partagée ou un auto-remplissage.
+              </div>
+            </>
+          )}
+
+          {/* v2.9.28 — Lien hypertexte cliquable */}
+          <Field label="Lien hypertexte — URL (optionnel)">
+            <input
+              type="text"
+              className="neo-input"
+              placeholder="https://…"
+              value={f.linkUrl || ''}
+              onChange={e => onPatch(f.id, { linkUrl: e.target.value || undefined })}
+            />
+          </Field>
+          {!!(f.linkUrl && f.linkUrl.trim()) && (
+            <>
+              <Field label="Texte du lien affiché">
+                <input
+                  type="text"
+                  className="neo-input"
+                  placeholder="Ex : QUIZ"
+                  value={f.linkLabel || ''}
+                  onChange={e => onPatch(f.id, { linkLabel: e.target.value || undefined })}
+                />
+              </Field>
+              <div style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5, marginTop: -2 }}>
+                Affiché comme lien cliquable dans le wizard (ouvre un nouvel
+                onglet). Sur une case à cocher, le clic sur le lien coche aussi
+                automatiquement la case.
+              </div>
+            </>
+          )}
+
           {isText && (
             <>
               <label style={checkboxLabelStyle}>

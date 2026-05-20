@@ -216,7 +216,9 @@ export default function WizardEditor({
     return s
   }, [steps])
   const orphanFields = useMemo(() => {
-    return allRecipientFields.filter(f => !allUsedInWizard.has(f.id))
+    // v2.9.28 — Les champs « Masquer dans le wizard » ne sont PAS des orphelins :
+    // ils sont volontairement absents du wizard (remplis automatiquement).
+    return allRecipientFields.filter(f => !allUsedInWizard.has(f.id) && !f.wizardHidden)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allRecipientFields, allUsedInWizard])
 
@@ -1387,16 +1389,11 @@ function StepDetail({
             const toIdx = step.fieldIds.indexOf(String(over.id))
             if (fromIdx < 0 || toIdx < 0) return
             onReorderFieldInStep(fromIdx, toIdx)
-            // v2.2.4 — Auto-section : si le field cible a une wizardSection,
-            // l'appliquer au field draggé. Permet "drop dans la carte Mardi → field
-            // devient Mardi" en mode Cartes par section.
-            const targetField = fieldIndex.get(String(over.id))?.field
-            const draggedField = fieldIndex.get(String(active.id))?.field
-            if (targetField?.wizardSection && draggedField
-                && draggedField.wizardSection !== targetField.wizardSection) {
-              onUpdateField(String(active.id), { wizardSection: targetField.wizardSection })
-              toast.success(`Champ déplacé vers la section « ${targetField.wizardSection} »`)
-            }
+            // v2.9.28 — Auto-section sur drop SUPPRIMÉE. Avant : déposer un champ
+            // près d'un champ sectionné lui collait cette section → comportement
+            // surprenant (un champ sans section se retrouvait dans une section).
+            // Le glisser-déposer ne fait plus QUE réordonner. Pour assigner une
+            // section, utiliser le sélecteur « Section d'affichage » du champ.
           }}
         >
           <SortableContext

@@ -55,7 +55,7 @@ function enrichSection(section: string, weekStartDate?: string | null): string {
   }
 }
 import {
-  looksLikeDateField, looksLikeCountrySelect, looksLikeCompanyField, EUROPEAN_COUNTRIES,
+  looksLikeDateField, looksLikeCountrySelect, looksLikeCompanyField, looksLikePhoneField, EUROPEAN_COUNTRIES,
   effectiveFieldState, effectiveCheckedState, computeFormulaValue, formatFormulaValue,
 } from '@/lib/sign/field-helpers'
 
@@ -574,7 +574,9 @@ function StepContent({
   documents, token, onOpenAttachment, weekStartDate,
 }: StepContentProps) {
   // Filtre les fields cachés par les conditions (action='hide' satisfaite)
-  const visibleFields = fields.filter(f => effectiveFieldState(f, values).visible)
+  // v2.9.28 — Exclut aussi les champs marqués « Masquer dans le wizard »
+  // (présents en Mode Document + PDF, mais remplis automatiquement).
+  const visibleFields = fields.filter(f => !f.wizardHidden && effectiveFieldState(f, values).visible)
   const attachments = step.attachments || []
   // Étape signature spéciale
   if (step.isSignatureStep) {
@@ -964,6 +966,24 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
   // masque le `*` alors que l'admin a explicitement coché "Champ obligatoire".
   const isRequired = !!field.required || eff.required
 
+  // v2.9.28 — Lien hypertexte cliquable (ouvre un nouvel onglet). Sur une
+  // checkbox, le clic coche aussi la case (preuve de consultation, ex: quiz).
+  const linkEl = (field.linkUrl || '').trim() ? (
+    <a
+      href={field.linkUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => { if (t === 'checkbox') onChange(true) }}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        marginTop: 6, fontSize: 13, fontWeight: 700,
+        color: '#1D4ED8', textDecoration: 'underline', cursor: 'pointer',
+      }}
+    >
+      🔗 {field.linkLabel || 'Ouvrir le lien'}
+    </a>
+  ) : null
+
   // v2.9.18 — Heuristique "text ressemble à une date" SUPPRIMÉE. Avant : un champ
   // type=text dont le label contenait "date" (ex: "lieu et date de début") était
   // rendu en date picker → faux positif. Maintenant le type choisi est respecté :
@@ -1096,6 +1116,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
         whiteSpace: 'pre-wrap',
       }}>
         💡 {text}
+        {linkEl && <div>{linkEl}</div>}
       </div>
     )
   }
@@ -1109,6 +1130,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
       ? (value === true || value === 'true')
       : (autoChecked !== undefined ? autoChecked : (field.metadata?.selected === true))
     return (
+      <div>
       <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', padding: '8px 0' }}>
         {/* Checkbox HTML caché, accessibilité préservée */}
         <input
@@ -1146,6 +1168,8 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
           </span>
         )}
       </label>
+      {linkEl && <div style={{ marginLeft: 34, marginTop: -2, marginBottom: 6 }}>{linkEl}</div>}
+      </div>
     )
   }
 
@@ -1232,7 +1256,9 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
   const isNumber = t === 'number'
   // v2.7.6 — Numéro avec source 'phone' → pré-remplit avec le téléphone du candidat.
   // Le rendu reste un input modifiable (sauf si autoFillLocked) — le candidat peut corriger.
-  const phoneAutoValue = isNumber && field.autoFillSource === 'phone' ? (autoFill.telephone || '') : ''
+  // v2.9.28 — Détection téléphone élargie : autoFillSource='phone' OU libellé
+  // (« Tél. portable », « Natel »…) → input tel + pré-remplissage candidat.
+  const phoneAutoValue = looksLikePhoneField(field) ? (autoFill.telephone || '') : ''
   if (phoneAutoValue && field.autoFillLocked) {
     const explicitOverride = typeof value === 'string' || typeof value === 'number'
       ? String(value).trim()
@@ -1277,7 +1303,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
   // était vide (enveloppe non liée à un candidat DB), le champ tombait en
   // type=number → l'input HTML strip les +, espaces, zéros de tête → impossible
   // de taper un numéro suisse. Maintenant : type=tel dès que c'est un champ phone.
-  const isPhoneField = isNumber && field.autoFillSource === 'phone'
+  const isPhoneField = looksLikePhoneField(field)
   const inputType = isPhoneField ? 'tel' : (isNumber ? 'number' : 'text')
   return (
     <div>

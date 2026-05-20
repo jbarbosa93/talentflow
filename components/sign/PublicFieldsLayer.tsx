@@ -21,7 +21,7 @@ import { createPortal } from 'react-dom'
 import { PenLine, Check, Paperclip, X } from 'lucide-react'
 import type { SignField, SignFieldType, SignAttachmentValue } from '@/lib/sign/types'
 import { formatDate } from '@/lib/sign/pdf-stamp'
-import { effectiveCheckedState, effectiveFieldState, computeFormulaValue, formatFormulaValue } from '@/lib/sign/field-helpers'
+import { effectiveCheckedState, effectiveFieldState, computeFormulaValue, formatFormulaValue, looksLikePhoneField } from '@/lib/sign/field-helpers'
 import AttachmentField from './AttachmentField'
 
 interface Props {
@@ -708,9 +708,9 @@ function FieldInput({
 
   // ─── TEXT / NUMBER (par défaut) ───
   const isNumber = t === 'number'
-  // v2.9.18 — isPhoneNumber basé sur autoFillSource (pas sur la dispo de l'autofill).
-  // Un champ téléphone reste type=tel même sans valeur pré-remplie → accepte +, espaces, zéros.
-  const isPhoneNumber = isNumber && field.autoFillSource === 'phone'
+  // v2.9.28 — Détection téléphone élargie : autoFillSource='phone' OU libellé
+  // (« Tél. portable », « Natel »…) → input tel + pré-remplissage candidat.
+  const isPhoneNumber = looksLikePhoneField(field)
   const phoneAutoValue = isPhoneNumber ? (autoFill.telephone || '') : ''
   const stringValue = value !== undefined && value !== null
     ? String(value)

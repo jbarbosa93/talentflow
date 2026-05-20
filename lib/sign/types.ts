@@ -156,6 +156,18 @@ export interface SignField {
   // est toujours visible. Max ~200 chars recommandé.
   helpText?: string
 
+  // v2.9.28 — Masque le champ dans le wizard candidat. Le champ reste présent
+  // en Mode Document et stampé sur le PDF, mais le candidat ne le voit pas.
+  // Utile pour un champ rempli AUTOMATIQUEMENT (clé partagée / auto-fill) que
+  // le candidat n'a pas besoin de saisir (ex: adresse déjà connue).
+  wizardHidden?: boolean
+
+  // v2.9.28 — Lien hypertexte affiché à côté du champ dans le wizard. Le clic
+  // ouvre `linkUrl` dans un nouvel onglet ; `linkLabel` est le texte affiché
+  // (ex: « QUIZ »). Si le champ est une checkbox, le clic coche aussi la case.
+  linkUrl?: string
+  linkLabel?: string
+
   // v2.2.1 — Sous-groupe d'affichage dans une étape Wizard.
   // Utilisé pour grouper visuellement plusieurs fields autour d'une thématique.
   // Ex: "Lundi" sur tous les fields liés au lundi dans un rapport d'heures
