@@ -13,10 +13,13 @@ import {
   PenLine, Type, CheckSquare, Calendar, List as ListIcon, Trash2, Files,
   StickyNote, Plus, Hash, Mail, Building2, Briefcase, User, IdCard,
   Sigma, Paperclip, Pencil, Check as CheckIcon, X as XIcon, Eye,
-  Sparkles, Search, FilePlus, ArrowUp, ArrowDown, AlertTriangle,
+  Sparkles, Search, FilePlus, ArrowUp, ArrowDown, AlertTriangle, Layers,
 } from 'lucide-react'
 // v2.7.6 — Import partagé du modal "Champs orphelins" (défini dans WizardEditor, réutilisé ici)
 import { OrphanFieldsModal } from './WizardEditor'
+// v2.9.21 — Gestion des sections (wizardSection)
+import SectionManager, { type SectionManagerRow } from './SectionManager'
+import { collectSections, loadCollapsedSections, saveCollapsedSections } from '@/lib/sign/section-helpers'
 import PdfPreviewModal from '@/components/report/PdfPreviewModal'
 import { toast } from 'sonner'
 import type { PageRenderInfo } from './PDFViewer'
@@ -683,6 +686,127 @@ export default function TemplateEditor({
     updateDocFields(fields.map(f => byId.has(f.id) ? { ...f, ...byId.get(f.id)! } : f))
   }
 
+  // ─── v2.9.21 — Gestion des sections (wizardSection) — Mode Document ──────
+  const [sectionManagerOpen, setSectionManagerOpen] = useState(false)
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set())
+  useEffect(() => {
+    setCollapsedSections(loadCollapsedSections(templateId))
+  }, [templateId])
+  const persistCollapsedSet = (next: Set<string>) => {
+    setCollapsedSections(next)
+    saveCollapsedSections(templateId, next)
+  }
+  const toggleSectionCollapse = (name: string) => {
+    setCollapsedSections(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      saveCollapsedSections(templateId, next)
+      return next
+    })
+  }
+
+  // Champs du destinataire actif, tous documents confondus (une section peut
+  // exister sur plusieurs PDFs du même template).
+  const recipientFieldsAllDocs = useMemo(
+    () => allTemplateFields.filter(f => (f.recipientOrder ?? 1) === activeRecipientOrder),
+    [allTemplateFields, activeRecipientOrder],
+  )
+  const sectionRows = useMemo<SectionManagerRow[]>(() => {
+    return collectSections(recipientFieldsAllDocs).map(s => {
+      const members = recipientFieldsAllDocs.filter(f => (f.wizardSection || '').trim() === s.name)
+      const pages = Array.from(new Set(members.map(f => f.page || 1))).sort((a, b) => a - b)
+      const contextLabel = pages.length === 0
+        ? '—'
+        : pages.length === 1 ? `Page ${pages[0]}`
+        : `Pages ${pages[0]}-${pages[pages.length - 1]}`
+      return {
+        name: s.name,
+        count: s.count,
+        allRequired: s.allRequired,
+        collapsed: collapsedSections.has(s.name),
+        contextLabel,
+        canMoveUp: false,   // réordonnancement = Mode Wizard (positions absolues ici)
+        canMoveDown: false,
+      }
+    })
+  }, [recipientFieldsAllDocs, collapsedSections])
+  const unsectionedCount = useMemo(
+    () => recipientFieldsAllDocs.filter(f => !(f.wizardSection || '').trim()).length,
+    [recipientFieldsAllDocs],
+  )
+
+  // Patchers cross-documents (history + dirty trackés)
+  const patchFieldsAcrossDocs = (ids: Set<string>, patch: Partial<SignField>) => {
+    if (ids.size === 0) return
+    pushHistory()
+    setDocs(prev => prev.map(d => ({
+      ...d,
+      fields: (d.fields || []).map(f => (ids.has(f.id) ? { ...f, ...patch } : f)),
+    })))
+    setDirty(true)
+  }
+  const deleteFieldsAcrossDocs = (ids: Set<string>) => {
+    if (ids.size === 0) return
+    pushHistory()
+    setDocs(prev => prev.map(d => ({
+      ...d,
+      fields: (d.fields || []).filter(f => !ids.has(f.id)),
+    })))
+    if (setWizardSteps) {
+      setWizardSteps(prev => prev.map(s => ({
+        ...s,
+        fieldIds: s.fieldIds.filter(id => !ids.has(id)),
+      })))
+    }
+    setDirty(true)
+  }
+
+  const renameSectionDoc = (oldName: string, newName: string) => {
+    const trimmed = newName.trim()
+    if (!trimmed || trimmed === oldName) return
+    const ids = new Set(
+      recipientFieldsAllDocs.filter(f => (f.wizardSection || '').trim() === oldName).map(f => f.id),
+    )
+    patchFieldsAcrossDocs(ids, { wizardSection: trimmed })
+    if (collapsedSections.has(oldName)) {
+      const next = new Set(collapsedSections)
+      next.delete(oldName); next.add(trimmed)
+      persistCollapsedSet(next)
+    }
+    toast.success(`Section renommée : « ${oldName} » → « ${trimmed} »`)
+  }
+  const deleteSectionDoc = (name: string, deleteFields: boolean) => {
+    const members = recipientFieldsAllDocs.filter(f => (f.wizardSection || '').trim() === name)
+    if (members.length === 0) return
+    const ids = new Set(members.map(f => f.id))
+    if (deleteFields) {
+      deleteFieldsAcrossDocs(ids)
+      toast.success(`${members.length} champ${members.length > 1 ? 's supprimés' : ' supprimé'}`)
+    } else {
+      patchFieldsAcrossDocs(ids, { wizardSection: undefined, sectionDescription: undefined })
+      toast.success(`Section « ${name} » dégroupée — ${members.length} champ${members.length > 1 ? 's conservés' : ' conservé'}`)
+    }
+    if (collapsedSections.has(name)) {
+      const next = new Set(collapsedSections)
+      next.delete(name)
+      persistCollapsedSet(next)
+    }
+  }
+  const toggleSectionRequiredDoc = (name: string, required: boolean) => {
+    const members = recipientFieldsAllDocs.filter(f => (f.wizardSection || '').trim() === name)
+    const targets = members.filter(m => !(m.type === 'checkbox' && m.groupId && m.groupRule))
+    patchFieldsAcrossDocs(new Set(targets.map(f => f.id)), { required })
+    const skipped = members.length - targets.length
+    toast.success(
+      `Section « ${name} » : ${required ? 'tout obligatoire' : 'tout facultatif'}`
+      + (skipped > 0 ? ` (${skipped} case${skipped > 1 ? 's' : ''} groupée${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''})` : ''),
+    )
+  }
+  const collapseAllSectionsDoc = (collapsed: boolean) => {
+    persistCollapsedSet(collapsed ? new Set(sectionRows.map(r => r.name)) : new Set())
+  }
+
   // v2.6.10 / v2.6.12 / v2.6.13 — Apply size+y d'un champ à tous les autres similaires.
   // "Similaire" = au moins UN nom commun entre tooltip OR label des deux fields (insensible
   // casse + espaces). Plus tolérant que la v2.6.12 qui matchait tooltip XOR label en exclusif.
@@ -1122,6 +1246,23 @@ export default function TemplateEditor({
           >
             🏷 Sections
           </button>
+          {/* v2.9.21 — Panneau gestion des sections */}
+          <button
+            type="button"
+            onClick={() => setSectionManagerOpen(true)}
+            title="Renommer, replier ou supprimer les sections"
+            style={{
+              padding: '4px 10px',
+              fontSize: 11.5, fontWeight: 700,
+              border: '1px solid var(--border)', background: 'var(--card)',
+              color: 'var(--foreground)', borderRadius: 6, cursor: 'pointer',
+              fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}
+          >
+            <Layers size={12} />
+            Gérer{sectionRows.length > 0 ? ` (${sectionRows.length})` : ''}
+          </button>
           {/* Feature 4 — Toggle badges numéros d'étapes (visible seulement si wizard_steps définis) */}
           {wizardSteps.length > 0 && (
             <button
@@ -1177,6 +1318,7 @@ export default function TemplateEditor({
                 activeRecipientOrder={activeRecipientOrder}
                 genId={genId}
                 showSectionBadges={showSectionBadges}
+                collapsedSections={collapsedSections}
                 wizardSteps={wizardSteps}
                 showStepBadges={showStepBadges}
                 stepFilterFieldIds={stepFilterFieldIds}
@@ -1798,6 +1940,22 @@ export default function TemplateEditor({
             toast.success(`${fieldIds.length} champ${fieldIds.length > 1 ? 's supprimés' : ' supprimé'}`)
           }}
           onClose={() => { setOrphanModalOpen(false); setOrphanLocatedFieldId(null) }}
+        />
+      )}
+
+      {/* v2.9.21 — Panneau gestion des sections */}
+      {sectionManagerOpen && (
+        <SectionManager
+          mode="document"
+          rows={sectionRows}
+          unsectionedCount={unsectionedCount}
+          onRename={renameSectionDoc}
+          onDelete={deleteSectionDoc}
+          onToggleRequired={toggleSectionRequiredDoc}
+          onMove={() => { /* réordonnancement = Mode Wizard uniquement */ }}
+          onToggleCollapse={toggleSectionCollapse}
+          onCollapseAll={collapseAllSectionsDoc}
+          onClose={() => setSectionManagerOpen(false)}
         />
       )}
 

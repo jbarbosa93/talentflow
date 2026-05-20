@@ -33,6 +33,8 @@ interface Props {
   genId: () => string
   /** v2.2.4 — Affichage des badges wizardSection au-dessus de chaque field (toggle UI). Défaut true. */
   showSectionBadges?: boolean
+  /** v2.9.21 — Sections repliées : leur badge n'est pas rendu (réduction du bruit visuel). */
+  collapsedSections?: Set<string>
   /** Feature 4 — Étapes wizard pour afficher les badges numéros sur chaque field. */
   wizardSteps?: WizardStep[]
   /** Feature 4 — Toggle d'affichage des badges numéros d'étapes. Défaut : true si wizardSteps non vide. */
@@ -125,6 +127,7 @@ function clamp01(n: number): number {
 export default function FieldsCanvas({
   width, height, page, fields, onChange, selectedIds, onSelect,
   activeTool, activeRecipientOrder, genId, showSectionBadges = true,
+  collapsedSections,
   wizardSteps, showStepBadges, stepFilterFieldIds,
   recipientColorMap, highlightedFieldIds,
 }: Props) {
@@ -597,7 +600,9 @@ export default function FieldsCanvas({
               color={c}
               isSelected={isSelected}
               isHovered={isHovered}
-              showSectionBadges={showSectionBadges}
+              showSectionBadges={showSectionBadges && !(
+                !!f.wizardSection && !!collapsedSections?.has(f.wizardSection.trim())
+              )}
               stepNumber={stepNum}
               isDimmed={isDimmed}
               onClick={ev => handleFieldClick(f.id, ev)}

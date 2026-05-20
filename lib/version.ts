@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.20'
+export const APP_VERSION = '2.9.21'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.21 — Sign : panneau « Gérer les sections » (renommer / replier / réordonner / supprimer)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.21',
+    date: '2026-05-20',
+    label: 'Sign : panneau de gestion des sections (renommer, replier, réordonner, supprimer)',
+    features: [
+      'NOUVEAU PANNEAU — Bouton « Sections » dans l\'éditeur de template (Mode Wizard ET Mode Document) : une vue d\'ensemble de toutes les sections, fini les 50 badges empilés.',
+      'RENOMMER — Clic sur le nom d\'une section pour la renommer partout en une fois.',
+      'REPLIER — Chaque section peut être repliée (ses champs sont masqués dans l\'éditeur). Bouton « Tout replier / Tout déplier ». Convenance d\'édition : n\'affecte jamais ce que voit le candidat.',
+      'RÉORDONNER — En Mode Wizard, flèches ↑/↓ pour déplacer une section avant/après une autre dans son étape.',
+      'SUPPRIMER — Deux choix : « Dégrouper » (les champs restent, ils ne sont plus regroupés) ou « Supprimer les champs » (définitif, avec confirmation).',
+      'TOUT OBLIGATOIRE — Case par section pour rendre tous ses champs obligatoires / facultatifs (les cases groupées Oui/Non sont ignorées, leur règle de groupe prévaut).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.20 — Sign : affichage 100% auto selon l'appareil (wizard mobile / document desktop)
   // ─────────────────────────────────────────────────────────────────────

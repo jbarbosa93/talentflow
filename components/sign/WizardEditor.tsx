@@ -35,7 +35,7 @@ import {
   Save, Plus, Trash2, ChevronUp, ChevronDown,
   ListChecks, FileText, Loader2, GripVertical, Edit3, X as XIcon,
   Eye, EyeOff, AlertTriangle, Info, Settings2, Sparkles, Smartphone, Copy,
-  Users, ArrowRightLeft,
+  Users, ArrowRightLeft, Layers, ChevronRight,
 } from 'lucide-react'
 
 const WizardPreview = dynamic(() => import('./WizardPreview'), { ssr: false })
@@ -45,6 +45,12 @@ import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { WizardStep, WizardStepAttachment } from '@/lib/sign/wizard-builder'
 // v2.7.8 — Helpers pour dropdowns conditions lisibles
 import { getFieldDisplayLabel, groupFieldsBySection } from '@/lib/sign/field-helpers'
+// v2.9.21 — Gestion des sections (wizardSection)
+import SectionManager, { type SectionManagerRow } from './SectionManager'
+import {
+  collectSections, moveSectionBlock,
+  loadCollapsedSections, saveCollapsedSections,
+} from '@/lib/sign/section-helpers'
 // v2.7.6 — buildWizardSteps/ForAllRoles supprimés des imports (handleRegenerate retiré).
 // Toujours dispo côté serveur si besoin (lib/sign/wizard-builder.ts).
 
@@ -440,6 +446,115 @@ export default function WizardEditor({
     toast.success('Champ dupliqué')
   }
 
+  // ─── v2.9.21 — Gestion des sections (wizardSection) ─────────────────────
+  const [sectionManagerOpen, setSectionManagerOpen] = useState(false)
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set())
+  useEffect(() => {
+    setCollapsedSections(loadCollapsedSections(templateId))
+  }, [templateId])
+  const persistCollapsed = useCallback((next: Set<string>) => {
+    setCollapsedSections(next)
+    saveCollapsedSections(templateId, next)
+  }, [templateId])
+  const toggleSectionCollapse = useCallback((name: string) => {
+    setCollapsedSections(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      saveCollapsedSections(templateId, next)
+      return next
+    })
+  }, [templateId])
+
+  // Sections du rôle actif (ordre d'apparition) → lignes pour SectionManager
+  const sectionRows = useMemo<SectionManagerRow[]>(() => {
+    const summaries = collectSections(allRecipientFields)
+    const sectionOf = (id: string) => (fieldIndex.get(id)?.field.wizardSection || '').trim()
+    return summaries.map(s => {
+      const stepIdx = steps.findIndex(st => st.fieldIds.includes(s.fieldIds[0]))
+      let contextLabel = 'Hors étape'
+      let canMoveUp = false
+      let canMoveDown = false
+      if (stepIdx >= 0) {
+        const pos = visibleSteps.findIndex(v => v.originalIdx === stepIdx)
+        contextLabel = `Étape ${pos >= 0 ? pos + 1 : stepIdx + 1}`
+        const ids = steps[stepIdx].fieldIds
+        canMoveUp = moveSectionBlock(ids, sectionOf, s.name, -1) !== ids
+        canMoveDown = moveSectionBlock(ids, sectionOf, s.name, 1) !== ids
+      }
+      return {
+        name: s.name,
+        count: s.count,
+        allRequired: s.allRequired,
+        collapsed: collapsedSections.has(s.name),
+        contextLabel,
+        canMoveUp,
+        canMoveDown,
+      }
+    })
+  }, [allRecipientFields, steps, visibleSteps, fieldIndex, collapsedSections])
+
+  const unsectionedCount = useMemo(
+    () => allRecipientFields.filter(f => !(f.wizardSection || '').trim()).length,
+    [allRecipientFields],
+  )
+
+  const renameSection = (oldName: string, newName: string) => {
+    const trimmed = newName.trim()
+    if (!trimmed || trimmed === oldName) return
+    for (const f of allRecipientFields) {
+      if ((f.wizardSection || '').trim() === oldName) updateField(f.id, { wizardSection: trimmed })
+    }
+    if (collapsedSections.has(oldName)) {
+      const next = new Set(collapsedSections)
+      next.delete(oldName)
+      next.add(trimmed)
+      persistCollapsed(next)
+    }
+    toast.success(`Section renommée : « ${oldName} » → « ${trimmed} »`)
+  }
+  const deleteSection = (name: string, deleteFields: boolean) => {
+    const members = allRecipientFields.filter(f => (f.wizardSection || '').trim() === name)
+    if (members.length === 0) return
+    if (deleteFields) {
+      deleteFieldsById(members.map(f => f.id))
+    } else {
+      for (const f of members) updateField(f.id, { wizardSection: undefined, sectionDescription: undefined })
+      toast.success(`Section « ${name} » dégroupée — ${members.length} champ${members.length > 1 ? 's conservés' : ' conservé'}`)
+    }
+    if (collapsedSections.has(name)) {
+      const next = new Set(collapsedSections)
+      next.delete(name)
+      persistCollapsed(next)
+    }
+  }
+  const toggleSectionRequired = (name: string, required: boolean) => {
+    const members = allRecipientFields.filter(f => (f.wizardSection || '').trim() === name)
+    const targets = members.filter(m => !(m.type === 'checkbox' && m.groupId && m.groupRule))
+    for (const m of targets) updateField(m.id, { required })
+    const skipped = members.length - targets.length
+    toast.success(
+      `Section « ${name} » : ${required ? 'tout obligatoire' : 'tout facultatif'}`
+      + (skipped > 0 ? ` (${skipped} case${skipped > 1 ? 's' : ''} groupée${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''})` : ''),
+    )
+  }
+  const moveSection = (name: string, dir: -1 | 1) => {
+    const firstId = allRecipientFields.find(f => (f.wizardSection || '').trim() === name)?.id
+    if (!firstId) return
+    const stepIdx = steps.findIndex(s => s.fieldIds.includes(firstId))
+    if (stepIdx < 0) {
+      toast.error('Section hors étape — ajoute ses champs à une étape du wizard d\'abord')
+      return
+    }
+    const sectionOf = (id: string) => (fieldIndex.get(id)?.field.wizardSection || '').trim()
+    const next = moveSectionBlock(steps[stepIdx].fieldIds, sectionOf, name, dir)
+    if (next === steps[stepIdx].fieldIds) return
+    updateStep(stepIdx, { fieldIds: next })
+  }
+  const collapseAllSections = (collapsed: boolean) => {
+    persistCollapsed(collapsed ? new Set(sectionRows.map(r => r.name)) : new Set())
+  }
+
   // ─── Re-génération auto ─────────────────────────────────────────────────
   // v2.7.6 — handleRegenerate supprimé (cf. audit). Cause de bugs récurrents
   // (dates semaine → step Signature). Remplacé par "Améliorer avec l'IA" qui est
@@ -669,6 +784,16 @@ export default function WizardEditor({
           </button>
         )}
         <span style={{ flex: 1 }} />
+        {/* v2.9.21 — Panneau gestion des sections */}
+        <button
+          type="button"
+          onClick={() => setSectionManagerOpen(true)}
+          className="neo-btn-ghost neo-btn-sm"
+          title="Renommer, replier, réordonner ou supprimer les sections"
+        >
+          <Layers size={13} />
+          Sections{sectionRows.length > 0 ? ` (${sectionRows.length})` : ''}
+        </button>
         <button
           type="button"
           onClick={handleEnrichWithAI}
@@ -856,6 +981,8 @@ export default function WizardEditor({
               onDuplicateField={(fid) => duplicateFieldInStep(selectedStepIdx, fid)}
               onMoveFieldToStep={(fid, targetIdx) => addFieldToStep(targetIdx, fid)}
               onDeleteFields={deleteFieldsById}
+              collapsedSections={collapsedSections}
+              onToggleSectionCollapse={toggleSectionCollapse}
             />
           )}
         </div>
@@ -914,6 +1041,22 @@ export default function WizardEditor({
           onClose={() => { setOrphanModalOpen(false); setLocatedFieldId(null) }}
         />
       )}
+
+      {/* v2.9.21 — Panneau gestion des sections */}
+      {sectionManagerOpen && (
+        <SectionManager
+          mode="wizard"
+          rows={sectionRows}
+          unsectionedCount={unsectionedCount}
+          onRename={renameSection}
+          onDelete={deleteSection}
+          onToggleRequired={toggleSectionRequired}
+          onMove={moveSection}
+          onToggleCollapse={toggleSectionCollapse}
+          onCollapseAll={collapseAllSections}
+          onClose={() => setSectionManagerOpen(false)}
+        />
+      )}
     </div>
   )
 }
@@ -948,6 +1091,9 @@ interface StepDetailProps {
   onMoveFieldToStep: (fieldId: string, targetStepIdx: number) => void
   /** v2.2.4 — Supprimer définitivement des fields de documents[] (= du PDF entièrement) */
   onDeleteFields?: (fieldIds: string[]) => void
+  /** v2.9.21 — Sections repliées (convenance d'édition) */
+  collapsedSections: Set<string>
+  onToggleSectionCollapse: (name: string) => void
 }
 
 function StepDetail({
@@ -956,6 +1102,7 @@ function StepDetail({
   onUpdateStep, onMoveStep, onDeleteStep, onMergeNext, onSplitAt,
   onUpdateField, onMoveFieldInStep, onReorderFieldInStep, onRemoveFieldFromStep, onAddFieldToStep,
   onDuplicateField, onMoveFieldToStep, onDeleteFields,
+  collapsedSections, onToggleSectionCollapse,
 }: StepDetailProps) {
   const [showAddPicker, setShowAddPicker] = useState(false)
   // v2.2.4 fix v4 — DnD via dnd-kit (Pointer Events, fiable, pas de race condition).
@@ -1173,7 +1320,15 @@ function StepDetail({
             }
           }}
         >
-          <SortableContext items={stepFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext
+            items={stepFields
+              .filter(f => {
+                const sc = (f.wizardSection || '').trim()
+                return !(sc && collapsedSections.has(sc))
+              })
+              .map(f => f.id)}
+            strategy={verticalListSortingStrategy}
+          >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {(() => {
                 // v2.8.10 — Regroupement visuel par section : on rend les fields
@@ -1201,6 +1356,8 @@ function StepDetail({
                         memberCount={sectionMembers.length}
                         allRequired={allRequired}
                         marginTop={i === 0 ? 0 : 8}
+                        collapsed={collapsedSections.has(sec)}
+                        onToggleCollapse={() => onToggleSectionCollapse(sec)}
                         onRename={(newName) => {
                           const trimmed = newName.trim()
                           if (!trimmed || trimmed === sec) return
@@ -1226,6 +1383,8 @@ function StepDetail({
                     // On sort d'une section (champ sans section après une section)
                     currentSection = null
                   }
+                  // v2.9.21 — Section repliée : on n'affiche QUE l'en-tête, pas les champs
+                  if (sec && collapsedSections.has(sec)) return
                   els.push(
                     <div key={f.id} style={sec ? { marginLeft: 18 } : undefined}>
                       <SortableFieldRow
@@ -2256,6 +2415,7 @@ function AttachmentsEditor({
 // ─── SectionHeader v2.8.10 — En-tête de section éditable inline ──────
 function SectionHeader({
   sectionName, sectionDescription, memberCount, allRequired, marginTop,
+  collapsed, onToggleCollapse,
   onRename, onRequiredToggle,
 }: {
   sectionName: string
@@ -2263,6 +2423,9 @@ function SectionHeader({
   memberCount: number
   allRequired: boolean
   marginTop: number
+  /** v2.9.21 — Section repliée (champs masqués dans l'éditeur) */
+  collapsed?: boolean
+  onToggleCollapse?: () => void
   onRename: (newName: string) => void
   onRequiredToggle: (required: boolean) => void
 }) {
@@ -2298,6 +2461,21 @@ function SectionHeader({
         gap: 8,
       }}
     >
+      {onToggleCollapse && (
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          title={collapsed ? 'Déplier la section' : 'Replier la section'}
+          style={{
+            width: 22, height: 22, borderRadius: 5, flexShrink: 0,
+            border: '1px solid transparent', background: 'transparent',
+            color: 'var(--muted)', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+        </button>
+      )}
       {editing ? (
         <input
           ref={inputRef}
