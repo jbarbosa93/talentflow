@@ -2414,30 +2414,19 @@ function SelectedFieldsPanel({
                   <datalist id={datalistId}>
                     {knownSections.map(s => <option key={s} value={s} />)}
                   </datalist>
+                  {/* v2.9.27 — Liste déroulante au lieu d'un mur de pastilles
+                      (illisible avec 20+ sections). */}
                   {knownSections.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-                      {knownSections.map(s => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => onPatch(f.id, { wizardSection: s })}
-                          style={{
-                            padding: '3px 8px',
-                            fontSize: 10.5,
-                            border: '1px solid var(--border)',
-                            background: f.wizardSection === s ? 'var(--primary-soft)' : 'var(--card)',
-                            color: f.wizardSection === s ? 'var(--accent-foreground)' : 'var(--muted)',
-                            borderRadius: 999,
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                            fontWeight: f.wizardSection === s ? 700 : 500,
-                          }}
-                          title={`Réutiliser la section "${s}"`}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
+                    <select
+                      className="neo-input"
+                      value={knownSections.includes((f.wizardSection || '').trim())
+                        ? (f.wizardSection || '').trim() : ''}
+                      onChange={e => { if (e.target.value) onPatch(f.id, { wizardSection: e.target.value }) }}
+                      style={{ marginTop: 6, cursor: 'pointer' }}
+                    >
+                      <option value="">— Réutiliser une section existante —</option>
+                      {knownSections.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
                   )}
                 </>
               )
@@ -3535,6 +3524,24 @@ function TypeSpecificOptions({
       {/* PIÈCE JOINTE */}
       {t === 'attachment' && (
         <>
+          {/* v2.9.27 — Type de document : une face ou recto + verso */}
+          <Field label="Type de document">
+            <select
+              className="neo-input"
+              value={field.attachmentSides || 'single'}
+              onChange={e => onPatch({
+                attachmentSides: e.target.value === 'recto_verso' ? 'recto_verso' : 'single',
+              })}
+            >
+              <option value="single">Une seule face / un fichier</option>
+              <option value="recto_verso">Recto + Verso (2 photos)</option>
+            </select>
+          </Field>
+          <div style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5, marginTop: -2 }}>
+            « Recto + Verso » affiche au candidat 2 emplacements distincts
+            (Recto / Verso) ; les 2 photos sont assemblées sur une seule page A4
+            dans l&apos;email que tu reçois.
+          </div>
           <Field label="Taille max (Mo)">
             <input
               type="number"

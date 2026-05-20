@@ -35,7 +35,7 @@ import {
   Save, Plus, Trash2, ChevronUp, ChevronDown,
   ListChecks, FileText, Loader2, GripVertical, Edit3, X as XIcon,
   Eye, EyeOff, AlertTriangle, Info, Settings2, Sparkles, Smartphone, Copy,
-  Users, ArrowRightLeft, Layers, ChevronRight,
+  Users, ArrowRightLeft, Layers, ChevronRight, Undo2, Redo2,
 } from 'lucide-react'
 
 const WizardPreview = dynamic(() => import('./WizardPreview'), { ssr: false })
@@ -153,8 +153,27 @@ export default function WizardEditor({
   // v2.2.2 — Reset dirty quand le parent recharge le template (fetchTemplate après save).
   // serverVersion est incrémenté à chaque fetch successful → side-effect ici.
   useEffect(() => {
-    if (serverVersion > 0) setDirty(false)
+    if (serverVersion > 0) {
+      setDirty(false)
+      // v2.9.27 — Recharge serveur → l'historique undo/redo n'est plus valide
+      setPast([])
+      setFuture([])
+    }
   }, [serverVersion])
+
+  // v2.9.27 — Raccourcis clavier undo/redo (hors champs de saisie)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      e.preventDefault()
+      if (e.shiftKey) redoWizard()
+      else undoWizard()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   // Map fieldId → { field, docIdx } pour résolution rapide
   const fieldIndex = useMemo(() => {
@@ -201,7 +220,46 @@ export default function WizardEditor({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allRecipientFields, allUsedInWizard])
 
-  const markDirty = () => setDirty(true)
+  // v2.9.27 — Historique undo/redo. `markDirty` est le point de passage unique
+  // de TOUTE mutation → on y capture l'instantané AVANT modif (à cet instant,
+  // les props documents/steps/localSchema sont encore les anciennes valeurs ;
+  // les mises à jour immuables garantissent des références stables).
+  const HISTORY_MAX = 40
+  type WizardSnapshot = {
+    documents: SignDocument[]
+    steps: WizardStep[]
+    schema: SignRecipientSchema[]
+  }
+  const [past, setPast] = useState<WizardSnapshot[]>([])
+  const [future, setFuture] = useState<WizardSnapshot[]>([])
+  const markDirty = () => {
+    setPast(p => {
+      const next = [...p, { documents, steps, schema: localSchema }]
+      return next.length > HISTORY_MAX ? next.slice(-HISTORY_MAX) : next
+    })
+    setFuture([])
+    setDirty(true)
+  }
+  const undoWizard = () => {
+    if (past.length === 0) return
+    const snap = past[past.length - 1]
+    setFuture(f => [...f, { documents, steps, schema: localSchema }])
+    setPast(p => p.slice(0, -1))
+    setDocuments(snap.documents)
+    setSteps(snap.steps)
+    setLocalSchema(snap.schema)
+    setDirty(true)
+  }
+  const redoWizard = () => {
+    if (future.length === 0) return
+    const snap = future[future.length - 1]
+    setPast(p => [...p, { documents, steps, schema: localSchema }])
+    setFuture(f => f.slice(0, -1))
+    setDocuments(snap.documents)
+    setSteps(snap.steps)
+    setLocalSchema(snap.schema)
+    setDirty(true)
+  }
 
   // ─── v2.2.2 — Gestion des rôles (recipients_schema) ────────────────────
   // upsertRole : si l'order existe déjà → patch, sinon ajoute.
@@ -784,6 +842,27 @@ export default function WizardEditor({
           </button>
         )}
         <span style={{ flex: 1 }} />
+        {/* v2.9.27 — Undo / Redo */}
+        <button
+          type="button"
+          onClick={undoWizard}
+          disabled={past.length === 0}
+          className="neo-btn-ghost neo-btn-sm"
+          title={`Annuler (Cmd+Z)${past.length > 0 ? ` — ${past.length}` : ''}`}
+          style={{ opacity: past.length === 0 ? 0.4 : 1 }}
+        >
+          <Undo2 size={13} />
+        </button>
+        <button
+          type="button"
+          onClick={redoWizard}
+          disabled={future.length === 0}
+          className="neo-btn-ghost neo-btn-sm"
+          title={`Refaire (Cmd+Shift+Z)${future.length > 0 ? ` — ${future.length}` : ''}`}
+          style={{ opacity: future.length === 0 ? 0.4 : 1 }}
+        >
+          <Redo2 size={13} />
+        </button>
         {/* v2.9.21 — Panneau gestion des sections */}
         <button
           type="button"
@@ -1894,30 +1973,18 @@ function FieldEditor({
                   <datalist id={datalistId}>
                     {knownSections.map(s => <option key={s} value={s} />)}
                   </datalist>
+                  {/* v2.9.27 — Liste déroulante au lieu d'un mur de pastilles
+                      (illisible avec 20+ sections). */}
                   {knownSections.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-                      {knownSections.map(s => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => onUpdate({ wizardSection: s })}
-                          style={{
-                            padding: '3px 8px',
-                            fontSize: 10.5,
-                            border: '1px solid var(--border)',
-                            background: field.wizardSection === s ? 'var(--primary-soft)' : 'var(--card)',
-                            color: field.wizardSection === s ? 'var(--accent-foreground)' : 'var(--muted)',
-                            borderRadius: 999,
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                            fontWeight: field.wizardSection === s ? 700 : 500,
-                          }}
-                          title={`Réutiliser la section "${s}"`}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
+                    <select
+                      value={knownSections.includes((field.wizardSection || '').trim())
+                        ? (field.wizardSection || '').trim() : ''}
+                      onChange={e => { if (e.target.value) onUpdate({ wizardSection: e.target.value }) }}
+                      style={{ ...editInputStyle, padding: '6px 8px', fontSize: 12, marginTop: 6, cursor: 'pointer' }}
+                    >
+                      <option value="">— Réutiliser une section existante —</option>
+                      {knownSections.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
                   )}
                 </>
               )

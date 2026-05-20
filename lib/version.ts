@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.26'
+export const APP_VERSION = '2.9.27'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.27 — Sign : sections en liste, autofill tel, undo/redo wizard, recto/verso
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.27',
+    date: '2026-05-20',
+    label: 'Sign : sélecteur sections en liste + autofill téléphone + undo/redo wizard + pièce jointe recto/verso',
+    features: [
+      'SECTIONS — Le choix de la « Section d\'affichage » d\'un champ se fait via une liste déroulante propre, au lieu d\'un mur de pastilles illisible quand il y a 20+ sections (Mode Document et Mode Wizard).',
+      'TÉLÉPHONE — Le numéro de portable du candidat (depuis sa fiche) pré-remplit automatiquement les champs téléphone du wizard, même si le champ n\'a pas le réglage « Format → Téléphone » (détection par libellé « Tél. portable », « Natel »…). La valeur est enregistrée, plus seulement affichée.',
+      'CLÉ PARTAGÉE — Les champs portant la même clé partagée dans une même enveloppe se recopient désormais en direct pendant le remplissage (ex : adresse saisie dans la Fiche d\'inscription → recopiée dans le Contrat cadre du même envoi).',
+      'UNDO / REDO — Boutons Annuler / Refaire dans l\'éditeur Mode Wizard (+ raccourcis Cmd+Z / Cmd+Maj+Z).',
+      'PIÈCE JOINTE RECTO/VERSO — Nouveau réglage « Type de document : Recto + Verso » : le candidat voit 2 emplacements distincts (Recto / Verso) et les 2 photos sont assemblées sur une seule page A4 dans l\'email.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.26 — Sign : 3 correctifs du flux « Envoyer à signer »
   // ─────────────────────────────────────────────────────────────────────

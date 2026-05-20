@@ -30,7 +30,7 @@ const SignWizard = dynamic(() => import('@/components/sign/SignWizard'), { ssr: 
 import PublicFieldsLayer, { areAllRequiredFieldsFilled, isFieldFilledExt } from '@/components/sign/PublicFieldsLayer'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
-import { getDayOffsetFromSection, dateForDayOfWeek, effectiveFieldState } from '@/lib/sign/field-helpers'
+import { getDayOffsetFromSection, dateForDayOfWeek, effectiveFieldState, looksLikePhoneField } from '@/lib/sign/field-helpers'
 import LogoLAgence from '@/components/report/LogoLAgence'
 
 interface PageProps {
@@ -576,10 +576,57 @@ export default function PublicSignPage({ params }: PageProps) {
         const files = (value as SignAttachmentValue | undefined)?.files
         next[fld.attachmentLinkedCheckboxId] = Array.isArray(files) && files.length > 0
       }
+      // v2.9.27 — Clé partagée : propage la valeur aux autres champs de la
+      // MÊME enveloppe portant le même crossTemplateKey (s'ils sont vides).
+      // Couvre le cas Fiche d'inscription + Contrat cadre dans le même envoi.
+      if (fld?.crossTemplateKey && typeof value === 'string' && value.trim()) {
+        for (const [fid, other] of allFieldsById) {
+          if (fid === fieldId) continue
+          if (other.crossTemplateKey && other.crossTemplateKey === fld.crossTemplateKey) {
+            const cur = next[fid]
+            if (cur === undefined || cur === null || cur === '') next[fid] = value
+          }
+        }
+      }
       syncFieldValues(next)
       return next
     })
   }, [syncFieldValues, allFieldsById])
+
+  // v2.9.27 — Pré-remplissage du téléphone : si l'enveloppe est liée à un
+  // candidat (autoFill.telephone dispo), on remplit les champs téléphone vides
+  // du destinataire courant — y compris ceux détectés par libellé (« Tél.
+  // portable ») même sans réglage « Format → Téléphone ». Écrit dans
+  // fieldValues → la valeur est affichée, sauvegardée ET stampée.
+  const phonePrefilledRef = useRef(false)
+  useEffect(() => {
+    if (phonePrefilledRef.current) return
+    const tel = autoFill.telephone
+    if (!tel) return
+    const phoneFieldIds: string[] = []
+    for (const d of documents) {
+      for (const f of (d.fields || [])) {
+        if (f.recipientOrder !== effectiveRecipientOrder) continue
+        if (!looksLikePhoneField(f)) continue
+        const v = fieldValues[f.id]
+        if (v === undefined || v === null || v === '') phoneFieldIds.push(f.id)
+      }
+    }
+    if (phoneFieldIds.length === 0) return
+    phonePrefilledRef.current = true
+    setFieldValues(prev => {
+      const next = { ...prev }
+      let touched = false
+      for (const id of phoneFieldIds) {
+        if (next[id] === undefined || next[id] === null || next[id] === '') {
+          next[id] = tel
+          touched = true
+        }
+      }
+      if (touched) syncFieldValues(next)
+      return next
+    })
+  }, [documents, autoFill, effectiveRecipientOrder, fieldValues, syncFieldValues])
 
   // ── ÉTATS D'ERREUR ──────────────────────────────────────────────────────────
   if (state === 'loading') {

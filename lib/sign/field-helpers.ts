@@ -58,6 +58,19 @@ export function looksLikeCompanyField(field: SignField): boolean {
 }
 
 /**
+ * v2.9.27 — Détecte si un champ `number` est un champ téléphone d'après son
+ * libellé (« Tél. portable », « Téléphone », « Natel »…). Sert de FALLBACK
+ * quand l'admin n'a pas réglé « Format du champ → Téléphone » (autoFillSource).
+ * Vocabulaire phone très spécifique → quasi aucun faux positif.
+ */
+export function looksLikePhoneField(field: SignField): boolean {
+  if (field.autoFillSource === 'phone') return true
+  if (field.type !== 'number') return false
+  const txt = `${field.tooltip || ''} ${field.label || ''}`
+  return /(t[ée]l[ée]phone|t[ée]l\.|\bnatel\b|\bportable\b|\bgsm\b)/i.test(txt)
+}
+
+/**
  * Détecte si un field text devrait être rendu comme date picker.
  * Heuristique : tooltip / label contient "date" + (naissance|expiration|début|fin|...).
  */

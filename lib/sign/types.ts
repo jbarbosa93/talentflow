@@ -108,6 +108,9 @@ export interface SignField {
   // les fichiers chargés (à la finalisation, si l'enveloppe est liée à un
   // candidat). Vide / undefined = ne pas ajouter à la Conformité (ex: le CV).
   attachmentComplianceTypeId?: string
+  // v2.9.27 — Pièce jointe : 'single' (1 fichier/photo, défaut) ou 'recto_verso'
+  // (2 emplacements explicites Recto + Verso → 1 page A4 dans l'email).
+  attachmentSides?: 'single' | 'recto_verso'
   // Date
   dateFormat?: string          // 'dd/MM/yyyy' | 'yyyy-MM-dd' | 'd MMMM yyyy' | 'MM/dd/yyyy'
   // Email
