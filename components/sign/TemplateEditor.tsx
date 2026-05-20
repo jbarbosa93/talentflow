@@ -35,7 +35,7 @@ import { getFieldDisplayLabel, groupFieldsBySection, LIST_PRESETS } from '@/lib/
 import {
   RECIPIENT_COLORS, FIELD_TYPE_LABELS, FIELD_TYPE_CATEGORIES,
   CONDITION_OPERATOR_LABELS, CONDITION_ACTION_LABELS,
-  AUTO_FILL_FIELD_TYPES, DATE_FORMATS, CURRENCIES, COMMON_MIME_TYPES,
+  AUTO_FILL_FIELD_TYPES, DATE_FORMATS, CURRENCIES,
   FONT_FAMILIES, FONT_SIZES, FONT_COLORS, CROSS_TEMPLATE_KEYS,
   getRecipientPalette,
 } from '@/lib/sign/types'
@@ -3601,50 +3601,35 @@ function TypeSpecificOptions({
               onChange={e => onPatch({ attachmentMaxSizeMb: e.target.value === '' ? undefined : Math.max(1, Math.min(50, Number(e.target.value))) })}
             />
           </Field>
-          <div>
-            <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: 6 }}>
-              Types autorisés
-            </label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {COMMON_MIME_TYPES.map(mime => {
-                const checked = (field.attachmentMimeTypes || []).includes(mime.value)
-                return (
-                  <label
-                    key={mime.value}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: '4px 8px',
-                      fontSize: 11,
-                      border: `1px solid ${checked ? 'var(--primary)' : 'var(--border)'}`,
-                      borderRadius: 999,
-                      background: checked ? 'var(--primary-soft)' : 'var(--card)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={e => {
-                        const cur = field.attachmentMimeTypes || []
-                        const next = e.target.checked
-                          ? [...cur, mime.value]
-                          : cur.filter(m => m !== mime.value)
-                        onPatch({ attachmentMimeTypes: next.length > 0 ? next : undefined })
-                      }}
-                      style={{ display: 'none' }}
-                    />
-                    {mime.label}
-                  </label>
-                )
-              })}
-            </div>
-            <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 4 }}>
-              {(field.attachmentMimeTypes?.length || 0) === 0
-                ? 'Tous les types acceptés.'
-                : `${field.attachmentMimeTypes!.length} type${field.attachmentMimeTypes!.length > 1 ? 's' : ''} sélectionné${field.attachmentMimeTypes!.length > 1 ? 's' : ''}.`}
-            </div>
+          {/* v2.9.29 — Choix simple au lieu d'une liste de types MIME granulaire
+              (incohérente : tous les types image doivent marcher). */}
+          <Field label="Fichiers acceptés">
+            <select
+              className="neo-input"
+              value={(() => {
+                const m = field.attachmentMimeTypes
+                if (!m || m.length === 0) return 'all'
+                if (m.length === 1 && m[0] === 'application/pdf') return 'pdf'
+                if (m.every(x => x.startsWith('image/'))) return 'images'
+                return 'all'
+              })()}
+              onChange={e => {
+                const v = e.target.value
+                onPatch({
+                  attachmentMimeTypes: v === 'images' ? ['image/*']
+                    : v === 'pdf' ? ['application/pdf']
+                    : undefined,
+                })
+              }}
+            >
+              <option value="all">Photos + PDF (recommandé)</option>
+              <option value="images">Photos / images uniquement</option>
+              <option value="pdf">PDF uniquement</option>
+            </select>
+          </Field>
+          <div style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5, marginTop: -2 }}>
+            « Photos » couvre tous les formats d&apos;image (JPEG, PNG, HEIC iPhone,
+            WebP…). Le candidat peut prendre une photo ou choisir un fichier.
           </div>
           <label style={checkboxLabelStyle}>
             <input

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.28'
+export const APP_VERSION = '2.9.29'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.29 — Sign : pièce jointe accepte tous les types d'image
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.29',
+    date: '2026-05-20',
+    label: 'Sign : pièce jointe — tous les formats d\'image acceptés + choix simplifié',
+    features: [
+      'UPLOAD IMAGES — Le stockage des pièces jointes n\'acceptait que les PDF (erreur « image/jpeg is not supported »). Désormais tous les formats d\'image sont acceptés (JPEG, PNG, HEIC iPhone, WebP…).',
+      'ÉDITEUR — Le réglage des types de fichier d\'un champ pièce jointe passe d\'une liste de cases techniques à un choix simple : « Photos + PDF » / « Photos uniquement » / « PDF uniquement ».',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.28 — Sign : upload réparé, téléphone, champ masqué, hyperlien, drag
   // ─────────────────────────────────────────────────────────────────────
