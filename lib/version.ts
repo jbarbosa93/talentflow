@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.35'
+export const APP_VERSION = '2.9.36'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.36 — PWA : page d'ouverture de l'app ne reste plus bloquée
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.36',
+    date: '2026-05-21',
+    label: 'PWA rapport : l\'app ouvre directement la connexion ou le rapport',
+    features: [
+      'À l\'ouverture de l\'app installée, l\'écran d\'accueil restait bloqué sur un message sans bouton.',
+      'Désormais l\'app va directement : au dernier rapport ouvert, ou au rapport du candidat s\'il est connecté, ou à la page de connexion sinon.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.35 — Portail rapport candidat installable en application (PWA)
   // ─────────────────────────────────────────────────────────────────────

@@ -1,11 +1,13 @@
 'use client'
 
 // TalentFlow Rapport — Page d'entrée /report (point de lancement de la PWA)
-// v2.9.35
+// v2.9.36
 //
-// L'app installée (Android) s'ouvre sur /report. Cette page :
-//  - redirige vers le dernier rapport ouvert si on en connaît un (localStorage),
-//  - sinon affiche un message invitant à ouvrir le lien reçu.
+// L'app installée s'ouvre sur /report. Cette page ne reste JAMAIS un cul-de-sac :
+//  1. dernier rapport ouvert dans l'app (localStorage) → on l'ouvre ;
+//  2. sinon, candidat déjà connecté → on ouvre son rapport ;
+//  3. sinon → page de connexion /report/login.
+// Après connexion, LoginForm renvoie sur /report → cette page reprend en (2).
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -13,16 +15,36 @@ import { REPORT_LAST_SLUG_KEY } from '@/components/report/ServiceWorkerRegister'
 
 export default function ReportEntryPage() {
   const router = useRouter()
-  const [phase, setPhase] = useState<'loading' | 'no-link'>('loading')
+  const [phase, setPhase] = useState<'loading' | 'no-report'>('loading')
 
   useEffect(() => {
-    let slug: string | null = null
-    try { slug = localStorage.getItem(REPORT_LAST_SLUG_KEY) } catch { /* silencieux */ }
-    if (slug) {
-      router.replace(`/report/${slug}`)
-    } else {
-      setPhase('no-link')
+    let cancelled = false
+
+    async function resolve() {
+      // 1. Dernier rapport ouvert dans l'app
+      let slug: string | null = null
+      try { slug = localStorage.getItem(REPORT_LAST_SLUG_KEY) } catch { /* silencieux */ }
+      if (slug) { router.replace(`/report/${slug}`); return }
+
+      // 2. Candidat déjà connecté → son rapport
+      try {
+        const r = await fetch('/api/portal-auth/me?type=candidat&full=1', { credentials: 'include' })
+        if (r.ok) {
+          const d = await r.json().catch(() => null)
+          const target = d?.account?.targetSlug as string | undefined
+          if (cancelled) return
+          if (target) { router.replace(`/report/${target}`); return }
+          setPhase('no-report')  // connecté mais aucun rapport lié
+          return
+        }
+      } catch { /* réseau KO → on bascule sur la connexion */ }
+
+      // 3. Pas connecté → connexion
+      if (!cancelled) router.replace('/report/login')
     }
+
+    resolve()
+    return () => { cancelled = true }
   }, [router])
 
   return (
@@ -52,21 +74,30 @@ export default function ReportEntryPage() {
               borderRadius: '50%', animation: 'tfspin 0.7s linear infinite',
             }} />
             <p style={{ margin: 0, fontSize: 14, color: '#6B7280' }}>
-              Ouverture de ton rapport…
+              Chargement…
             </p>
             <style>{'@keyframes tfspin{to{transform:rotate(360deg)}}'}</style>
           </>
         ) : (
           <>
-            <h1 style={{
-              margin: '0 0 8px', fontSize: 20, fontWeight: 800, color: '#1C1A14',
-            }}>
-              Bienvenue sur TalentFlow Rapport
+            <h1 style={{ margin: '0 0 8px', fontSize: 19, fontWeight: 800, color: '#1C1A14' }}>
+              Aucun rapport disponible
             </h1>
-            <p style={{ margin: 0, fontSize: 13.5, color: '#6B7280', lineHeight: 1.55 }}>
-              Pour accéder à ton rapport hebdomadaire, ouvre le lien personnel
-              que ton agence t&apos;a envoyé par email ou WhatsApp.
+            <p style={{ margin: '0 0 18px', fontSize: 13.5, color: '#6B7280', lineHeight: 1.55 }}>
+              Ton compte n&apos;est lié à aucun rapport pour le moment.
+              Contacte ton agence ou ouvre le lien personnel qu&apos;elle t&apos;a envoyé.
             </p>
+            <button
+              onClick={() => router.replace('/report/login')}
+              style={{
+                height: 42, padding: '0 20px', borderRadius: 10,
+                background: '#1C1A14', color: '#EAB308',
+                border: 'none', fontSize: 14, fontWeight: 800, cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              Se connecter
+            </button>
           </>
         )}
       </div>
