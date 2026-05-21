@@ -115,11 +115,12 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.9.33 (Recherche par rayon : distance routière estimée)** — 21/05/2026
+**v2.9.34 (Conformité : visionneuse documents corrigée)** — 21/05/2026
 
-### v2.9.32 → v2.9.33
+### v2.9.32 → v2.9.34
 - **v2.9.32** : alerte « déjà contactés ces 7 derniers jours » (modals iMessage/SMS + WhatsApp) — nouveau bouton « Retirer N de la liste » qui enlève ces candidats de `selectedIds`. `RecentContactsWarning` gagne une prop `onExclude?`.
 - **v2.9.33** : recherche par rayon — facteur détour routier `ROAD_DETOUR_FACTOR=1.35` appliqué dans `/api/candidats` (rayon haversine resserré = rayon / facteur ; distance affichée = haversine × facteur). Corrige le « vol d'oiseau » trop permissif en Valais.
+- **v2.9.34** : `DocumentViewerModal` (Conformité) — l'iframe affichait l'image brute en taille native (énorme). Refondu : `<img>` ajusté à l'écran (`objectFit:contain`) + zoom 1×–5× + boutons Télécharger / Imprimer. PDF gardent l'iframe (zoom natif).
 
 ### v2.9.26 → v2.9.31 — Marathon Sign suite (21/05)
 - **v2.9.26-29** : flux « Envoyer à signer » (boutons sur candidats `traite`, préservation `candidat_id` au switch template, `orderEnabled` false par défaut), sections en dropdown, autofill téléphone, sync cross-key, undo/redo wizard, upload pièce jointe via `uploadToSignedUrl` (raw PUT rejeté), `wizardHidden`, champ lien, bucket `talentflow-sign` `allowed_mime_types` élargi (`image/*` + office).

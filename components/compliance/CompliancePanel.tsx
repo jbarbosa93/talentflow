@@ -287,6 +287,8 @@ export default function CompliancePanel({ open, onClose, candidatId, candidatNam
           initialSide={viewing.side}
           hasRecto={!!viewing.doc.file_recto_path}
           hasVerso={!!viewing.doc.file_verso_path}
+          rectoPath={viewing.doc.file_recto_path}
+          versoPath={viewing.doc.file_verso_path}
           onClose={() => setViewing(null)}
         />
       )}

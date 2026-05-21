@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.33'
+export const APP_VERSION = '2.9.34'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.34 — Conformité : visionneuse de documents corrigée
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.34',
+    date: '2026-05-21',
+    label: 'Conformité : visionneuse de documents — ajustement écran + zoom + télécharger + imprimer',
+    features: [
+      'Quand on ouvrait un document de Conformité (permis, carte d\'identité…), l\'image s\'affichait à sa taille réelle (énorme), impossible de la voir en entier ni de dézoomer.',
+      'La visionneuse ajuste désormais l\'image à l\'écran automatiquement, avec des boutons zoom avant / arrière / ajuster.',
+      'Ajout des boutons « Télécharger » et « Imprimer » dans la visionneuse.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.33 — Recherche par rayon : distance routière estimée
   // ─────────────────────────────────────────────────────────────────────
