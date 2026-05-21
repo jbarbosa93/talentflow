@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.39'
+export const APP_VERSION = '2.9.40'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.40 — TalentFlow Mobile Phase 2b : en-tête + écran d'accueil
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.40',
+    date: '2026-05-21',
+    label: 'TalentFlow Mobile : en-tête compact + écran d\'accueil refondu',
+    features: [
+      'EN-TÊTE — sur mobile, les boutons secondaires (Importer CV, thème) débordaient hors de l\'écran et masquaient la cloche / le profil. L\'en-tête est désormais compact : menu, recherche, notifications, profil.',
+      'ACCUEIL — la carte « Bonjour » écrasait le texte (un mot par ligne). Elle passe en colonne unique sur mobile, lisible et propre.',
+      'Refonte mobile en cours, écran par écran — les listes (candidats, missions…) suivent.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.39 — TalentFlow Mobile Phase 2a : pages larges accessibles
   // ─────────────────────────────────────────────────────────────────────

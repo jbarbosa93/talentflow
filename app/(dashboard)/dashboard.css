@@ -2671,3 +2671,39 @@ aside.d-sidebar .d-nav-link.active {
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────
+   v2.9.40 — TalentFlow Mobile Phase 2b : en-tête compact + écran d'accueil
+   ─────────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* EN-TÊTE — on masque les actions secondaires qui débordaient hors écran
+     (Importer CV, bascule thème, séparateur) → header propre : menu, recherche,
+     cloche, profil. */
+  .d-topbar-import-btn,
+  .d-topbar-theme-btn,
+  .d-topbar-sep {
+    display: none !important;
+  }
+  .d-topbar-actions { gap: 6px; }
+
+  /* ÉCRAN D'ACCUEIL — la carte « Bonjour » passe en colonne unique
+     (texte au-dessus, statistiques en dessous) au lieu d'écraser le texte. */
+  .welcome-v2 {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    padding: 18px 18px !important;
+    margin-bottom: 16px !important;
+  }
+  .welcome-v2 h2 { font-size: 21px !important; }
+  .welcome-v2 h2 .date-label { font-size: 14px !important; }
+  .welcome-v2 p { font-size: 13px !important; }
+  .welcome-v2-text { gap: 12px !important; }
+  .welcome-stats-v2 {
+    gap: 0 !important;
+    justify-content: space-around;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+  }
+  .welcome-stat-v2 { flex: 1; }
+  .welcome-stat-v2 b { font-size: 26px !important; }
+}

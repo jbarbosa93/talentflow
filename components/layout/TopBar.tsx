@@ -414,7 +414,7 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
         {/* Toggle thème */}
         <motion.button
           onClick={toggle}
-          className="d-icon-btn"
+          className="d-icon-btn d-topbar-theme-btn"
           title={isDark ? 'Mode clair' : 'Mode sombre'}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -433,7 +433,7 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
         </motion.button>
 
         {/* Séparateur fin entre actions et profil (design v2) */}
-        <span aria-hidden style={{ width: 1, height: 22, background: 'var(--border)', margin: '0 4px' }} />
+        <span aria-hidden className="d-topbar-sep" style={{ width: 1, height: 22, background: 'var(--border)', margin: '0 4px' }} />
 
         {/* Profil recruteur — dropdown */}
         <div ref={profileRef} style={{ position: 'relative' }}>

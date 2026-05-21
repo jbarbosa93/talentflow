@@ -115,11 +115,12 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.9.39 (TalentFlow Mobile Phase 2a : pages larges accessibles)** — 21/05/2026
+**v2.9.40 (TalentFlow Mobile Phase 2b : en-tête + accueil)** — 21/05/2026
 
 ### v2.9.38 → v2.9.39 — TalentFlow Mobile (PWA consultant)
 - **v2.9.38 (Phase 1)** : dashboard installable en app « TalentFlow » — `manifest.json` renommé (name `TalentFlow`, `start_url:/dashboard`), barre de navigation basse (`MobileBottomNav` — 6 sections), bandeau d'installation (`MobileInstallPrompt`, `/dashboard` only). Visible ≤768px (pattern #85).
-- **v2.9.39 (Phase 2a)** : `.d-content` était `overflow-x:hidden` → les pages plus larges que l'écran (liste candidats…) avaient leur partie droite tronquée + inaccessible sur mobile. CSS `@media ≤768px` → `.d-content { overflow-x:auto }` : défilement horizontal au doigt, tout redevient atteignable. Phase 2b à venir = cartes mobiles dédiées par page.
+- **v2.9.39 (Phase 2a)** : `.d-content` était `overflow-x:hidden` → les pages plus larges que l'écran (liste candidats…) avaient leur partie droite tronquée + inaccessible sur mobile. CSS `@media ≤768px` → `.d-content { overflow-x:auto }` : défilement horizontal au doigt, tout redevient atteignable.
+- **v2.9.40 (Phase 2b)** : refonte mobile écran par écran. En-tête : TopBar masque les actions secondaires sur mobile (`.d-topbar-import-btn`/`.d-topbar-theme-btn`/`.d-topbar-sep` — classes ajoutées + CSS `display:none`) → header compact non tronqué. Accueil : `.welcome-v2` (grid `1fr auto`) écrasait le texte → CSS `@media ≤768px` colonne unique + tailles réduites. Pages-classes (`dashboard.css`) → fixables en CSS ; pages inline-styled (listes) → refonte par composant, écran par écran avec retour visuel de João.
 
 ### v2.9.32 → v2.9.35
 - **v2.9.32** : alerte « déjà contactés ces 7 derniers jours » (modals iMessage/SMS + WhatsApp) — nouveau bouton « Retirer N de la liste » qui enlève ces candidats de `selectedIds`. `RecentContactsWarning` gagne une prop `onExclude?`.
