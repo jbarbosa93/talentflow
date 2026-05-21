@@ -2657,3 +2657,17 @@ aside.d-sidebar .d-nav-link.active {
     padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────
+   v2.9.39 — TalentFlow Mobile Phase 2a : pages larges défilables
+   .d-content était `overflow-x: hidden` → sur mobile, les pages plus larges
+   que l'écran (liste candidats, missions…) avaient toute leur partie droite
+   TRONQUÉE et inaccessible. En mobile on autorise le défilement horizontal
+   → tout le contenu redevient atteignable d'un glissement de doigt.
+   ─────────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .d-content {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

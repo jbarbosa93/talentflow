@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.38'
+export const APP_VERSION = '2.9.39'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.39 — TalentFlow Mobile Phase 2a : pages larges accessibles
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.39',
+    date: '2026-05-21',
+    label: 'TalentFlow Mobile : les pages larges (liste candidats…) ne sont plus tronquées',
+    features: [
+      'Sur mobile, les pages plus larges que l\'écran (liste des candidats, missions…) avaient toute leur partie droite coupée et inaccessible (téléphone, âge, actions).',
+      'Désormais ces pages défilent horizontalement d\'un glissement de doigt — tout le contenu redevient atteignable.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.38 — TalentFlow Mobile (PWA consultant) — Phase 1
   // ─────────────────────────────────────────────────────────────────────
