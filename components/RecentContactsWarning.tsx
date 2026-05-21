@@ -53,11 +53,18 @@ interface RecentContactsWarningProps {
   onContinue: () => void
   /** Callback pour fermer le warning (même effet) */
   onDismiss?: () => void
+  /**
+   * v2.9.32 — Callback pour RETIRER les candidats déjà contactés de la
+   * sélection. Reçoit la liste des ids concernés. Si fourni → un bouton
+   * « Retirer de la liste » apparaît.
+   */
+  onExclude?: (ids: string[]) => void
 }
 
-export function RecentContactsWarning({ candidats, contacts, onContinue, onDismiss }: RecentContactsWarningProps) {
+export function RecentContactsWarning({ candidats, contacts, onContinue, onDismiss, onExclude }: RecentContactsWarningProps) {
   const affected = candidats.filter(c => contacts[c.id])
   if (affected.length === 0) return null
+  const affectedIds = affected.map(c => c.id)
 
   return (
     <div style={{
@@ -111,7 +118,7 @@ export function RecentContactsWarning({ candidats, contacts, onContinue, onDismi
         })}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
         {onDismiss && (
           <button
             onClick={onDismiss}
@@ -127,13 +134,27 @@ export function RecentContactsWarning({ candidats, contacts, onContinue, onDismi
         <button
           onClick={onContinue}
           style={{
-            padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 800,
-            border: 'none', background: 'var(--warning)',
-            color: 'var(--destructive-foreground)', cursor: 'pointer', fontFamily: 'inherit',
+            padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: onExclude ? 700 : 800,
+            border: onExclude ? '1.5px solid var(--border)' : 'none',
+            background: onExclude ? 'var(--card)' : 'var(--warning)',
+            color: onExclude ? 'var(--foreground)' : 'var(--destructive-foreground)',
+            cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
           Continuer malgré tout
         </button>
+        {onExclude && (
+          <button
+            onClick={() => onExclude(affectedIds)}
+            style={{
+              padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 800,
+              border: 'none', background: 'var(--warning)',
+              color: 'var(--destructive-foreground)', cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Retirer {affected.length} de la liste
+          </button>
+        )}
       </div>
     </div>
   )

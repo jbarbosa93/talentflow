@@ -115,7 +115,10 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.9.31 (Sign : email unique de finalisation + corrections pièces jointes candidat)** — 21/05/2026
+**v2.9.32 (Envoi en masse : retirer les candidats déjà contactés)** — 21/05/2026
+
+### v2.9.32 — Envoi en masse
+- **v2.9.32** : alerte « déjà contactés ces 7 derniers jours » (modals iMessage/SMS + WhatsApp) — nouveau bouton « Retirer N de la liste » qui enlève ces candidats de `selectedIds`. `RecentContactsWarning` gagne une prop `onExclude?`.
 
 ### v2.9.26 → v2.9.31 — Marathon Sign suite (21/05)
 - **v2.9.26-29** : flux « Envoyer à signer » (boutons sur candidats `traite`, préservation `candidat_id` au switch template, `orderEnabled` false par défaut), sections en dropdown, autofill téléphone, sync cross-key, undo/redo wizard, upload pièce jointe via `uploadToSignedUrl` (raw PUT rejeté), `wizardHidden`, champ lien, bucket `talentflow-sign` `allowed_mime_types` élargi (`image/*` + office).

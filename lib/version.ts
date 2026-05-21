@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.31'
+export const APP_VERSION = '2.9.32'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.32 — Envoi en masse : retirer les candidats déjà contactés
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.32',
+    date: '2026-05-21',
+    label: 'Envoi en masse (iMessage / WhatsApp) : bouton pour retirer les candidats déjà contactés',
+    features: [
+      'Quand un envoi groupé (iMessage/SMS ou WhatsApp) contient des candidats déjà contactés ces 7 derniers jours, l\'alerte n\'était qu\'informative. Désormais un bouton « Retirer N de la liste » les enlève directement de la sélection en un clic.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.31 — Sign : email unique de finalisation + fix PDF en .txt
   // ─────────────────────────────────────────────────────────────────────

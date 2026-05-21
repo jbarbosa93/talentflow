@@ -3494,6 +3494,14 @@ export default function CandidatsList() {
                     contacts={recentContacts}
                     onContinue={() => setWarningDismissed(true)}
                     onDismiss={() => setWarningDismissed(true)}
+                    onExclude={(ids) => {
+                      setSelectedIds(prev => {
+                        const next = new Set(prev)
+                        ids.forEach(id => next.delete(id))
+                        return next
+                      })
+                      toast.success(`${ids.length} candidat${ids.length > 1 ? 's' : ''} déjà contacté${ids.length > 1 ? 's' : ''} retiré${ids.length > 1 ? 's' : ''} de la liste`)
+                    }}
                   />
                 )}
                 <div>
@@ -3852,6 +3860,14 @@ export default function CandidatsList() {
                     contacts={recentContacts}
                     onContinue={() => setWarningDismissed(true)}
                     onDismiss={() => setWarningDismissed(true)}
+                    onExclude={(ids) => {
+                      setSelectedIds(prev => {
+                        const next = new Set(prev)
+                        ids.forEach(id => next.delete(id))
+                        return next
+                      })
+                      toast.success(`${ids.length} candidat${ids.length > 1 ? 's' : ''} déjà contacté${ids.length > 1 ? 's' : ''} retiré${ids.length > 1 ? 's' : ''} de la liste`)
+                    }}
                   />
                 )}
 
