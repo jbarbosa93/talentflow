@@ -20,7 +20,7 @@ import type {
   SignDocument, SignField, SignAttachmentValue, SignAttachmentFile,
 } from '@/lib/sign/types'
 import {
-  sendSignCompletedEmail, sendSignerSignedNotificationEmail, sendSignUploadedDocsEmail,
+  sendSignCompletedEmail, sendSignerSignedNotificationEmail, sendSignFinalRecapEmail,
 } from '@/lib/sign/send-email'
 import { sendSignCompletedWhatsApp } from '@/lib/sign/send-whatsapp'
 import { generateAndPersistSignedPdfs } from '@/lib/sign/pdf-generator'
@@ -188,20 +188,31 @@ export async function POST(req: NextRequest) {
     const senderInfo = await fetchSenderInfo(supabase, envelope.created_by)
 
     if (weCompletedIt) {
-      // Phase 4b + 4c — Stamp tous les PDFs + envoie copie à tous (best-effort)
-      let signedPdfPaths: { name: string; path: string; sha256: string }[] = []
+      // v2.9.31 — Le créateur reçoit UN SEUL email fusionné (docs signés +
+      // pièces jointes candidat). On l'identifie ici pour l'exclure de l'email
+      // "completed" standard envoyé aux autres destinataires.
+      const creatorEmail = senderInfo.email || process.env.ADMIN_EMAIL || undefined
+
+      // Phase 4b + 4c — Stamp tous les PDFs + envoie copie aux destinataires
+      // (best-effort). Le créateur est exclu : il aura l'email fusionné.
+      let stampResult: {
+        paths: { name: string; path: string; sha256: string }[]
+        signedAttachments: { filename: string; content: string }[]
+      } = { paths: [], signedAttachments: [] }
       try {
-        signedPdfPaths = await stampAllAndSendEmails({
+        stampResult = await stampAllAndSendEmails({
           supabase,
           envelope,
           updatedRecipients,
           tokenObj,
           signedAt: new Date(nowIso),
           signedIp: ip,
+          creatorEmail,
         })
       } catch (e) {
         console.error('[sign/finalize] stamp+email pipeline failed', e)
       }
+      const signedPdfPaths = stampResult.paths
 
       // Phase 4d — WhatsApp completed : envoie lien public à chaque destinataire
       // qui a un phone (signers + cc). Pas de PDF en pièce jointe (lien public seulement).
@@ -214,28 +225,38 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // Phase 4c — Notif email sender (final : "tous ont signé")
-      // v2.8.5 — Skip si le sender est DANS les recipients (il reçoit déjà le
-      // completed email avec PDF en PJ via sendSignCompletedEmail). Évite le
-      // doublon "Toutes les signatures collectées" + "Documents signés".
-      const senderInRecipients = senderInfo.email && updatedRecipients.some(
-        r => r.email.toLowerCase() === senderInfo.email!.toLowerCase(),
-      )
-      if (senderInfo.email && !senderInRecipients) {
-        await sendSenderNotif({
-          envelope,
-          senderEmail: senderInfo.email,
-          signerName: tokenObj.recipient_name,
-          signerEmail: lcEmail,
-          signedAt: new Date(nowIso),
-          nextSignerName: null,
-        })
+      // v2.9.23 — Pièces jointes candidat : on collecte les fichiers chargés
+      // par le candidat + on les classe dans l'onglet Conformité. Best-effort.
+      let uploadResult: {
+        attachments: { filename: string; content: string }[]
+        uploaderName: string
+      } = { attachments: [], uploaderName: 'le candidat' }
+      try {
+        uploadResult = await processCandidateUploads({ supabase, envelope, creatorEmail })
+      } catch (e) {
+        console.error('[sign/finalize] processCandidateUploads échoué', e)
       }
 
-      // v2.9.23 — Pièces jointes candidat : email des fichiers au créateur
-      // (le candidat ne reçoit pas ses propres scans) + écriture dans l'onglet
-      // Conformité de la fiche candidat. Best-effort, ne bloque jamais.
-      await processCandidateUploads({ supabase, envelope, senderInfo })
+      // v2.9.31 — UN SEUL email fusionné au créateur : documents signés +
+      // pièces jointes chargées par le candidat. Remplace les 2 emails séparés
+      // ("Documents signés" + "X documents chargés"). Le candidat, lui, ne
+      // reçoit QUE ses documents signés (jamais ses propres scans).
+      if (creatorEmail) {
+        try {
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
+          await sendSignFinalRecapEmail(creatorEmail, {
+            envelopeTitle: envelope.title,
+            uploaderName: uploadResult.uploaderName,
+            signedCount: stampResult.signedAttachments.length,
+            uploadCount: uploadResult.attachments.length,
+            signedAt: new Date(nowIso),
+            attachments: [...stampResult.signedAttachments, ...uploadResult.attachments],
+            envelopeUrl: `${appUrl}/sign/${envelope.id}`,
+          })
+        } catch (e) {
+          console.warn('[sign/finalize] email récap fusionné échoué', e)
+        }
+      }
 
       await logAuditEvent(envelope.id, 'completed', {
         ip,
@@ -295,16 +316,28 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ─── Phase 4b + 4c — Stamp PDFs + envoie email à tous ──────────────────
+/**
+ * Garantit que le nom de fichier finit par `.pdf`.
+ * v2.9.31 — Sans extension, les clients mail interprètent la pièce jointe
+ * comme un fichier texte (.txt) → le PDF signé s'ouvrait dans TextEdit.
+ */
+function ensurePdfFilename(name: string): string {
+  const n = (name || 'document').trim()
+  return /\.pdf$/i.test(n) ? n : `${n}.pdf`
+}
+
+// ─── Phase 4b + 4c — Stamp PDFs + envoie email aux destinataires ───────────
 //
 // Refacto v2.2.5 : la logique de stamping + persistance est extraite dans
 // lib/sign/pdf-generator.ts (réutilisable par /api/sign/download).
-// Cette fonction se contente de :
-//   1. Appeler generateAndPersistSignedPdfs() → upload + persiste signed_pdf_paths
-//   2. Récupérer infos sender pour l'email
-//   3. Envoyer à tous (signers + cc) + ADMIN_EMAIL avec PDFs en attachement
+// Cette fonction :
+//   1. Appelle generateAndPersistSignedPdfs() → upload + persiste signed_pdf_paths
+//   2. Récupère infos sender pour l'email
+//   3. Envoie à tous les destinataires (signers + cc) SAUF le créateur, qui
+//      reçoit séparément un email fusionné (docs signés + pièces jointes).
 //
-// Retourne les paths persistés (utilisés pour le metadata de l'audit log).
+// Retourne les paths persistés (audit log) + les pièces jointes base64 des
+// documents signés (réutilisées pour l'email fusionné du créateur).
 async function stampAllAndSendEmails(args: {
   supabase: ReturnType<typeof createAdminClient>
   envelope: SignEnvelope
@@ -312,8 +345,13 @@ async function stampAllAndSendEmails(args: {
   tokenObj: SignToken
   signedAt: Date
   signedIp: string | null
-}): Promise<{ name: string; path: string; sha256: string }[]> {
-  const { supabase, envelope, updatedRecipients, signedAt, signedIp } = args
+  /** Email du créateur — exclu de l'envoi (il reçoit l'email fusionné) */
+  creatorEmail?: string
+}): Promise<{
+  paths: { name: string; path: string; sha256: string }[]
+  signedAttachments: { filename: string; content: string }[]
+}> {
+  const { supabase, envelope, updatedRecipients, signedAt, signedIp, creatorEmail } = args
 
   // 1. Stamp + upload + persiste signed_pdf_paths
   const result = await generateAndPersistSignedPdfs({
@@ -325,7 +363,7 @@ async function stampAllAndSendEmails(args: {
   const stampedDocs = result.docs
   if (stampedDocs.length === 0) {
     console.warn('[sign/finalize] aucun PDF stampé')
-    return []
+    return { paths: [], signedAttachments: [] }
   }
 
   // 2. Récupère le sender (créateur de l'enveloppe) pour l'email
@@ -368,14 +406,20 @@ async function stampAllAndSendEmails(args: {
   // Il reste accessible UNIQUEMENT via la page détail enveloppe /sign/[id] pour
   // download par le créateur / admin L-Agence si besoin (audit, archive).
   // Avant : tous recevaient contrat + certificat → pollution boîtes candidats.
-  const attachments = stampedDocs
+  // v2.9.31 — ensurePdfFilename : le nom de doc n'a pas toujours l'extension
+  // `.pdf` → sans elle, la PJ s'ouvrait comme un fichier texte.
+  const signedAttachments = stampedDocs
     .filter(d => !d.name.startsWith('Certificat de signature'))
     .map(d => ({
-      filename: d.name,
+      filename: ensurePdfFilename(d.name),
       content: d.pdfBase64,
     }))
 
+  // v2.9.31 — Le créateur ne reçoit PAS cet email "completed" : il recevra un
+  // email fusionné unique (docs signés + pièces jointes candidat).
+  const creatorNorm = normalizeEmail(creatorEmail || '')
   for (const rec of recipients) {
+    if (creatorNorm && normalizeEmail(rec.email) === creatorNorm) continue
     try {
       await sendSignCompletedEmail(rec.email, {
         recipientName: rec.name,
@@ -383,14 +427,17 @@ async function stampAllAndSendEmails(args: {
         senderName,
         senderEmail,
         signedAt,
-        attachments,
+        attachments: signedAttachments,
       })
     } catch (e) {
       console.warn('[sign/finalize] email failed for', rec.email, e)
     }
   }
 
-  return stampedDocs.map(d => ({ name: d.name, path: d.path, sha256: d.sha256 }))
+  return {
+    paths: stampedDocs.map(d => ({ name: d.name, path: d.path, sha256: d.sha256 })),
+    signedAttachments,
+  }
 }
 
 // ─── Helpers internes ─────────────────────────────────────────────────────
@@ -461,20 +508,24 @@ async function sendSenderNotif(args: {
   }
 }
 
-// ─── v2.9.23 — Pièces jointes candidat → email créateur + Conformité ───────
+// ─── v2.9.23 — Pièces jointes candidat → Conformité + retour pour email ────
 //
 // À la finalisation : on collecte les fichiers chargés par le candidat dans les
-// champs `attachment`, on les envoie au CRÉATEUR (jamais au candidat), et si
-// l'enveloppe est liée à un candidat, on les classe dans l'onglet Conformité de
-// sa fiche (sauf les champs marqués « ne pas ajouter », ex : le CV).
+// champs `attachment`, on les classe dans l'onglet Conformité de sa fiche (si
+// l'enveloppe est liée à un candidat, sauf champs « ne pas ajouter » ex : CV),
+// et on RETOURNE les pièces jointes (base64) pour l'email fusionné du créateur.
+// v2.9.31 — Cette fonction n'envoie plus d'email : le créateur reçoit un seul
+// email fusionné (docs signés + pièces jointes) géré par le bloc finalize.
 async function processCandidateUploads(args: {
   supabase: ReturnType<typeof createAdminClient>
   envelope: SignEnvelope
-  senderInfo: { name: string; email?: string }
-}): Promise<void> {
-  const { supabase, envelope, senderInfo } = args
+  /** Email du créateur — sert à identifier le VRAI candidat ayant chargé */
+  creatorEmail?: string
+}): Promise<{ attachments: { filename: string; content: string }[]; uploaderName: string }> {
+  const { supabase, envelope, creatorEmail } = args
+  const empty = { attachments: [] as { filename: string; content: string }[], uploaderName: 'le candidat' }
   try {
-    if (!envelope.template_id) return
+    if (!envelope.template_id) return empty
 
     // 1. Champs `attachment` du template
     const { data: tpl } = await supabase
@@ -489,32 +540,51 @@ async function processCandidateUploads(args: {
         if (f.type === 'attachment') attachmentFields.push(f)
       }
     }
-    if (attachmentFields.length === 0) return
+    if (attachmentFields.length === 0) return empty
 
     // 2. field_values de tous les tokens de l'enveloppe
     const { data: tokRows } = await supabase
       .from('sign_tokens' as any)
-      .select('field_values, recipient_name')
+      .select('field_values, recipient_name, recipient_email')
       .eq('envelope_id', envelope.id)
     const tokens = (tokRows || []) as unknown as Array<{
       field_values: Record<string, unknown> | null
       recipient_name: string | null
+      recipient_email: string | null
     }>
 
-    // 3. Collecte des fichiers chargés par champ
+    // 3. Collecte des fichiers chargés par champ.
+    // v2.9.31 — DÉDUP : la valeur d'un champ pièce jointe est recopiée sur
+    // PLUSIEURS tokens (le candidat la remplit, puis le consultant la voit en
+    // « valeur précédente » et son token la réenregistre). On dédup par chemin
+    // de fichier → chaque fichier n'apparaît qu'une fois. On traite d'abord
+    // les tokens NON-créateur pour que `uploaderName` soit le vrai candidat.
+    const creatorNorm = (creatorEmail || '').toLowerCase().trim()
+    const orderedTokens = [...tokens].sort((a, b) => {
+      const aC = (a.recipient_email || '').toLowerCase().trim() === creatorNorm ? 1 : 0
+      const bC = (b.recipient_email || '').toLowerCase().trim() === creatorNorm ? 1 : 0
+      return aC - bC
+    })
     type Collected = { field: SignField; files: SignAttachmentFile[]; uploaderName: string }
     const collected: Collected[] = []
     for (const af of attachmentFields) {
-      for (const tok of tokens) {
+      const seenPaths = new Set<string>()
+      const files: SignAttachmentFile[] = []
+      let uploaderName = ''
+      for (const tok of orderedTokens) {
         const v = (tok.field_values || {})[af.id] as SignAttachmentValue | undefined
-        const files = (v?.files || []).filter(f => f && typeof f.path === 'string')
-        if (files.length > 0) {
-          collected.push({ field: af, files, uploaderName: tok.recipient_name || 'le candidat' })
+        for (const f of (v?.files || [])) {
+          if (!f || typeof f.path !== 'string' || seenPaths.has(f.path)) continue
+          seenPaths.add(f.path)
+          files.push(f)
+          if (!uploaderName && tok.recipient_name) uploaderName = tok.recipient_name
         }
       }
+      if (files.length > 0) {
+        collected.push({ field: af, files, uploaderName: uploaderName || 'le candidat' })
+      }
     }
-    const allFiles = collected.flatMap(c => c.files)
-    if (allFiles.length === 0) return
+    if (collected.length === 0) return empty
 
     // Cache de téléchargement (un fichier peut servir email + Conformité)
     const blobCache = new Map<string, Blob>()
@@ -529,63 +599,62 @@ async function processCandidateUploads(args: {
         return null
       }
     }
+    // Nom de fichier propre basé sur le champ (ex: « CV.pdf », « Permis (2).jpg »).
+    const extOf = (name: string | undefined): string => {
+      const m = (name || '').match(/\.([a-z0-9]{1,5})$/i)
+      return m ? m[1].toLowerCase() : 'jpg'
+    }
+    const namedFile = (base: string, original: string | undefined, idx: number): string =>
+      idx > 0 ? `${base} (${idx}).${extOf(original)}` : `${base}.${extOf(original)}`
 
-    // 4. Email au créateur avec les fichiers en pièces jointes.
+    // 4. Construit les pièces jointes pour l'email fusionné du créateur.
     // v2.9.25 — Les images JPEG/PNG d'un MÊME champ (recto + verso) sont
-    // assemblées en UN seul PDF A4 « type scan » (recto en haut / verso en bas).
-    const recipientEmail = senderInfo.email || process.env.ADMIN_EMAIL
-    if (recipientEmail) {
-      try {
-        const attachments: { filename: string; content: string }[] = []
-        const pushRaw = async (f: SignAttachmentFile, fallback: string) => {
-          const blob = await fetchBlob(f.path)
-          if (blob) attachments.push({
-            filename: f.name || fallback,
-            content: Buffer.from(await blob.arrayBuffer()).toString('base64'),
-          })
-        }
-        for (const c of collected) {
-          const imgFiles = c.files.filter(f => isComposableImage(f.mimeType, f.name))
-          const otherFiles = c.files.filter(f => !isComposableImage(f.mimeType, f.name))
-          const baseName = ((c.field.tooltip || c.field.label || 'Document')
-            .replace(/[^\w\s.-]+/g, ' ').trim() || 'Document').slice(0, 80)
+    // assemblées en UN seul PDF A4 « type scan ». v2.9.31 — Inclut le cas
+    // 1 seule image (CV photo → CV.pdf) + nom de fichier basé sur le champ.
+    const attachments: { filename: string; content: string }[] = []
+    for (const c of collected) {
+      const imgFiles = c.files.filter(f => isComposableImage(f.mimeType, f.name))
+      const otherFiles = c.files.filter(f => !isComposableImage(f.mimeType, f.name))
+      const baseName = ((c.field.tooltip || c.field.label || 'Document')
+        .replace(/[^\w\s.-]+/g, ' ').trim() || 'Document').slice(0, 80)
 
-          // ≥ 2 images → 1 PDF A4 combiné (recto/verso). Sinon → fichier brut.
-          if (imgFiles.length >= 2) {
-            const composable: ComposableImage[] = []
-            for (const f of imgFiles) {
-              const blob = await fetchBlob(f.path)
-              if (!blob) continue
-              composable.push({
-                buffer: Buffer.from(await blob.arrayBuffer()),
-                mimeType: f.mimeType || blob.type || '',
-                name: f.name || 'image',
-              })
-            }
-            const composed = composable.length >= 2 ? await composeImagesToPdf(composable) : null
-            if (composed) {
-              attachments.push({ filename: `${baseName}.pdf`, content: composed.toString('base64') })
-            } else {
-              for (const f of imgFiles) await pushRaw(f, 'image')
-            }
-          } else {
-            for (const f of imgFiles) await pushRaw(f, 'image')
-          }
-          // Fichiers non composables (PDF, webp, heic…) → bruts
-          for (const f of otherFiles) await pushRaw(f, 'document')
-        }
-        if (attachments.length > 0) {
-          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
-          await sendSignUploadedDocsEmail(recipientEmail, {
-            envelopeTitle: envelope.title,
-            uploaderName: collected[0]?.uploaderName || 'le candidat',
-            fileCount: attachments.length,
-            attachments,
-            envelopeUrl: `${appUrl}/sign/${envelope.id}`,
+      // ≥ 1 image → 1 PDF A4 nommé d'après le champ. Sinon → fichiers bruts.
+      if (imgFiles.length >= 1) {
+        const composable: ComposableImage[] = []
+        for (const f of imgFiles) {
+          const blob = await fetchBlob(f.path)
+          if (!blob) continue
+          composable.push({
+            buffer: Buffer.from(await blob.arrayBuffer()),
+            mimeType: f.mimeType || blob.type || '',
+            name: f.name || 'image',
           })
         }
-      } catch (e) {
-        console.warn('[finalize] email pièces jointes au créateur échoué', e)
+        const composed = composable.length >= 1 ? await composeImagesToPdf(composable) : null
+        if (composed) {
+          attachments.push({ filename: `${baseName}.pdf`, content: composed.toString('base64') })
+        } else {
+          // Composition échouée → fichiers bruts, nommés d'après le champ
+          let idx = 1
+          for (const f of imgFiles) {
+            const blob = await fetchBlob(f.path)
+            if (!blob) continue
+            attachments.push({
+              filename: namedFile(baseName, f.name, imgFiles.length > 1 ? idx++ : 0),
+              content: Buffer.from(await blob.arrayBuffer()).toString('base64'),
+            })
+          }
+        }
+      }
+      // Fichiers non composables (PDF, webp, heic…) → bruts, nommés d'après le champ
+      let oIdx = 1
+      for (const f of otherFiles) {
+        const blob = await fetchBlob(f.path)
+        if (!blob) continue
+        attachments.push({
+          filename: namedFile(baseName, f.name, otherFiles.length > 1 ? oIdx++ : 0),
+          content: Buffer.from(await blob.arrayBuffer()).toString('base64'),
+        })
       }
     }
 
@@ -609,8 +678,11 @@ async function processCandidateUploads(args: {
         }
       }
     }
+
+    return { attachments, uploaderName: collected[0]?.uploaderName || 'le candidat' }
   } catch (e) {
     console.error('[sign/finalize] processCandidateUploads échoué (non-bloquant)', e)
+    return empty
   }
 }
 

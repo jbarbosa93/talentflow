@@ -499,3 +499,131 @@ export async function sendSignUploadedDocsEmail(
     return { ok: false, error: msg }
   }
 }
+
+// ─── v2.9.31 — Email récap final fusionné (créateur uniquement) ────────────
+//
+// À la finalisation, le créateur de l'enveloppe reçoit UN SEUL email :
+//   - les documents signés (PDF originaux remplis + signés)
+//   - les pièces jointes chargées par le candidat (CI, permis…) si présentes
+// Design = template « documents chargés » (logo L-Agence, carte blanche).
+// Le candidat ne reçoit JAMAIS les pièces jointes qu'il a lui-même scannées :
+// il reçoit son propre email de confirmation (sendSignCompletedEmail).
+export interface SignFinalRecapEmailParams {
+  envelopeTitle: string
+  /** Nom du candidat qui a chargé des pièces jointes */
+  uploaderName: string
+  /** Nombre de documents signés en pièce jointe */
+  signedCount: number
+  /** Nombre de pièces jointes chargées par le candidat */
+  uploadCount: number
+  signedAt: Date
+  /** Toutes les pièces jointes (docs signés + uploads candidat), filename + base64 */
+  attachments: { filename: string; content: string }[]
+  envelopeUrl: string
+}
+
+export async function sendSignFinalRecapEmail(
+  to: string,
+  params: SignFinalRecapEmailParams,
+): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
+  if (!to) return { ok: false, error: 'destinataire vide' }
+
+  const dateStr = params.signedAt.toLocaleDateString('fr-CH', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  })
+  const timeStr = params.signedAt.toLocaleTimeString('fr-CH', {
+    hour: '2-digit', minute: '2-digit',
+  })
+  const sCount = params.signedCount
+  const uCount = params.uploadCount
+  const signedNoun = sCount > 1 ? 'documents signés' : 'document signé'
+  const subject = uCount > 0
+    ? `Documents signés + pièces jointes — ${params.envelopeTitle}`
+    : `${sCount > 1 ? 'Documents signés' : 'Document signé'} — ${params.envelopeTitle}`
+
+  const uploadsBlock = uCount > 0
+    ? `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 10px;">
+        <strong>${escapeHtml(params.uploaderName)}</strong> a également chargé ${uCount} pièce${uCount > 1 ? 's' : ''} jointe${uCount > 1 ? 's' : ''}
+        (carte d'identité, permis, etc.) — ${uCount > 1 ? 'elles sont jointes' : 'elle est jointe'} à cet email.
+      </p>
+      <p style="font-size:12.5px;color:#6B7280;line-height:1.55;margin:0 0 18px;">
+        Ces pièces jointes ne sont PAS renvoyées au candidat — seul vous les recevez.
+      </p>`
+    : ''
+
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" width="200" style="height:42px;width:200px;object-fit:contain;" alt="L-Agence">
+    </div>
+    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:26px 24px;box-shadow:0 4px 16px rgba(0,0,0,0.04);">
+      <div style="display:inline-block;background:#D1FAE5;color:#059669;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px;">
+        ✓ Signé électroniquement
+      </div>
+      <h1 style="font-family:Georgia,serif;font-size:21px;font-weight:400;color:#1C1A14;margin:0 0 12px;">
+        « ${escapeHtml(params.envelopeTitle)} » — signé
+      </h1>
+      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 ${uCount > 0 ? '14' : '18'}px;">
+        Tous les destinataires ont signé. Vous trouverez ci-joint ${sCount} ${signedNoun} (PDF originaux remplis et signés).
+      </p>
+      ${uploadsBlock}
+      <div style="background:#FAFAF7;border:1px solid #E5E7EB;border-radius:10px;padding:14px 16px;margin:0 0 20px;">
+        <div style="font-size:11px;color:#6B7280;letter-spacing:0.05em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Détails</div>
+        <div style="font-size:13px;color:#1C1A14;line-height:1.7;">
+          <strong>Enveloppe :</strong> ${escapeHtml(params.envelopeTitle)}<br>
+          <strong>Complétée le :</strong> ${dateStr} à ${timeStr}<br>
+          <strong>Pièces jointes :</strong> ${params.attachments.length}
+        </div>
+      </div>
+      <a href="${params.envelopeUrl}" style="display:inline-block;background:#1C1A14;color:#EAB308;text-decoration:none;font-weight:700;font-size:14px;padding:11px 20px;border-radius:9px;">
+        Voir l'enveloppe
+      </a>
+    </div>
+    <p style="text-align:center;font-size:11px;color:#9CA3AF;margin-top:18px;">
+      Notification automatique TalentFlow Sign
+    </p>
+  </div>
+</body></html>`
+
+  const text = [
+    `« ${params.envelopeTitle} » — signé`,
+    '',
+    `Tous les destinataires ont signé. ${sCount} ${signedNoun} en pièce jointe (PDF originaux remplis et signés).`,
+    uCount > 0
+      ? `${params.uploaderName} a également chargé ${uCount} pièce${uCount > 1 ? 's' : ''} jointe${uCount > 1 ? 's' : ''} — jointe${uCount > 1 ? 's' : ''} à cet email. Ces fichiers ne sont pas renvoyés au candidat.`
+      : '',
+    '',
+    `Complétée le : ${dateStr} à ${timeStr}`,
+    `Voir l'enveloppe : ${params.envelopeUrl}`,
+  ].filter(Boolean).join('\n')
+
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: FROM_DEFAULT,
+        to: [to],
+        subject,
+        html,
+        text,
+        attachments: params.attachments,
+      }),
+    })
+    if (!r.ok) {
+      const err = await r.text()
+      console.error('[sign/send-email] Resend final-recap error', r.status, err)
+      return { ok: false, error: `Resend ${r.status}: ${err.slice(0, 200)}` }
+    }
+    const data = await r.json() as { id?: string }
+    return { ok: true, id: data.id }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Erreur réseau'
+    console.error('[sign/send-email] final-recap exception', e)
+    return { ok: false, error: msg }
+  }
+}

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.30'
+export const APP_VERSION = '2.9.31'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.31 — Sign : email unique de finalisation + fix PDF en .txt
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.31',
+    date: '2026-05-21',
+    label: 'Sign : un seul email à la finalisation + corrections pièces jointes candidat',
+    features: [
+      'EMAIL FUSIONNÉ — À la fin d\'une signature, vous receviez 2 emails séparés (un avec les documents signés, un avec les pièces jointes chargées par le candidat). Désormais un SEUL email regroupe tout : documents signés + pièces jointes du candidat, avec le bon design L-Agence.',
+      'FIX .TXT — Les documents signés arrivaient en pièce jointe comme des fichiers texte (s\'ouvraient dans TextEdit au lieu d\'un lecteur PDF). Cause : le nom de fichier n\'avait pas l\'extension « .pdf ». Désormais chaque PDF signé porte bien l\'extension .pdf.',
+      'FIX DOUBLON — Chaque pièce jointe du candidat était envoyée en double (ex : 2× « Permis de travail.pdf » identiques). Corrigé : chaque document n\'apparaît plus qu\'une seule fois.',
+      'FIX ROTATION — Les photos prises au téléphone (carte d\'identité, permis) arrivaient tournées sur le côté. L\'orientation de la photo est désormais corrigée automatiquement.',
+      'FIX NOM DE FICHIER — Les pièces jointes (CV, permis…) sont maintenant nommées d\'après le champ du formulaire (« CV.pdf », « Permis de travail.pdf ») au lieu de « image.jpg ». Une photo seule est aussi convertie en PDF.',
+      'Le candidat ne reçoit toujours QUE ses documents signés — jamais les pièces jointes (carte d\'identité, permis…) qu\'il a lui-même scannées.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.30 — Sign : fix signature consultant (voyait les champs du candidat)
   // ─────────────────────────────────────────────────────────────────────
