@@ -26,10 +26,10 @@ export const metadata: Metadata = {
     title: 'TalentFlow Rapport',
     statusBarStyle: 'default',
   },
-  // v2.3.x Bug 5+6 — Favicon + og:image L-Agence (au lieu du défaut Vercel)
+  // v2.9.37 — Favicon + icône PWA dédiés « TalentFlow Rapport » (éclair + document)
   icons: {
-    icon: '/icon.svg',
-    apple: '/icon-192.png',
+    icon: '/report-icon.svg',
+    apple: '/report-icon-192.png',
   },
   openGraph: {
     title: 'Rapport hebdomadaire — L-Agence SA',

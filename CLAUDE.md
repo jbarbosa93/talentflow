@@ -115,7 +115,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.9.36 (PWA rapport : page d'entrée résout connexion/rapport)** — 21/05/2026
+**v2.9.37 (PWA Rapport : icône dédiée éclair + document)** — 21/05/2026
 
 ### v2.9.32 → v2.9.35
 - **v2.9.32** : alerte « déjà contactés ces 7 derniers jours » (modals iMessage/SMS + WhatsApp) — nouveau bouton « Retirer N de la liste » qui enlève ces candidats de `selectedIds`. `RecentContactsWarning` gagne une prop `onExclude?`.

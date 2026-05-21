@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#1C1A14"/>
+  <!-- Éclair TalentFlow, légèrement réduit et remonté -->
+  <g transform="translate(6 -10) scale(0.82)">
+    <path d="M288 48L112 272h144l-32 192 176-224H256z" fill="#F7C948"/>
+  </g>
+  <!-- Document / rapport (coin bas-droit) -->
+  <rect x="300" y="292" width="156" height="170" rx="20" fill="#FAFAF7"/>
+  <rect x="324" y="330" width="108" height="14" rx="7" fill="#C9C7C0"/>
+  <rect x="324" y="366" width="108" height="14" rx="7" fill="#C9C7C0"/>
+  <rect x="324" y="402" width="70" height="14" rx="7" fill="#C9C7C0"/>
+</svg>

@@ -60,7 +60,7 @@ export default function ReportEntryPage() {
       }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/icon-192.png"
+          src="/report-icon-192.png"
           alt="TalentFlow Rapport"
           width={56}
           height={56}
