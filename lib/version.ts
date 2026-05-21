@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.29'
+export const APP_VERSION = '2.9.30'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.30 — Sign : fix signature consultant (voyait les champs du candidat)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.30',
+    date: '2026-05-21',
+    label: 'Sign : correction — le consultant voyait la signature du candidat au lieu de la sienne',
+    features: [
+      'Quand le consultant ouvrait son lien, il voyait le champ de signature DU CANDIDAT à signer (alors que le candidat avait déjà signé), et son propre champ restait masqué. Cause : l\'affichage du document utilisait l\'ordre brut du destinataire au lieu de l\'ordre réconcilié avec le template (les 2 ne coïncidaient pas — pattern #71).',
+      'Désormais : la signature du candidat s\'affiche bien comme « signée » (lecture seule), et le consultant ne voit que SON champ de signature à remplir.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.29 — Sign : pièce jointe accepte tous les types d'image
   // ─────────────────────────────────────────────────────────────────────

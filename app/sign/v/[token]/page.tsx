@@ -1307,7 +1307,13 @@ export default function PublicSignPage({ params }: PageProps) {
                   autoFill={autoFill}
                   currentFieldId={currentFieldId}
                   registerFieldEl={registerFieldEl}
-                  currentRecipientOrder={recipientOrder}
+                  // v2.9.30 — effectiveRecipientOrder (ordre RÉCONCILIÉ template),
+                  // PAS recipientOrder brut. Sinon le consultant (order brut 1)
+                  // voyait les champs du candidat (template order 1) comme les
+                  // siens, et son propre champ (order 2) restait masqué. Tous les
+                  // autres calculs (canFinalize, nextFieldsQueue…) utilisaient déjà
+                  // effectiveRecipientOrder — seul ce composant était resté en brut.
+                  currentRecipientOrder={effectiveRecipientOrder}
                   previousSignerNames={data?.previousSignerNames}
                   token={token}
                 />
