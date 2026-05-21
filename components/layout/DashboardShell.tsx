@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
+import MobileBottomNav from './MobileBottomNav'
+import MobileInstallPrompt from './MobileInstallPrompt'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import RealtimeBridge from '@/components/RealtimeBridge'
 import WelcomeV2Modal from '@/components/WelcomeV2Modal'
@@ -75,7 +77,10 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* v1.9.84 — ReminderPopup bottom-right retiré (remplacé par la cloche TopBar unifiée) */}
+      {/* v2.9.38 — PWA mobile : barre de navigation basse + bandeau d'installation
+          (visibles uniquement sur mobile, gérés en CSS / détection device) */}
+      <MobileBottomNav />
+      <MobileInstallPrompt />
     </>
   )
 }

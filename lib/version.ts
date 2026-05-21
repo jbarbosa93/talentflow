@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.37'
+export const APP_VERSION = '2.9.38'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.38 — TalentFlow Mobile (PWA consultant) — Phase 1
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.38',
+    date: '2026-05-21',
+    label: 'TalentFlow Mobile : app installable + barre de navigation (Phase 1)',
+    features: [
+      'TalentFlow est désormais installable comme une application sur ton téléphone (bandeau d\'installation sur le tableau de bord — bouton Android / tuto iPhone).',
+      'Nouvelle barre de navigation basse sur mobile : Accueil · Candidats · Clients · Missions · Signatures · Rapports — accès direct façon app.',
+      'Phase 1 : l\'app est installable et navigable. L\'optimisation mobile détaillée de chaque page suivra (Phase 2).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.37 — PWA Rapport : icône dédiée (éclair + document)
   // ─────────────────────────────────────────────────────────────────────

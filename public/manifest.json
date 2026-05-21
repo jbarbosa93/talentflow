@@ -1,8 +1,8 @@
 {
-  "name": "TalentFlow — ATS Recrutement",
+  "name": "TalentFlow",
   "short_name": "TalentFlow",
-  "description": "Gérez vos candidats, offres et entretiens. Analyse IA des CVs et matching automatique.",
-  "start_url": "/",
+  "description": "Candidats, clients, missions, signatures et rapports — votre ATS à portée de main.",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#1C1A14",
   "theme_color": "#F7C948",
