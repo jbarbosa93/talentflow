@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.32'
+export const APP_VERSION = '2.9.33'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.33 — Recherche par rayon : distance routière estimée
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.33',
+    date: '2026-05-21',
+    label: 'Recherche par rayon (Ville & Rayon) : distance routière au lieu du vol d\'oiseau',
+    features: [
+      'La recherche par région calculait la distance à vol d\'oiseau (ligne droite GPS). En Valais, les routes contournent les montagnes → une recherche « Sion 25 km » ramenait des profils en réalité bien plus loin en voiture.',
+      'Désormais un facteur détour routier (×1,35) est appliqué : « Sion 25 km » filtre les candidats réellement à ~25 km par la route, et la distance affichée sur les cartes est une estimation routière.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.32 — Envoi en masse : retirer les candidats déjà contactés
   // ─────────────────────────────────────────────────────────────────────

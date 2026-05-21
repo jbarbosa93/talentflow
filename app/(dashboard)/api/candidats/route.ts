@@ -64,6 +64,13 @@ export async function GET(request: NextRequest) {
       && Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(rayonKm)
       && rayonKm > 0
 
+    // v2.9.33 — Facteur détour routier. La RPC candidats_dans_rayon calcule
+    // une distance À VOL D'OISEAU (haversine). En Valais (vallées encaissées,
+    // montagnes), la distance réelle en voiture dépasse d'environ 35% la ligne
+    // droite. On resserre donc le rayon haversine (rayon / facteur) et on
+    // affiche une distance routière estimée (haversine × facteur).
+    const ROAD_DETOUR_FACTOR = 1.35
+
     if (rayonActive) {
       // 1) Récupérer les IDs candidats matchant les filtres existants (search + colonnes)
       let candidateIds: string[] = []
@@ -124,17 +131,22 @@ export async function GET(request: NextRequest) {
       }
 
       // 2) RPC rayon (sans coords inclus, NULLS LAST, tri distance ASC par défaut)
+      // v2.9.33 — On envoie un rayon haversine resserré (rayon demandé / facteur
+      // détour) : « Sion 25 km en voiture » ≈ « Sion 18,5 km à vol d'oiseau ».
       const rpcRayon = await (supabase.rpc as any)('candidats_dans_rayon', {
         p_lat: lat,
         p_lng: lng,
-        p_rayon_km: rayonKm,
+        p_rayon_km: rayonKm / ROAD_DETOUR_FACTOR,
         p_ids: candidateIds.length > 0 ? candidateIds : null,
       })
       if (rpcRayon.error) {
         return NextResponse.json({ error: rpcRayon.error.message }, { status: 500 })
       }
       const rayonRows = (rpcRayon.data as { id: string; distance_km: number | null }[] | null) || []
-      const distanceMap = new Map(rayonRows.map(r => [r.id, r.distance_km]))
+      // v2.9.33 — Distance affichée = estimation routière (haversine × facteur).
+      const distanceMap = new Map(rayonRows.map(r => [
+        r.id, r.distance_km == null ? null : r.distance_km * ROAD_DETOUR_FACTOR,
+      ]))
 
       // v1.9.121 — Si l'utilisateur veut un tri autre que distance, re-trier les IDs
       // filtrés par rayon selon le critère choisi (date / nom / titre). Sinon on garde
