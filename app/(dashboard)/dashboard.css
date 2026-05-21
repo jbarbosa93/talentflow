@@ -2707,3 +2707,15 @@ aside.d-sidebar .d-nav-link.active {
   .welcome-stat-v2 { flex: 1; }
   .welcome-stat-v2 b { font-size: 26px !important; }
 }
+
+/* ───────────────────────────────────────────────────────────────────────
+   v2.9.41 — Mobile : barre de recherche du header masquée
+   Sur les onglets autres que Candidats, la barre de recherche poussait le
+   profil hors de l'écran. On la masque sur mobile → header propre partout
+   (menu · cloche · profil), comme sur l'onglet Candidats.
+   ─────────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .d-topbar > div[style*="maxWidth: 520"] {
+    display: none !important;
+  }
+}

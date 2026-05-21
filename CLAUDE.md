@@ -115,7 +115,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.9.40 (TalentFlow Mobile Phase 2b : en-tête + accueil)** — 21/05/2026
+**v2.9.41 (TalentFlow Mobile : en-tête propre tous onglets)** — 21/05/2026
 
 ### v2.9.38 → v2.9.39 — TalentFlow Mobile (PWA consultant)
 - **v2.9.38 (Phase 1)** : dashboard installable en app « TalentFlow » — `manifest.json` renommé (name `TalentFlow`, `start_url:/dashboard`), barre de navigation basse (`MobileBottomNav` — 6 sections), bandeau d'installation (`MobileInstallPrompt`, `/dashboard` only). Visible ≤768px (pattern #85).

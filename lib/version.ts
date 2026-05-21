@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.40'
+export const APP_VERSION = '2.9.41'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.41 — TalentFlow Mobile : en-tête propre sur tous les onglets
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.41',
+    date: '2026-05-21',
+    label: 'TalentFlow Mobile : en-tête propre sur tous les onglets',
+    features: [
+      'Sur les onglets autres que Candidats, la barre de recherche de l\'en-tête poussait le profil hors de l\'écran. Elle est masquée sur mobile → en-tête propre partout (menu, notifications, profil).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.40 — TalentFlow Mobile Phase 2b : en-tête + écran d'accueil
   // ─────────────────────────────────────────────────────────────────────
