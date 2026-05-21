@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.34'
+export const APP_VERSION = '2.9.35'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.35 — Portail rapport candidat installable en application (PWA)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.35',
+    date: '2026-05-21',
+    label: 'Portail rapport candidat : installable comme une application (PWA)',
+    features: [
+      'Le portail rapport candidat peut désormais être installé comme une application « TalentFlow Rapport » sur le téléphone du candidat — icône sur l\'écran d\'accueil, ouverture plein écran.',
+      'Un bandeau d\'installation discret apparaît : sur Android, bouton « Installer » en 1 tap ; sur iPhone, un mini-tutoriel illustré (Partager → Sur l\'écran d\'accueil).',
+      'Le portail continue de fonctionner exactement comme avant dans tous les navigateurs — l\'installation est un bonus optionnel.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.34 — Conformité : visionneuse de documents corrigée
   // ─────────────────────────────────────────────────────────────────────

@@ -5,6 +5,8 @@
 import type { Metadata, Viewport } from 'next'
 import { DM_Sans } from 'next/font/google'
 import '../globals.css'
+import ServiceWorkerRegister from '@/components/report/ServiceWorkerRegister'
+import PwaInstallPrompt from '@/components/report/PwaInstallPrompt'
 
 const jakarta = DM_Sans({
   subsets: ['latin'],
@@ -16,6 +18,14 @@ const jakarta = DM_Sans({
 export const metadata: Metadata = {
   title: 'Rapport hebdomadaire — L-Agence SA',
   description: 'Soumettez votre rapport d\'heures hebdomadaire en toute sécurité',
+  // v2.9.35 — PWA portail rapport candidat (« TalentFlow Rapport », installable)
+  applicationName: 'TalentFlow Rapport',
+  manifest: '/report.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'TalentFlow Rapport',
+    statusBarStyle: 'default',
+  },
   // v2.3.x Bug 5+6 — Favicon + og:image L-Agence (au lieu du défaut Vercel)
   icons: {
     icon: '/icon.svg',
@@ -54,10 +64,6 @@ export const viewport: Viewport = {
 export default function ReportPublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <head>
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-      </head>
       <body
         className={jakarta.variable}
         style={{
@@ -70,6 +76,9 @@ export default function ReportPublicLayout({ children }: { children: React.React
         }}
       >
         {children}
+        {/* v2.9.35 — PWA : enregistrement SW + bandeau d'installation */}
+        <ServiceWorkerRegister />
+        <PwaInstallPrompt />
       </body>
     </html>
   )
