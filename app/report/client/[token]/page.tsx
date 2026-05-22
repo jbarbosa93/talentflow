@@ -201,15 +201,28 @@ export default function PublicClientReportPage({
     setSubmitting(true)
     setConfirmOpen(false)
     try {
-      // v2.4.0 — Persiste notes_client juste avant signature si renseignée
-      if (notesClient.trim()) {
-        try {
-          await fetch(`/api/reports/client/${token}/update-fields`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notes_client: notesClient.trim().slice(0, 300) }),
-          })
-        } catch { /* non-bloquant — la signature continue */ }
+      // v2.9.42 — FIX BUG : on persiste les corrections du client (editValues) ET
+      // la note AVANT la signature. Sans ce flush, un client qui modifie les
+      // données puis clique « Valider » sans être passé par « Sauvegarder »
+      // perdait ses corrections — le PDF final était généré depuis les anciennes
+      // valeurs (rapport signé par les 2 parties sans les corrections).
+      const pendingEdits = Object.keys(editValues).length > 0
+      if (pendingEdits || notesClient.trim()) {
+        const payload: Record<string, unknown> = {}
+        if (pendingEdits) payload.fieldValues = editValues
+        if (notesClient.trim()) payload.notes_client = notesClient.trim().slice(0, 300)
+        const rEdit = await fetch(`/api/reports/client/${token}/update-fields`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        // Les corrections sont critiques : si l'enregistrement échoue, on
+        // n'enchaîne PAS sur la signature (sinon corrections perdues à jamais).
+        if (pendingEdits && !rEdit.ok) {
+          const dEdit = await rEdit.json().catch(() => ({}))
+          throw new Error(dEdit.error || 'Échec de l\'enregistrement de vos corrections — réessayez')
+        }
+        if (pendingEdits) { setEditValues({}); setEditMode(false) }
       }
       const r = await fetch(`/api/reports/client/${token}/sign`, {
         method: 'POST',
@@ -435,45 +448,54 @@ export default function PublicClientReportPage({
       {editMode ? (
         <div style={{
           flexShrink: 0,
-          padding: '10px 16px',
+          padding: isMobile ? '12px 14px' : '10px 16px',
           background: '#FEF3C7',
           borderBottom: '1px solid #FDE68A',
           fontSize: 12.5, color: '#92400E',
-          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'center',
+          gap: 10, flexWrap: 'wrap',
         }}>
-          <Edit3 size={14} style={{ flexShrink: 0 }} />
-          <span style={{ flex: 1 }}>
-            <strong>Vous modifiez les données du rapport.</strong>{' '}
-            Les modifications seront incluses dans le PDF final.
+          <span style={{ flex: isMobile ? undefined : 1, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <Edit3 size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span style={{ lineHeight: 1.5 }}>
+              <strong>Vous modifiez les données du rapport.</strong>{' '}
+              Les modifications seront incluses dans le PDF final.
+            </span>
           </span>
-          <div style={{ display: 'inline-flex', gap: 6, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <button
               type="button"
               onClick={handleCancelEdit}
               style={{
-                padding: '5px 10px', fontSize: 12, fontWeight: 600,
+                flex: isMobile ? 1 : undefined,
+                padding: isMobile ? '10px 12px' : '5px 10px',
+                fontSize: isMobile ? 13 : 12, fontWeight: 600,
                 border: '1px solid #D97706', borderRadius: 7,
-                background: 'transparent', color: '#92400E',
+                background: isMobile ? '#fff' : 'transparent', color: '#92400E',
                 cursor: 'pointer', fontFamily: 'inherit',
-                display: 'inline-flex', alignItems: 'center', gap: 4,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
               }}
             >
-              <XIcon size={11} /> Annuler
+              <XIcon size={12} /> Annuler
             </button>
             <button
               type="button"
               onClick={handleSaveEdit}
               disabled={saving}
               style={{
-                padding: '5px 10px', fontSize: 12, fontWeight: 700,
+                flex: isMobile ? 1 : undefined,
+                padding: isMobile ? '10px 12px' : '5px 10px',
+                fontSize: isMobile ? 13 : 12, fontWeight: 700,
                 border: '1px solid #1C1A14', borderRadius: 7,
                 background: '#EAB308', color: '#1C1A14',
                 cursor: saving ? 'wait' : 'pointer', fontFamily: 'inherit',
-                display: 'inline-flex', alignItems: 'center', gap: 4,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                 opacity: saving ? 0.6 : 1,
               }}
             >
-              {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
+              {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
               Sauvegarder
             </button>
           </div>
@@ -481,87 +503,97 @@ export default function PublicClientReportPage({
       ) : (
         <div style={{
           flexShrink: 0,
-          padding: '10px 16px',
+          padding: isMobile ? '12px 14px' : '10px 16px',
           background: '#FEF3C7',
           borderBottom: '1px solid #FDE68A',
           fontSize: 12.5, color: '#A16207',
-          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'center',
+          gap: isMobile ? 10 : 8,
+          flexWrap: isMobile ? 'nowrap' : 'wrap',
         }}>
-          <span style={{ flex: 1, lineHeight: 1.5 }}>
+          <span style={{ flex: isMobile ? undefined : 1, lineHeight: 1.5 }}>
             <strong>{candidateFullName || 'Le collaborateur'}</strong> a soumis son rapport pour la <strong>{data.weekLabel}</strong>.
             Vérifiez puis signez en bas.
           </span>
-          <button
-            type="button"
-            onClick={handleEnterEditMode}
-            style={{
-              flexShrink: 0,
-              padding: '4px 10px', fontSize: 11.5, fontWeight: 600,
-              border: '1px solid #D97706', borderRadius: 7,
-              background: 'transparent', color: '#92400E',
-              cursor: 'pointer', fontFamily: 'inherit',
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-            }}
-          >
-            <Edit3 size={11} /> Modifier les données
-          </button>
-          {/* v2.7.3 — Bouton "Notes/Remarques" : ouvre modal pour saisir des commentaires
-              au candidat + L-Agence. Visible même sans modif des données. */}
-          <button
-            type="button"
-            onClick={() => { setNotesDraft(notesClient); setNotesModalOpen(true) }}
-            style={{
-              flexShrink: 0,
-              padding: '4px 10px', fontSize: 11.5, fontWeight: 600,
-              border: notesClient ? '1.5px solid #2563EB' : '1px solid #93C5FD',
-              borderRadius: 7,
-              background: notesClient ? '#DBEAFE' : 'transparent',
-              color: '#1D4ED8',
-              cursor: 'pointer', fontFamily: 'inherit',
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-            }}
-          >
-            📝 {notesClient ? 'Note ajoutée' : 'Notes / Remarques'}
-          </button>
-          {/* v2.7.3 — Bouton Télécharger le PDF (génère à la volée si pas encore stampé) */}
-          <a
-            href={`/api/reports/client/${token}/download`}
-            style={{
-              flexShrink: 0,
-              padding: '4px 10px', fontSize: 11.5, fontWeight: 600,
-              border: '1px solid #D1D5DB', borderRadius: 7,
-              background: '#fff', color: '#374151', textDecoration: 'none',
-              fontFamily: 'inherit',
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-            }}
-            title="Télécharger le rapport en PDF"
-          >
-            ⬇️ Télécharger
-          </a>
-          {/* v2.7.3 — Bouton WhatsApp : ouvre wa.me/web.whatsapp.com avec le lien
-              du PDF dans le message. Le client choisit le contact, le destinataire
-              clique le lien pour télécharger le PDF. */}
-          <button
-            type="button"
-            onClick={() => {
-              const pdfUrl = `${window.location.origin}/api/reports/client/${token}/download`
-              const candidatLabel = candidateFullName || 'le collaborateur'
-              const msg = `Bonjour,\n\nVoici le rapport d'heures de ${candidatLabel} pour la ${data.weekLabel || ''}.\n\nLien PDF : ${pdfUrl}\n\n— L-Agence SA`
-              const url = `https://wa.me/?text=${encodeURIComponent(msg)}`
-              window.open(url, '_blank', 'noopener,noreferrer')
-            }}
-            style={{
-              flexShrink: 0,
-              padding: '4px 10px', fontSize: 11.5, fontWeight: 600,
-              border: '1.5px solid #25D366', borderRadius: 7,
-              background: '#25D366', color: '#fff',
-              cursor: 'pointer', fontFamily: 'inherit',
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-            }}
-            title="Envoyer le rapport par WhatsApp"
-          >
-            📱 WhatsApp
-          </button>
+          {/* v2.9.42 — Mobile : actions en grille 2 colonnes sous le texte (avant : flexWrap
+              écrasait le texte 1 mot/ligne). Desktop inchangé via display:contents. */}
+          <div style={{
+            display: isMobile ? 'grid' : 'contents',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 8,
+          }}>
+            <button
+              type="button"
+              onClick={handleEnterEditMode}
+              style={{
+                flexShrink: 0,
+                padding: isMobile ? '10px 8px' : '4px 10px',
+                fontSize: isMobile ? 12.5 : 11.5, fontWeight: 600,
+                border: '1px solid #D97706', borderRadius: 7,
+                background: isMobile ? '#fff' : 'transparent', color: '#92400E',
+                cursor: 'pointer', fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+              }}
+            >
+              <Edit3 size={12} /> Modifier les données
+            </button>
+            <button
+              type="button"
+              onClick={() => { setNotesDraft(notesClient); setNotesModalOpen(true) }}
+              style={{
+                flexShrink: 0,
+                padding: isMobile ? '10px 8px' : '4px 10px',
+                fontSize: isMobile ? 12.5 : 11.5, fontWeight: 600,
+                border: notesClient ? '1.5px solid #2563EB' : '1px solid #93C5FD',
+                borderRadius: 7,
+                background: notesClient ? '#DBEAFE' : (isMobile ? '#fff' : 'transparent'),
+                color: '#1D4ED8',
+                cursor: 'pointer', fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+              }}
+            >
+              📝 {notesClient ? 'Note ajoutée' : 'Notes / Remarques'}
+            </button>
+            <a
+              href={`/api/reports/client/${token}/download`}
+              style={{
+                flexShrink: 0,
+                padding: isMobile ? '10px 8px' : '4px 10px',
+                fontSize: isMobile ? 12.5 : 11.5, fontWeight: 600,
+                border: '1px solid #D1D5DB', borderRadius: 7,
+                background: '#fff', color: '#374151', textDecoration: 'none',
+                fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+              }}
+              title="Télécharger le rapport en PDF"
+            >
+              ⬇️ Télécharger
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                const pdfUrl = `${window.location.origin}/api/reports/client/${token}/download`
+                const candidatLabel = candidateFullName || 'le collaborateur'
+                const msg = `Bonjour,\n\nVoici le rapport d'heures de ${candidatLabel} pour la ${data.weekLabel || ''}.\n\nLien PDF : ${pdfUrl}\n\n— L-Agence SA`
+                const url = `https://wa.me/?text=${encodeURIComponent(msg)}`
+                window.open(url, '_blank', 'noopener,noreferrer')
+              }}
+              style={{
+                flexShrink: 0,
+                padding: isMobile ? '10px 8px' : '4px 10px',
+                fontSize: isMobile ? 12.5 : 11.5, fontWeight: 600,
+                border: '1.5px solid #25D366', borderRadius: 7,
+                background: '#25D366', color: '#fff',
+                cursor: 'pointer', fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+              }}
+              title="Envoyer le rapport par WhatsApp"
+            >
+              📱 WhatsApp
+            </button>
+          </div>
         </div>
       )}
 
@@ -674,88 +706,47 @@ export default function PublicClientReportPage({
         ) : null}
       </main>
 
-      {/* v2.4.0 — Panneau finalisation : textarea note client + bouton Valider.
-          Visible mobile ET desktop pour héberger la textarea note client (qui
-          ne tient pas dans le header compact desktop). */}
-      {viewMode === 'document' && (
+      {/* v2.9.42 — Panneau de finalisation mobile : bouton Valider.
+          La note client passe désormais par le bouton bleu « Notes / Remarques »
+          en haut ; l'ancienne case « Ajouter une note » en bas faisait doublon
+          → retirée. Desktop : le bouton Valider est déjà dans le header. */}
+      {viewMode === 'document' && isMobile && (
         <div style={{
           flexShrink: 0,
           padding: '12px 16px',
           paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))',
           background: '#fff',
           borderTop: '1px solid #E5E7EB',
-          display: 'flex', flexDirection: 'column', gap: 10,
+          display: 'flex', flexDirection: 'column', gap: 6,
         }}>
-          <details style={{
-            border: '1px solid #E5E7EB',
-            borderRadius: 10,
-            background: '#FAFAF7',
-          }}>
-            <summary style={{
-              padding: '8px 12px',
-              fontSize: 12.5, fontWeight: 600,
-              color: '#1C1A14', cursor: 'pointer', userSelect: 'none',
+          <button
+            type="button"
+            onClick={handleFinalize}
+            disabled={submitting || !canFinalize}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              width: '100%',
+              padding: '14px 18px',
+              fontSize: 15, fontWeight: 700,
+              border: '1px solid #1C1A14', borderRadius: 10,
+              background: '#EAB308', color: '#1C1A14',
+              cursor: submitting || !canFinalize ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit',
+              opacity: submitting || !canFinalize ? 0.5 : 1,
+              minHeight: 52,
+            }}
+          >
+            {submitting
+              ? <Loader2 size={16} className="animate-spin" />
+              : <CheckCircle2 size={16} />}
+            Valider
+          </button>
+          {!canFinalize && (
+            <div style={{
+              fontSize: 11, color: '#A16207', textAlign: 'center', marginTop: 2,
             }}>
-              📝 Ajouter une note (optionnel) {notesClient ? `(${notesClient.length}/300)` : ''}
-            </summary>
-            <div style={{ padding: '4px 12px 12px' }}>
-              <textarea
-                value={notesClient}
-                onChange={(e) => setNotesClient(e.target.value.slice(0, 300))}
-                placeholder="Commentaire ou correction…"
-                rows={3}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  fontSize: 13.5,
-                  fontFamily: 'inherit',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: 8,
-                  background: '#fff',
-                  color: '#1C1A14',
-                  resize: 'vertical',
-                  minHeight: 60,
-                  boxSizing: 'border-box',
-                }}
-              />
-              <div style={{ marginTop: 4, fontSize: 11, color: '#9CA3AF', textAlign: 'right' }}>
-                {notesClient.length}/300
-              </div>
+              ⚠️ Signez le rapport (cliquez sur le champ Signature dans le document)
             </div>
-          </details>
-
-          {isMobile && (
-            <>
-              <button
-                type="button"
-                onClick={handleFinalize}
-                disabled={submitting || !canFinalize}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  width: '100%',
-                  padding: '14px 18px',
-                  fontSize: 15, fontWeight: 700,
-                  border: '1px solid #1C1A14', borderRadius: 10,
-                  background: '#EAB308', color: '#1C1A14',
-                  cursor: submitting || !canFinalize ? 'not-allowed' : 'pointer',
-                  fontFamily: 'inherit',
-                  opacity: submitting || !canFinalize ? 0.5 : 1,
-                  minHeight: 52,
-                }}
-              >
-                {submitting
-                  ? <Loader2 size={16} className="animate-spin" />
-                  : <CheckCircle2 size={16} />}
-                Valider
-              </button>
-              {!canFinalize && (
-                <div style={{
-                  fontSize: 11, color: '#A16207', textAlign: 'center', marginTop: 2,
-                }}>
-                  ⚠️ Signez le rapport (cliquez sur le champ Signature dans le document)
-                </div>
-              )}
-            </>
           )}
         </div>
       )}

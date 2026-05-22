@@ -24,6 +24,9 @@ export type ReportAuditAction =
   | 'cancelled'
   | 'draft_deleted'
   | 'week_corrected'
+  | 'correction_requested'   // v2.9.42 — admin renvoie le rapport au candidat pour correction
+  | 'submission_deleted'     // v2.9.42 — admin supprime complètement un rapport
+  | 'admin_corrected'        // v2.9.42 — admin corrige lui-même tous les champs du rapport
 
 export type ReportDeliveryChannel = 'email' | 'whatsapp' | 'both'
 

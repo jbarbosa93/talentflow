@@ -512,6 +512,8 @@ export default function ReportLinkDetailPage({
           onCorrected={fetchData}
           clients={linkClients}
           candidatName={link.candidat_name}
+          candidatPhone={link.candidat_phone}
+          candidatEmail={link.candidat_email}
         />
       </div>
 

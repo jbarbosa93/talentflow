@@ -115,7 +115,17 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.9.41 (TalentFlow Mobile : en-tête propre tous onglets)** — 21/05/2026
+**v2.9.42 (Rapports : totaux + gestion correction/suppression)** — 22/05/2026
+
+### v2.9.42 — Rapports : totaux, bug corrections client, boutons Phase B
+- **Totaux** : les formules « Total heures » et « Total repas » du template rapport (`sign_templates` id `289b3bc0`) pointaient vers de mauvais IDs (Samedi oublié + 5-6 références mortes). Corrigées en base → les 3 formules référencent exactement les 6 champs jour ; recalcul live (overlay `PublicFieldsLayer` + PDF `pdf-stamp`). Le « Total déplacement » était déjà correct. Libellés mélangés du template aussi remis d'aplomb.
+- **Bug corrections client** (`app/report/client/[token]/page.tsx`) : en mode « Modifier les données », les modifs n'étaient persistées qu'au clic explicite « Sauvegarder ». Si le client signait sans Sauvegarder → corrections jamais envoyées, PDF final généré depuis les anciennes valeurs. Fix : `doFinalize` flush `editValues` (+ note) via `update-fields` AVANT le POST `/sign`, et **bloque la signature** si l'enregistrement échoue (zéro perte silencieuse).
+- **Vue mobile client** : en-tête jaune responsive (`isMobile` — texte pleine largeur + 4 boutons en grille 2 colonnes via `display:contents` desktop / `grid` mobile), bandeau mode édition responsive, case « Ajouter une note » du bas retirée (doublon du bouton bleu « Notes / Remarques » ; panneau footer devenu `isMobile`-only).
+- **Phase B — 3 boutons sur `/sign/rapports/[id]`** (par submission, dans `SubmissionHistoryTable`) :
+  - 🗑️ **Supprimer** (tous statuts) — `DELETE /api/admin/reports/submissions/[id]` : supprime les PDF Storage + la ligne `report_submissions`, libère la semaine (le candidat peut re-soumettre). Confirmation portalisée.
+  - 🔄 **Renvoyer pour correction** (rapports signés) — `RequestCorrectionModal` + `POST .../request-correction` : raison obligatoire, envoi email et/ou WhatsApp (wa.me deep link), efface les signatures candidat + client, status→`draft`, `field_values` conservés (raison dans `metadata.correction_request`). Le candidat rouvre `/report/{slug}`, corrige et re-signe ; le client re-signe ensuite (flux normal).
+  - ✏️ **Corriger** (rapports signés) — `AdminCorrectModal` (réutilise `DailyReportTable`, enrichi pour le rendu des cases à cocher) + `GET/POST .../admin-correct` : l'admin édite tout (semaine + heures/repas/déplacement), le PDF est régénéré (**signatures conservées** — correction d'autorité), puis le PDF corrigé est envoyé au candidat + au client par email. Remplace l'ancien bouton « Corriger la semaine » (`CorrectWeekModal.tsx` supprimé ; route `correct-week` laissée orpheline inoffensive).
+- 2 emails L-Agence ajoutés dans `lib/report/send-notifications.ts` : `sendCorrectionRequestEmail`, `sendReportCorrectedEmail`. Actions audit `correction_requested` / `submission_deleted` / `admin_corrected` ajoutées à `ReportAuditAction`.
 
 ### v2.9.38 → v2.9.39 — TalentFlow Mobile (PWA consultant)
 - **v2.9.38 (Phase 1)** : dashboard installable en app « TalentFlow » — `manifest.json` renommé (name `TalentFlow`, `start_url:/dashboard`), barre de navigation basse (`MobileBottomNav` — 6 sections), bandeau d'installation (`MobileInstallPrompt`, `/dashboard` only). Visible ≤768px (pattern #85).

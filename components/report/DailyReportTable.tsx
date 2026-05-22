@@ -90,13 +90,18 @@ export default function DailyReportTable({
       .filter((r): r is RowMap => !!r)
   }, [fields])
 
-  // Calcul total par ligne (somme des valeurs numériques des 7 jours)
+  // Calcul total par ligne (somme des valeurs des 7 jours).
+  // v2.9.42 — Les cases à cocher (Repas) comptent 1 si cochées.
   const totalForRow = (row: RowMap): number => {
     let sum = 0
     for (const day of WEEK_DAYS) {
       const f = row.byDay.get(day)
       if (!f) continue
       const v = values[f.id]
+      if (f.type === 'checkbox') {
+        if (v === true || v === 'true') sum += 1
+        continue
+      }
       const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(',', '.'))
       if (Number.isFinite(n)) sum += n
     }
@@ -144,11 +149,30 @@ export default function DailyReportTable({
                     const f = row.byDay.get(day)
                     if (!f) return <td key={day} style={tdEmptyStyle}>—</td>
                     const v = values[f.id]
+                    // v2.9.42 — Champ case à cocher (Repas) → vraie checkbox centrée.
+                    if (f.type === 'checkbox') {
+                      const checked = v === true || v === 'true'
+                      return (
+                        <td key={day} style={{ ...tdStyle, textAlign: 'center', padding: '8px 0' }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={e => onChange(f.id, e.target.checked)}
+                            disabled={!!readOnly}
+                            style={{
+                              width: 18, height: 18,
+                              cursor: readOnly ? 'default' : 'pointer',
+                              accentColor: '#15803D',
+                            }}
+                          />
+                        </td>
+                      )
+                    }
                     const isZero = row.numeric && (v === '' || v === undefined || v === null || Number(String(v).replace(',', '.')) === 0)
                     return (
                       <td key={day} style={tdStyle}>
                         <input
-                          type={row.numeric ? 'text' : 'text'}
+                          type="text"
                           inputMode={row.numeric ? 'decimal' : 'text'}
                           value={v === undefined || v === null ? '' : String(v)}
                           onChange={e => onChange(f.id, e.target.value)}

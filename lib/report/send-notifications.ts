@@ -648,3 +648,152 @@ export async function sendCorrectionEmail(args: {
     attachments: args.attachments,
   })
 }
+
+// ─── 6. Email — demande de correction au candidat (v2.9.42) ──────────
+//
+// Envoyé quand l'admin clique « Renvoyer pour correction » : le rapport
+// repasse en mode modifiable, le candidat doit le corriger puis re-signer.
+
+export async function sendCorrectionRequestEmail(args: {
+  to: string
+  candidateName: string
+  weekLabel: string
+  reason: string
+  /** Lien permanent du candidat (/report/{slug}) */
+  reportUrl: string
+}): Promise<NotifResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
+  if (!args.to) return { ok: false, error: 'destinataire vide' }
+
+  const firstName = getFirstName(args.candidateName)
+  const greeting = firstName ? `Bonjour ${escapeHtml(firstName)},` : 'Bonjour,'
+  const subject = `Correction demandée — votre rapport d'heures ${args.weekLabel}`
+
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence" width="200" style="height:42px;width:auto;display:inline-block;border:0;" />
+      <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Rapport hebdomadaire</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;box-shadow:0 4px 16px rgba(0,0,0,0.04);">
+      <div style="display:inline-block;background:#FED7AA;color:#9A3412;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px;">
+        🔄 Correction demandée
+      </div>
+      <h1 style="font-family:Georgia,serif;font-size:22px;font-weight:400;color:#1C1A14;margin:0 0 14px;line-height:1.25;">
+        ${greeting}
+      </h1>
+      <p style="font-size:14.5px;color:#374151;line-height:1.6;margin:0 0 8px;">
+        Votre rapport d'heures pour la <strong>${escapeHtml(args.weekLabel)}</strong> n'a pas été rempli correctement et doit être corrigé.
+      </p>
+      <div style="background:#FEF3C7;border-left:3px solid #EAB308;border-radius:0 8px 8px 0;padding:12px 14px;margin:16px 0;font-size:13px;color:#92400E;line-height:1.55;">
+        <strong style="color:#78350F;display:block;margin-bottom:4px;">Raison de la correction</strong>
+        ${escapeHtml(args.reason)}
+      </div>
+      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 22px;">
+        Cliquez ci-dessous pour rouvrir votre rapport, le corriger puis le re-signer :
+      </p>
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${args.reportUrl}"
+           style="display:inline-block;background:#EAB308;color:#1C1A14;padding:14px 28px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;border:1px solid #1C1A14;">
+          Corriger mon rapport →
+        </a>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:11px;color:#9CA3AF;margin-top:18px;">
+      L-Agence SA · TalentFlow Rapports
+    </p>
+  </div>
+</body></html>`
+
+  const text = [
+    greeting,
+    '',
+    `Votre rapport d'heures pour la ${args.weekLabel} n'a pas été rempli correctement et doit être corrigé.`,
+    '',
+    `Raison : ${args.reason}`,
+    '',
+    'Corrigez votre rapport puis re-signez-le ici :',
+    args.reportUrl,
+    '',
+    '- L-Agence SA',
+  ].join('\n')
+
+  return await sendResend({ to: args.to, subject, html, text })
+}
+
+// ─── 7. Email — rapport corrigé par l'admin (v2.9.42) ────────────────
+//
+// Envoyé après que l'admin a corrigé lui-même tous les champs d'un rapport.
+// Le PDF corrigé est joint. Audiences : candidat + client.
+
+export async function sendReportCorrectedEmail(args: {
+  to: string
+  audience: 'candidat' | 'client'
+  candidateName: string
+  weekLabel: string
+  reason: string
+  attachments: { filename: string; content: string }[]
+}): Promise<NotifResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
+  if (!args.to) return { ok: false, error: 'destinataire vide' }
+
+  const greeting = args.audience === 'candidat'
+    ? (getFirstName(args.candidateName) ? `Bonjour ${escapeHtml(getFirstName(args.candidateName))},` : 'Bonjour,')
+    : 'Bonjour,'
+  const subject = `🔄 Rapport d'heures corrigé — ${args.candidateName} · ${args.weekLabel}`
+  const intro = args.audience === 'candidat'
+    ? `Votre rapport d'heures pour la <strong>${escapeHtml(args.weekLabel)}</strong> a été corrigé par L-Agence.`
+    : `Le rapport d'heures de <strong>${escapeHtml(args.candidateName)}</strong> pour la <strong>${escapeHtml(args.weekLabel)}</strong> a été corrigé. Le PDF ci-joint <strong>remplace le précédent</strong>.`
+
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence" width="200" style="height:42px;width:auto;display:inline-block;border:0;" />
+      <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Rapport hebdomadaire</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;box-shadow:0 4px 16px rgba(0,0,0,0.04);">
+      <div style="display:inline-block;background:#FED7AA;color:#9A3412;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px;">
+        🔄 Rapport corrigé
+      </div>
+      <h1 style="font-family:Georgia,serif;font-size:22px;font-weight:400;color:#1C1A14;margin:0 0 14px;line-height:1.25;">
+        ${greeting}
+      </h1>
+      <p style="font-size:14.5px;color:#374151;line-height:1.6;margin:0 0 8px;">
+        ${intro}
+      </p>
+      <div style="background:#FEF3C7;border-left:3px solid #EAB308;border-radius:0 8px 8px 0;padding:12px 14px;margin:16px 0;font-size:13px;color:#92400E;line-height:1.55;">
+        <strong style="color:#78350F;display:block;margin-bottom:4px;">Raison de la correction</strong>
+        ${escapeHtml(args.reason)}
+      </div>
+      <p style="font-size:13px;color:#374151;line-height:1.6;margin:18px 0 0;">
+        Le rapport corrigé est joint à cet email.
+      </p>
+    </div>
+    <p style="text-align:center;font-size:11px;color:#9CA3AF;margin-top:18px;">
+      L-Agence SA · TalentFlow Rapports
+    </p>
+  </div>
+</body></html>`
+
+  const text = [
+    greeting.replace(/<[^>]+>/g, ''),
+    '',
+    args.audience === 'candidat'
+      ? `Votre rapport d'heures pour la ${args.weekLabel} a été corrigé par L-Agence.`
+      : `Le rapport d'heures de ${args.candidateName} pour la ${args.weekLabel} a été corrigé.`,
+    '',
+    `Raison : ${args.reason}`,
+    '',
+    'Le rapport corrigé est joint à cet email.',
+    '',
+    '- L-Agence SA',
+  ].join('\n')
+
+  return await sendResend({ to: args.to, subject, html, text, attachments: args.attachments })
+}

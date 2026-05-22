@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.41'
+export const APP_VERSION = '2.9.42'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.42 — Rapports : totaux, bug corrections client, gestion des corrections
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.42',
+    date: '2026-05-22',
+    label: 'Rapports : totaux corrigés + suppression / renvoi / correction des rapports',
+    features: [
+      'TOTAUX — les totaux du rapport (heures, repas, déplacement) ne comptaient pas le samedi et avaient des références cassées. Corrigés : ils suivent les 7 jours et se recalculent dès qu\'une valeur change.',
+      'BUG — quand le client modifiait les données puis signait sans cliquer « Sauvegarder », ses corrections étaient perdues (PDF final avec les anciennes valeurs). La signature enregistre désormais automatiquement les corrections en attente.',
+      'MOBILE — la page de validation client est refondue pour le mobile (en-tête et boutons lisibles). La case « Ajouter une note » du bas, en doublon avec le bouton « Notes / Remarques », a été retirée.',
+      'RAPPORTS — nouveau bouton « Renvoyer pour correction » : renvoie le rapport au candidat (email et/ou WhatsApp) avec une raison ; il le corrige et le re-signe.',
+      'RAPPORTS — nouveau bouton « Corriger » : modifie toi-même tout le rapport (heures, repas, semaine…), puis envoie le PDF corrigé au candidat et au client.',
+      'RAPPORTS — nouveau bouton « Supprimer » : efface complètement un rapport ; la semaine se libère et le candidat peut la re-soumettre.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.41 — TalentFlow Mobile : en-tête propre sur tous les onglets
   // ─────────────────────────────────────────────────────────────────────

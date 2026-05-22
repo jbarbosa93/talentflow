@@ -4,14 +4,16 @@
 'use client'
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { Award, Download, Eye, FileText, Loader2, RotateCcw } from 'lucide-react'
+import { Award, Download, Eye, FileText, Loader2, Pencil, Send, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getWeekDates } from '@/lib/report/week-helpers'
 import { REPORT_STATUS_LABELS, type ReportSubmission, type ReportLinkClient } from '@/lib/report/types'
 import { toWhatsAppSafe } from '@/lib/report/text-format'
 import PdfPreviewModal from './PdfPreviewModal'
-import CorrectWeekModal from './CorrectWeekModal'
+import AdminCorrectModal from './AdminCorrectModal'
+import RequestCorrectionModal from './RequestCorrectionModal'
 
 interface Props {
   submissions: ReportSubmission[]
@@ -35,10 +37,15 @@ interface Props {
   clients?: ReportLinkClient[]
   /** v2.9.2 — Nom du candidat (utilisé dans le message WhatsApp envoyé au client). */
   candidatName?: string | null
+  /** v2.9.42 — Téléphone candidat (E.164) — bouton « Renvoyer pour correction ». */
+  candidatPhone?: string | null
+  /** v2.9.42 — Email candidat — bouton « Renvoyer pour correction ». */
+  candidatEmail?: string | null
 }
 
 export default function SubmissionHistoryTable({
   submissions, onViewPdf, slug, showLinkColumn, linksMeta, onCorrected, clients, candidatName,
+  candidatPhone, candidatEmail,
 }: Props) {
   // v2.3.8 Bug 9b — État loading par submission pour les boutons Télécharger
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
@@ -47,8 +54,13 @@ export default function SubmissionHistoryTable({
     | { url: string; filename: string; title: string }
     | null
   >(null)
-  // v2.6.17 — Modal correction semaine
-  const [correctingSubmission, setCorrectingSubmission] = useState<ReportSubmission | null>(null)
+  // v2.9.42 — Modal « Corriger » (l'admin modifie tout le rapport lui-même)
+  const [adminCorrectSubmission, setAdminCorrectSubmission] = useState<ReportSubmission | null>(null)
+  // v2.9.42 — Modal « Renvoyer pour correction »
+  const [correctionSubmission, setCorrectionSubmission] = useState<ReportSubmission | null>(null)
+  // v2.9.42 — Confirmation de suppression
+  const [deletingSubmission, setDeletingSubmission] = useState<ReportSubmission | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
 
   // v2.3.8 Bug 9b — Construit l'URL download (rapport) pour une submission.
   // v2.3.9 Bug 11c — Ajoute aussi certificateUrl (route dédiée).
@@ -109,6 +121,24 @@ export default function SubmissionHistoryTable({
       toast.error(e.message || 'Erreur téléchargement')
     } finally {
       setDownloadingId(null)
+    }
+  }
+
+  // v2.9.42 — Suppression définitive d'un rapport
+  const handleDelete = async () => {
+    if (!deletingSubmission) return
+    setDeleteBusy(true)
+    try {
+      const r = await fetch(`/api/admin/reports/submissions/${deletingSubmission.id}`, { method: 'DELETE' })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error || 'Erreur suppression')
+      toast.success('Rapport supprimé')
+      setDeletingSubmission(null)
+      onCorrected?.()
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur suppression')
+    } finally {
+      setDeleteBusy(false)
     }
   }
 
@@ -322,21 +352,49 @@ export default function SubmissionHistoryTable({
                           )
                         })()
                       )}
-                      {/* v2.6.17 — Corriger la semaine (admin/consultant). Visible uniquement
-                          si signée par le candidat (status candidate_signed/client_signed/completed). */}
+                      {/* v2.9.42 — Corriger : l'admin modifie tout le rapport lui-même
+                          (heures, repas, semaine…), régénère le PDF et l'envoie corrigé. */}
                       {(s.status === 'completed' || s.status === 'client_signed' || s.status === 'candidate_signed') && (
                         <button
                           type="button"
-                          onClick={() => setCorrectingSubmission(s)}
-                          title="Corriger la semaine (régénère le PDF + email aux 3 destinataires)"
+                          onClick={() => setAdminCorrectSubmission(s)}
+                          title="Corriger le rapport (modifier les heures, repas, semaine…)"
                           style={actionBtnStyle('#F97316')}
                         >
-                          <RotateCcw size={11} />
-                          Corriger semaine
+                          <Pencil size={11} />
+                          Corriger
+                        </button>
+                      )}
+                      {/* v2.9.42 — Renvoyer le rapport au candidat pour qu'il le corrige
+                          lui-même (efface les signatures, le rapport redevient modifiable). */}
+                      {(s.status === 'completed' || s.status === 'client_signed' || s.status === 'candidate_signed') && (
+                        <button
+                          type="button"
+                          onClick={() => setCorrectionSubmission(s)}
+                          title="Renvoyer le rapport au candidat pour correction (efface les signatures)"
+                          style={actionBtnStyle('#2563EB')}
+                        >
+                          <Send size={11} />
+                          Renvoyer pour correction
                         </button>
                       )}
                     </div>
                   )}
+                  {/* v2.9.42 — Supprimer — disponible sur TOUS les rapports (tous statuts) */}
+                  <div style={{
+                    display: 'inline-flex', justifyContent: 'flex-end',
+                    marginTop: (s.status === 'completed' || s.status === 'client_signed' || s.status === 'candidate_signed') && reportUrl(s) ? 6 : 0,
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingSubmission(s)}
+                      title="Supprimer définitivement ce rapport"
+                      style={actionBtnStyle('#DC2626')}
+                    >
+                      <Trash2 size={11} />
+                      Supprimer
+                    </button>
+                  </div>
                   {/* Fallback : ancien callback onViewPdf si parent l'utilise */}
                   {hasPdf && onViewPdf && !slug && !linksMeta?.[s.id]?.slug && (
                     <button
@@ -363,12 +421,84 @@ export default function SubmissionHistoryTable({
         onClose={() => setPreviewState(null)}
       />
     )}
-    {correctingSubmission && (
-      <CorrectWeekModal
-        submission={correctingSubmission}
-        onClose={() => setCorrectingSubmission(null)}
-        onCorrected={() => { onCorrected?.() }}
+    {adminCorrectSubmission && (
+      <AdminCorrectModal
+        submission={adminCorrectSubmission}
+        candidatName={candidatName ?? null}
+        onClose={() => setAdminCorrectSubmission(null)}
+        onDone={() => { onCorrected?.() }}
       />
+    )}
+    {correctionSubmission && (
+      <RequestCorrectionModal
+        submission={correctionSubmission}
+        slug={slug || linksMeta?.[correctionSubmission.id]?.slug || ''}
+        candidatName={candidatName ?? null}
+        candidatPhone={candidatPhone ?? null}
+        candidatEmail={candidatEmail ?? null}
+        onClose={() => setCorrectionSubmission(null)}
+        onDone={() => { onCorrected?.() }}
+      />
+    )}
+    {deletingSubmission && typeof document !== 'undefined' && createPortal(
+      <div
+        onClick={() => { if (!deleteBusy) setDeletingSubmission(null) }}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 9600,
+          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+        }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            width: 'min(440px, 100%)', background: 'var(--card)',
+            border: '1px solid var(--border)', borderRadius: 16, padding: 24,
+            boxShadow: '0 24px 64px rgba(0,0,0,0.30)',
+          }}
+        >
+          <h3 style={{
+            margin: '0 0 8px',
+            fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+            fontSize: 21, fontWeight: 400, color: 'var(--foreground)',
+          }}>
+            Supprimer ce rapport ?
+          </h3>
+          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.55 }}>
+            Le rapport de la <strong>semaine {getWeekDates(deletingSubmission.week_start).weekNumber}</strong> sera
+            définitivement supprimé (portail candidat, portail client et dashboard). La semaine se libère —
+            le candidat pourra la re-soumettre. <strong>Action irréversible.</strong>
+          </p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              type="button" disabled={deleteBusy}
+              onClick={() => setDeletingSubmission(null)}
+              style={{
+                height: 38, padding: '0 14px', border: '1px solid var(--border)',
+                borderRadius: 9, background: 'var(--card)', color: 'var(--foreground)',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Annuler
+            </button>
+            <button
+              type="button" disabled={deleteBusy} onClick={handleDelete}
+              style={{
+                height: 38, padding: '0 16px', border: '1px solid #DC2626',
+                borderRadius: 9, background: '#DC2626', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                opacity: deleteBusy ? 0.6 : 1,
+              }}
+            >
+              {deleteBusy ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              Supprimer définitivement
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
     )}
     </>
   )
