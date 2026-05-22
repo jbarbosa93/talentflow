@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.43'
+export const APP_VERSION = '2.9.44'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.44 — Rapports : champs d'édition alignés sur mobile (page client)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.44',
+    date: '2026-05-22',
+    label: 'Rapports : champs alignés en mode édition sur mobile',
+    features: [
+      'Sur la page de validation client, en mode « Modifier les données » sur mobile, les champs verts (heures, repas, déplacement) débordaient leurs cellules et se chevauchaient. Ils sont désormais alignés proprement dans le tableau du rapport, comme sur ordinateur.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.43 — Rapports : « Corriger » envoie le lien de signature au client
   // ─────────────────────────────────────────────────────────────────────

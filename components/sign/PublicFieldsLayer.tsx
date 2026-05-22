@@ -735,6 +735,13 @@ function FieldInput({
         placeholder={phoneAutoValue || field.defaultValue || ''}
         style={{
           width: '100%', height: '100%',
+          // v2.9.44 — iOS : sans ces 4 props, l'input garde une hauteur minimale
+          // intrinsèque et déborde sa cellule sur les petits champs (rapport mobile).
+          minHeight: 0,
+          boxSizing: 'border-box',
+          WebkitAppearance: 'none',
+          appearance: 'none',
+          margin: 0,
           background: bgColor,
           border: `1px solid ${borderColor}`,
           borderRadius: 2,
