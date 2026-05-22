@@ -15,10 +15,10 @@ import { getReportLinkById } from '@/lib/report/queries'
 import { logReportAudit, extractIp } from '@/lib/report/audit'
 import { recomputeAutoFillDates } from '@/lib/report/correct-week'
 import { generateReportPdf } from '@/lib/report/pdf-generator'
-import { sendReportCorrectedEmail } from '@/lib/report/send-notifications'
+import { sendReportCorrectedEmail, sendClientInviteEmail } from '@/lib/report/send-notifications'
 import { getWeekDates, isoDate, parseIsoDate, getMondayOf } from '@/lib/report/week-helpers'
 import type { SignField } from '@/lib/sign/types'
-import type { ReportSubmission } from '@/lib/report/types'
+import { CLIENT_TOKEN_TTL_MS, type ReportSubmission } from '@/lib/report/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -94,6 +94,8 @@ export async function POST(
   const newWeekStart = String(body.newWeekStart || '').trim()
   const reason = String(body.reason || '').trim()
   const sendEmail = body.sendEmail === true
+  // v2.9.43 — Rapport pas encore signé par le client : envoyer le lien de signature
+  const sendClientSignInvite = body.sendClientSignInvite === true
   if (reason.length < 5) {
     return NextResponse.json({ error: 'Raison trop courte (min 5 caractères)' }, { status: 400 })
   }
@@ -200,7 +202,7 @@ export async function POST(
     metadata: { reason, week_changed: weekChanged, fields_count: Object.keys(fieldValues).length },
   })
 
-  // 7. Emails (best-effort) — PDF corrigé au candidat + au client
+  // 7. Notifications (best-effort)
   const week = getWeekDates(weekStart)
   const candidateName = (link.candidat_name || '').trim()
     || (candidat ? [candidat.prenom, candidat.nom].filter(Boolean).join(' ').trim() : '')
@@ -209,9 +211,22 @@ export async function POST(
     .filter(d => !/certificat/i.test(d.name))
     .map(d => ({ filename: d.name, content: d.pdfBase64 }))
 
+  // Email client : multi-entreprise via report_link_client_id, fallback link.client_email
+  let clientEmail = ''
+  if (submission.report_link_client_id) {
+    const { data: rlc } = await (admin as any)
+      .from('report_link_clients')
+      .select('client_email')
+      .eq('id', submission.report_link_client_id)
+      .maybeSingle()
+    clientEmail = (rlc?.client_email || '').trim()
+  }
+  if (!clientEmail) clientEmail = (link.client_email || '').trim()
+
   const emails: { audience: string; to: string; ok: boolean; error?: string }[] = []
+
+  // 7a. PDF corrigé au candidat + au client (rapports déjà finalisés)
   if (sendEmail) {
-    // Email candidat
     const candidatEmail = (link.candidat_email || '').trim()
     if (candidatEmail) {
       try {
@@ -224,17 +239,6 @@ export async function POST(
         emails.push({ audience: 'candidat', to: candidatEmail, ok: false, error: e instanceof Error ? e.message : 'err' })
       }
     }
-    // Email client (multi-entreprise via report_link_client_id, fallback link.client_email)
-    let clientEmail = ''
-    if (submission.report_link_client_id) {
-      const { data: rlc } = await (admin as any)
-        .from('report_link_clients')
-        .select('client_email')
-        .eq('id', submission.report_link_client_id)
-        .maybeSingle()
-      clientEmail = (rlc?.client_email || '').trim()
-    }
-    if (!clientEmail) clientEmail = (link.client_email || '').trim()
     if (clientEmail) {
       try {
         const r = await sendReportCorrectedEmail({
@@ -248,5 +252,42 @@ export async function POST(
     }
   }
 
-  return NextResponse.json({ ok: true, pdf_count: attachments.length, emails })
+  // 7b. Invitation client à signer le rapport corrigé (rapport pas encore signé par le client)
+  let clientInvite: { ok: boolean; error?: string } | null = null
+  if (sendClientSignInvite) {
+    if (submission.status !== 'candidate_signed') {
+      clientInvite = { ok: false, error: "Le rapport n'est pas en attente de signature client" }
+    } else if (!submission.client_token) {
+      clientInvite = { ok: false, error: 'Aucun lien de signature client sur ce rapport' }
+    } else if (!clientEmail) {
+      clientInvite = { ok: false, error: 'Aucun email client renseigné' }
+    } else {
+      const newExpires = new Date(Date.now() + CLIENT_TOKEN_TTL_MS.remote).toISOString()
+      await (admin as any)
+        .from('report_submissions')
+        .update({ client_token_expires_at: newExpires })
+        .eq('id', id)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://talent-flow.ch'
+      try {
+        const r = await sendClientInviteEmail({
+          to: clientEmail,
+          clientName: link.client_name || clientEmail,
+          clientContactName: link.client_contact_name,
+          candidateName,
+          weekLabel: week.label,
+          signUrl: `${appUrl}/report/client/${submission.client_token}`,
+          expiresAt: newExpires,
+        })
+        clientInvite = { ok: r.ok, error: r.error }
+      } catch (e) {
+        clientInvite = { ok: false, error: e instanceof Error ? e.message : 'err' }
+      }
+      await logReportAudit({
+        submissionId: id, action: 'client_notified', actorEmail, ip,
+        metadata: { source: 'admin_correction' },
+      })
+    }
+  }
+
+  return NextResponse.json({ ok: true, pdf_count: attachments.length, emails, clientInvite })
 }

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.42'
+export const APP_VERSION = '2.9.43'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.43 — Rapports : « Corriger » envoie le lien de signature au client
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.43',
+    date: '2026-05-22',
+    label: 'Rapports : « Corriger » — envoi du lien de signature au client',
+    features: [
+      'CORRIGER — quand tu corriges un rapport que le client n\'a pas encore signé, un bouton « Enregistrer + envoyer au client pour signature » lui envoie directement le lien pour valider et signer la version corrigée. Avant : il recevait seulement le PDF corrigé, sans invitation à signer.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.42 — Rapports : totaux, bug corrections client, gestion des corrections
   // ─────────────────────────────────────────────────────────────────────

@@ -115,7 +115,10 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.9.42 (Rapports : totaux + gestion correction/suppression)** — 22/05/2026
+**v2.9.43 (Rapports : « Corriger » envoie le lien de signature au client)** — 22/05/2026
+
+### v2.9.43 — Rapports : « Corriger » + invitation signature client
+- Suite au test v2.9.42 : « Corriger » sur un rapport `candidate_signed` (client pas encore signé) n'envoyait qu'un PDF « corrigé » au client, sans invitation à signer. `AdminCorrectModal` est désormais conscient du statut (`submission.status === 'candidate_signed'`) : pas de case « PDF corrigé par email », mais 2 boutons — « Enregistrer seulement » et « Enregistrer + envoyer au client pour signature ». Le second rafraîchit `client_token_expires_at` (+7j) et envoie `sendClientInviteEmail` (lien `/report/client/{token}` de la version corrigée). Route `admin-correct` POST : nouveau param `sendClientSignInvite` (section 7b). Rapport `completed` : comportement inchangé (case email → PDF corrigé candidat + client).
 
 ### v2.9.42 — Rapports : totaux, bug corrections client, boutons Phase B
 - **Totaux** : les formules « Total heures » et « Total repas » du template rapport (`sign_templates` id `289b3bc0`) pointaient vers de mauvais IDs (Samedi oublié + 5-6 références mortes). Corrigées en base → les 3 formules référencent exactement les 6 champs jour ; recalcul live (overlay `PublicFieldsLayer` + PDF `pdf-stamp`). Le « Total déplacement » était déjà correct. Libellés mélangés du template aussi remis d'aplomb.

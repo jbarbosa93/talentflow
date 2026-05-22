@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
-import { AlertTriangle, Loader2, Save, X as XIcon } from 'lucide-react'
+import { AlertTriangle, Loader2, Save, Send, X as XIcon } from 'lucide-react'
 import DailyReportTable from './DailyReportTable'
 import { getWeekDates, listRecentWeeks } from '@/lib/report/week-helpers'
 import type { SignField } from '@/lib/sign/types'
@@ -66,7 +66,10 @@ export default function AdminCorrectModal({ submission, candidatName, onClose, o
   const handleChange = (fieldId: string, value: unknown) =>
     setValues(prev => ({ ...prev, [fieldId]: value }))
 
-  const handleSave = async () => {
+  // Le rapport n'est pas encore signé par le client (en attente de sa signature).
+  const clientNotSigned = submission.status === 'candidate_signed'
+
+  const handleSave = async (clientSignInvite = false) => {
     const r = reason.trim()
     if (r.length < 5) { toast.error('Indique une raison de correction (min. 5 caractères)'); return }
     setSaving(true)
@@ -78,16 +81,21 @@ export default function AdminCorrectModal({ submission, candidatName, onClose, o
           fieldValues: values,
           newWeekStart: weekStart !== submission.week_start ? weekStart : undefined,
           reason: r,
-          sendEmail,
+          sendEmail: clientNotSigned ? false : sendEmail,
+          sendClientSignInvite: clientSignInvite,
         }),
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(d.error || 'Erreur')
-      const failed = (d.emails || []).filter((e: any) => !e.ok)
-      if (sendEmail && failed.length > 0) {
-        toast.warning(`Rapport corrigé — ${failed.length} email(s) non envoyé(s)`)
+      if (clientSignInvite) {
+        if (d.clientInvite?.ok) toast.success('Rapport corrigé — lien de signature envoyé au client')
+        else toast.warning(`Rapport corrigé, mais invitation non envoyée : ${d.clientInvite?.error || 'erreur'}`)
+      } else if (!clientNotSigned && sendEmail) {
+        const failed = (d.emails || []).filter((e: any) => !e.ok)
+        if (failed.length > 0) toast.warning(`Rapport corrigé — ${failed.length} email(s) non envoyé(s)`)
+        else toast.success('Rapport corrigé — PDF envoyé par email')
       } else {
-        toast.success(sendEmail ? 'Rapport corrigé — PDF envoyé par email' : 'Rapport corrigé')
+        toast.success('Rapport corrigé')
       }
       onDone()
       onClose()
@@ -212,25 +220,37 @@ export default function AdminCorrectModal({ submission, candidatName, onClose, o
                 {reason.length}/500 — apparaît dans l'email de correction
               </div>
 
-              {/* Option email */}
-              <label
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10, marginTop: 14,
-                  padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
-                  border: `1.5px solid ${sendEmail ? '#EAB308' : '#E5E7EB'}`,
-                  background: sendEmail ? 'rgba(234,179,8,0.10)' : '#fff',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={sendEmail}
-                  onChange={e => setSendEmail(e.target.checked)}
-                  style={{ width: 17, height: 17, accentColor: '#EAB308', cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: 13, color: '#1C1A14' }}>
-                  Envoyer le PDF corrigé par email au candidat <strong>et</strong> au client
-                </span>
-              </label>
+              {/* Option d'envoi — dépend de si le client a déjà signé */}
+              {clientNotSigned ? (
+                <div style={{
+                  display: 'flex', gap: 8, marginTop: 14,
+                  padding: '10px 12px', borderRadius: 10,
+                  background: '#DBEAFE', border: '1px solid #93C5FD',
+                  fontSize: 12.5, color: '#1E40AF', lineHeight: 1.5,
+                }}>
+                  <span style={{ flexShrink: 0 }}>ℹ️</span>
+                  <span>Le client <strong>n'a pas encore signé</strong> ce rapport. Utilise « Envoyer au client pour signature » pour qu'il valide et signe la version corrigée.</span>
+                </div>
+              ) : (
+                <label
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, marginTop: 14,
+                    padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                    border: `1.5px solid ${sendEmail ? '#EAB308' : '#E5E7EB'}`,
+                    background: sendEmail ? 'rgba(234,179,8,0.10)' : '#fff',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={sendEmail}
+                    onChange={e => setSendEmail(e.target.checked)}
+                    style={{ width: 17, height: 17, accentColor: '#EAB308', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 13, color: '#1C1A14' }}>
+                    Envoyer le PDF corrigé par email au candidat <strong>et</strong> au client
+                  </span>
+                </label>
+              )}
 
               {/* Avertissement */}
               <div style={{
@@ -244,17 +264,36 @@ export default function AdminCorrectModal({ submission, candidatName, onClose, o
               </div>
 
               {/* Footer */}
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20, flexWrap: 'wrap' }}>
                 <button type="button" onClick={onClose} disabled={saving} style={secondaryBtn}>
                   Annuler
                 </button>
-                <button
-                  type="button" onClick={handleSave} disabled={saving}
-                  style={{ ...primaryBtn, opacity: saving ? 0.6 : 1 }}
-                >
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  Enregistrer la correction
-                </button>
+                {clientNotSigned ? (
+                  <>
+                    <button
+                      type="button" onClick={() => handleSave(false)} disabled={saving}
+                      style={{ ...secondaryBtn, opacity: saving ? 0.6 : 1 }}
+                    >
+                      {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                      Enregistrer seulement
+                    </button>
+                    <button
+                      type="button" onClick={() => handleSave(true)} disabled={saving}
+                      style={{ ...primaryBtn, opacity: saving ? 0.6 : 1 }}
+                    >
+                      {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                      Enregistrer + envoyer au client pour signature
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button" onClick={() => handleSave(false)} disabled={saving}
+                    style={{ ...primaryBtn, opacity: saving ? 0.6 : 1 }}
+                  >
+                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    Enregistrer la correction
+                  </button>
+                )}
               </div>
             </>
           )}
