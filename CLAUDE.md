@@ -115,7 +115,15 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.9.43 (Rapports : « Corriger » envoie le lien de signature au client)** — 22/05/2026
+**v2.9.45 (Sign : étape d'introduction personnalisable)** — 22/05/2026
+
+### v2.9.45 — Sign : étape d'introduction
+- Nouveau type d'étape `isIntroStep` sur `WizardStep` (`lib/sign/wizard-builder.ts`) avec `introContent: { showLogo, title, subtitle, body, imageUrl }`. Additif — n'affecte pas les étapes existantes.
+- `WizardEditor.tsx` : bouton « + Intro » à côté de « + Étape » ; nouvelle `addIntroStep` qui insère l'étape en tête du rôle actif. `StepDetail` early-return vers un `IntroStepEditor` dédié quand `step.isIntroStep` (panneau simplifié : logo toggle, titre, sous-titre, texte multi-lignes, image). Image compressée côté client via canvas (`compressImageToDataURL` : JPEG max 1200 px, qualité 0.85, stockée en data URL dans `introContent.imageUrl`). Badge `· intro` dans la sidebar.
+- `SignWizard.tsx` (`StepContent`) : rendu d'écran d'intro (logo L-Agence officiel + titre Instrument Serif + sous-titre + image + corps multi-paragraphes). `validateCurrentStep` retourne `true` pour les étapes intro (zéro champ à valider). Navigation Suivant/Précédent normale.
+- v2.9.44 (oubli) : fix mode édition mobile page client — `<input>` débordaient leur cellule sur iOS (hauteur intrinsèque). `PublicFieldsLayer` : `minHeight:0 + boxSizing:border-box + WebkitAppearance/appearance:none + margin:0` → input respecte exactement la taille de la cellule.
+
+### v2.9.43 — Rapports : « Corriger » + invitation signature client
 
 ### v2.9.43 — Rapports : « Corriger » + invitation signature client
 - Suite au test v2.9.42 : « Corriger » sur un rapport `candidate_signed` (client pas encore signé) n'envoyait qu'un PDF « corrigé » au client, sans invitation à signer. `AdminCorrectModal` est désormais conscient du statut (`submission.status === 'candidate_signed'`) : pas de case « PDF corrigé par email », mais 2 boutons — « Enregistrer seulement » et « Enregistrer + envoyer au client pour signature ». Le second rafraîchit `client_token_expires_at` (+7j) et envoie `sendClientInviteEmail` (lien `/report/client/{token}` de la version corrigée). Route `admin-correct` POST : nouveau param `sendClientSignInvite` (section 7b). Rapport `completed` : comportement inchangé (case email → PDF corrigé candidat + client).

@@ -365,6 +365,35 @@ export default function WizardEditor({
     setSelectedStepIdx(steps.length)
     markDirty()
   }
+  // v2.9.45 — Étape d'INTRODUCTION (texte + logo + image, aucun champ à remplir).
+  // Insérée en tête du rôle actif par défaut — l'admin peut la déplacer.
+  const addIntroStep = () => {
+    const newStep: WizardStep = {
+      id: 'wstep_' + Math.random().toString(36).slice(2, 11),
+      title: 'Introduction',
+      description: '',
+      fieldIds: [],
+      docOrder: 1,
+      recipientOrder: activeRole,
+      isIntroStep: true,
+      introContent: {
+        showLogo: true,
+        title: 'Merci d\'avoir choisi L-Agence',
+        subtitle: '',
+        body: 'En soumettant ce formulaire, vous confirmez que les données fournies sont exactes et qu\'elles correspondent à vous.',
+        imageUrl: null,
+      },
+    }
+    let insertAt = steps.findIndex(s => (s.recipientOrder ?? 1) === activeRole)
+    if (insertAt < 0) insertAt = steps.length
+    setSteps(prev => {
+      const next = prev.slice()
+      next.splice(insertAt, 0, newStep)
+      return next
+    })
+    setSelectedStepIdx(insertAt)
+    markDirty()
+  }
   const mergeStepWithNext = (idx: number) => {
     if (idx >= steps.length - 1) return
     setSteps(prev => {
@@ -892,6 +921,15 @@ export default function WizardEditor({
             Utilise "Améliorer avec l'IA" pour reconstruire la structure. */}
         <button
           type="button"
+          onClick={addIntroStep}
+          className="neo-btn-ghost neo-btn-sm"
+          title="Ajouter une étape d'introduction (logo + titre + texte + image, sans champ à remplir)"
+        >
+          <Plus size={13} />
+          Intro
+        </button>
+        <button
+          type="button"
           onClick={addStep}
           className="neo-btn-ghost neo-btn-sm"
         >
@@ -1022,6 +1060,7 @@ export default function WizardEditor({
                           {hasOrphans && ' (⚠️ orphelins)'}
                           {s.isAutoFillStep && ' · auto-fill'}
                           {s.isSignatureStep && ' · signature'}
+                          {s.isIntroStep && ' · intro'}
                         </div>
                       )
                     })()}
@@ -1193,6 +1232,20 @@ function StepDetail({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
+
+  // v2.9.45 — Étape d'INTRODUCTION : panneau d'édition simplifié (logo + titres + texte + image).
+  if (step.isIntroStep) {
+    return (
+      <IntroStepEditor
+        step={step}
+        stepIdx={stepIdx}
+        totalSteps={totalSteps}
+        onUpdateStep={onUpdateStep}
+        onMoveStep={onMoveStep}
+        onDeleteStep={onDeleteStep}
+      />
+    )
+  }
 
   const stepFields = step.fieldIds.map(id => fieldIndex.get(id)?.field).filter(Boolean) as SignField[]
   const usedIds = new Set(step.fieldIds)
@@ -1489,6 +1542,254 @@ function StepDetail({
       </div>
     </div>
   )
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// IntroStepEditor — v2.9.45 : panneau d'édition d'une étape d'introduction
+// (logo + titre + sous-titre + texte + image, sans champ à remplir)
+// ───────────────────────────────────────────────────────────────────────
+interface IntroStepEditorProps {
+  step: WizardStep
+  stepIdx: number
+  totalSteps: number
+  onUpdateStep: (p: Partial<WizardStep>) => void
+  onMoveStep: (dir: -1 | 1) => void
+  onDeleteStep: () => void
+}
+
+function IntroStepEditor({
+  step, stepIdx, totalSteps, onUpdateStep, onMoveStep, onDeleteStep,
+}: IntroStepEditorProps) {
+  const c = step.introContent || {}
+  const patchContent = (p: Partial<NonNullable<WizardStep['introContent']>>) =>
+    onUpdateStep({ introContent: { ...c, ...p } })
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleImagePick = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Choisis un fichier image (JPEG, PNG, etc.)')
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Image trop grande (max 8 Mo en entrée)')
+      return
+    }
+    setUploading(true)
+    try {
+      const dataUrl = await compressImageToDataURL(file, 1200, 0.85)
+      if (dataUrl.length > 700_000) {
+        toast.warning(`Image stockée (~${Math.round(dataUrl.length / 1024)} Ko) — pense à en choisir une plus légère si possible`)
+      }
+      patchContent({ imageUrl: dataUrl })
+      toast.success('Image ajoutée')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur image')
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Step controls */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button onClick={() => onMoveStep(-1)} disabled={stepIdx === 0} className="neo-btn-ghost neo-btn-sm" title="Monter">
+          <ChevronUp size={13} />
+        </button>
+        <button onClick={() => onMoveStep(1)} disabled={stepIdx === totalSteps - 1} className="neo-btn-ghost neo-btn-sm" title="Descendre">
+          <ChevronDown size={13} />
+        </button>
+        <span style={{
+          padding: '3px 9px', borderRadius: 999, fontSize: 10.5, fontWeight: 700,
+          letterSpacing: '0.04em', textTransform: 'uppercase',
+          background: 'var(--primary-soft, #FEF3C7)', color: '#A16207',
+        }}>
+          Intro
+        </span>
+        <span style={{ flex: 1 }} />
+        <button onClick={onDeleteStep} className="neo-btn-ghost neo-btn-sm" style={{ color: '#DC2626' }} title="Supprimer cette étape">
+          <Trash2 size={13} />
+          Supprimer
+        </button>
+      </div>
+
+      {/* Note explicative */}
+      <div style={{
+        padding: '10px 12px', borderRadius: 10, fontSize: 12.5, lineHeight: 1.5,
+        background: 'var(--info-soft, #DBEAFE)', color: 'var(--info, #1E40AF)',
+      }}>
+        Étape <strong>informative</strong> — aucun champ à remplir. Le signataire lit cet écran puis clique « Continuer ».
+      </div>
+
+      {/* Titre interne */}
+      <div>
+        <label style={editLabelStyle}>Nom de l&apos;étape (interne)</label>
+        <input
+          type="text"
+          value={step.title}
+          onChange={e => onUpdateStep({ title: e.target.value })}
+          style={editInputStyle}
+          placeholder="Ex : Introduction"
+        />
+        <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 4 }}>
+          Visible uniquement dans la liste des étapes (côté admin).
+        </div>
+      </div>
+
+      {/* Logo */}
+      <label style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+        border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+      }}>
+        <input
+          type="checkbox"
+          checked={c.showLogo !== false}
+          onChange={e => patchContent({ showLogo: e.target.checked })}
+          style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#EAB308' }}
+        />
+        <span style={{ fontSize: 13, color: 'var(--foreground)' }}>
+          Afficher le logo L-Agence en tête
+        </span>
+      </label>
+
+      {/* Titre */}
+      <div>
+        <label style={editLabelStyle}>Titre</label>
+        <input
+          type="text"
+          value={c.title || ''}
+          onChange={e => patchContent({ title: e.target.value })}
+          style={editInputStyle}
+          placeholder="Ex : Merci d'avoir choisi L-Agence"
+        />
+      </div>
+
+      {/* Sous-titre */}
+      <div>
+        <label style={editLabelStyle}>Sous-titre</label>
+        <input
+          type="text"
+          value={c.subtitle || ''}
+          onChange={e => patchContent({ subtitle: e.target.value })}
+          style={editInputStyle}
+          placeholder="Ex : Quelques informations avant de commencer"
+        />
+      </div>
+
+      {/* Texte */}
+      <div>
+        <label style={editLabelStyle}>Texte</label>
+        <textarea
+          value={c.body || ''}
+          onChange={e => patchContent({ body: e.target.value })}
+          rows={6}
+          style={{ ...editInputStyle, minHeight: 120, lineHeight: 1.5, resize: 'vertical' }}
+          placeholder="Ex : Merci de remplir ce rapport avec honnêteté. En soumettant ce formulaire, vous confirmez que les données fournies sont exactes…"
+        />
+        <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 4 }}>
+          Les paragraphes sont séparés par des sauts de ligne.
+        </div>
+      </div>
+
+      {/* Image */}
+      <div>
+        <label style={editLabelStyle}>Image (optionnelle)</label>
+        {c.imageUrl ? (
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+            padding: 10, borderRadius: 10, border: '1px solid var(--border)',
+            background: 'var(--surface, var(--card))',
+          }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={c.imageUrl}
+              alt=""
+              style={{ width: 120, height: 'auto', maxHeight: 120, objectFit: 'contain', borderRadius: 6, background: '#fff', flexShrink: 0 }}
+            />
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                ~{Math.round((c.imageUrl.length || 0) / 1024)} Ko
+              </span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="neo-btn-ghost neo-btn-sm"
+                >
+                  {uploading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                  Remplacer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => patchContent({ imageUrl: null })}
+                  className="neo-btn-ghost neo-btn-sm"
+                  style={{ color: '#DC2626' }}
+                >
+                  <Trash2 size={12} />
+                  Retirer
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="neo-btn-ghost neo-btn-sm"
+            style={{ alignSelf: 'flex-start' }}
+          >
+            {uploading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+            Ajouter une image
+          </button>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={e => {
+            const f = e.target.files?.[0]
+            if (f) handleImagePick(f)
+          }}
+        />
+        <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 6 }}>
+          Redimensionnée automatiquement à 1200 px max (JPEG). Stockée dans le template.
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// v2.9.45 — Compresse une image (côté client) en data URL JPEG (max 1200 px de large).
+async function compressImageToDataURL(file: File, maxW = 1200, quality = 0.85): Promise<string> {
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image()
+      i.onload = () => resolve(i)
+      i.onerror = () => reject(new Error('Image illisible'))
+      i.src = url
+    })
+    const scale = Math.min(1, maxW / img.width)
+    const w = Math.max(1, Math.round(img.width * scale))
+    const h = Math.max(1, Math.round(img.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas indisponible')
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, w, h)
+    ctx.drawImage(img, 0, 0, w, h)
+    return canvas.toDataURL('image/jpeg', quality)
+  } finally {
+    URL.revokeObjectURL(url)
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────────

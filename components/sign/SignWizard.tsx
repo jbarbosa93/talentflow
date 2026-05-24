@@ -252,6 +252,8 @@ export default function SignWizard({
   // Validation : vérifier les champs requis de l'étape courante
   const validateCurrentStep = (): boolean => {
     if (!currentStep) return true
+    // v2.9.45 — Étape d'introduction : aucun champ à remplir, on passe toujours.
+    if (currentStep.isIntroStep) return true
     if (currentStep.isSignatureStep) {
       if (!signatureDataUrl) {
         setValidationError('Veuillez signer pour continuer')
@@ -578,6 +580,54 @@ function StepContent({
   // (présents en Mode Document + PDF, mais remplis automatiquement).
   const visibleFields = fields.filter(f => !f.wizardHidden && effectiveFieldState(f, values).visible)
   const attachments = step.attachments || []
+  // v2.9.45 — Étape d'INTRODUCTION : écran de contenu (logo + titre + texte + image),
+  // pas de champ à remplir. Le signataire lit, clique « Continuer ».
+  if (step.isIntroStep) {
+    const c = step.introContent || {}
+    const bodyParas = (c.body || '').split(/\n+/).map(s => s.trim()).filter(Boolean)
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '8px 4px 0' }}>
+        {c.showLogo && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src="https://www.talent-flow.ch/logo-agence-officiel-noir.png"
+            alt="L-Agence"
+            style={{ height: 44, width: 'auto', marginBottom: 18, maxWidth: '100%' }}
+          />
+        )}
+        {c.title && (
+          <h2 style={{
+            fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+            fontSize: 30, fontWeight: 400, color: '#1C1A14',
+            lineHeight: 1.15, letterSpacing: '-0.01em',
+            margin: '0 0 6px', maxWidth: 540,
+          }}>
+            {c.title}
+          </h2>
+        )}
+        {c.subtitle && (
+          <div style={{ fontSize: 15, color: '#6B7280', fontWeight: 500, marginBottom: 18, maxWidth: 540, lineHeight: 1.4 }}>
+            {c.subtitle}
+          </div>
+        )}
+        {c.imageUrl && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={c.imageUrl}
+            alt=""
+            style={{ maxWidth: '100%', maxHeight: 260, borderRadius: 12, marginBottom: 20, display: 'block' }}
+          />
+        )}
+        {bodyParas.length > 0 && (
+          <div style={{ maxWidth: 560, fontSize: 14, color: '#374151', lineHeight: 1.65, textAlign: 'left' }}>
+            {bodyParas.map((p, i) => (
+              <p key={i} style={{ margin: '0 0 12px' }}>{p}</p>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
   // Étape signature spéciale
   if (step.isSignatureStep) {
     return (

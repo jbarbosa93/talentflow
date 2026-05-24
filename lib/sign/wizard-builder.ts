@@ -40,6 +40,27 @@ export interface WizardStep {
   /** Si true, étape spéciale "Vos informations" (auto-fill) en tête */
   isAutoFillStep?: boolean
   /**
+   * v2.9.45 — Si true, étape d'INTRODUCTION : aucun champ à remplir, juste du
+   * contenu informatif (logo + titre + sous-titre + texte + image). Le signataire
+   * clique « Continuer » pour passer à l'étape suivante.
+   */
+  isIntroStep?: boolean
+  /**
+   * v2.9.45 — Contenu d'une étape d'introduction. Tous les champs sont optionnels :
+   * tu mets ce que tu veux afficher.
+   *   - showLogo : affiche le logo L-Agence en tête
+   *   - title / subtitle : titres en gros (Instrument Serif)
+   *   - body : paragraphe libre (multi-lignes, conservées)
+   *   - imageUrl : data URL (base64) d'une image optionnelle, max ~400 Ko
+   */
+  introContent?: {
+    showLogo?: boolean
+    title?: string
+    subtitle?: string
+    body?: string
+    imageUrl?: string | null
+  }
+  /**
    * v2.2.0 — Documents à consulter dans cette étape.
    * Le candidat clique → modal viewer avec Télécharger + Imprimer.
    * Pas un "field" au sens DocuSign (pas de coords PDF).
