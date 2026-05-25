@@ -22,9 +22,11 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '2.9.50',
     date: '2026-05-25',
-    label: 'Sign : email récap consultant fiabilisé (taille PJ + retry sans pièces jointes) + logs diagnostic',
+    label: 'Sign : email récap consultant fiabilisé + pièces jointes candidat accessibles sur la page enveloppe',
     features: [
-      'EMAIL RÉCAP — Si la taille totale des pièces jointes dépasse 35 Mo, les uploads candidat sont retirés (les documents signés sont prioritaires juridiquement). Si Resend renvoie quand même une erreur, retry automatique sans pièces jointes avec lien vers la page de l\'enveloppe. Avant : silence total, le consultant ne recevait rien.',
+      'EMAIL RÉCAP — En pièces jointes : uniquement les documents juridiquement signés (avec champ signature). Les documents purement informatifs (rapport d\'heures, fiche salaires, calendrier) ne polluent plus la boîte du consultant — ils restent accessibles sur la page de l\'enveloppe.',
+      'PIÈCES JOINTES CANDIDAT — Nouvelle section « Pièces jointes chargées par le candidat » sur la page enveloppe. Liste les fichiers (CV, permis, photo selfie, etc.) avec leur taille et date d\'expiration éventuelle, bouton télécharger par fichier. Avant : les uploads candidat n\'étaient accessibles que via l\'onglet Conformité de la fiche candidat.',
+      'TAILLE PJ — Si la taille totale dépasse 35 Mo, les uploads candidat sont retirés du mail et un bandeau jaune dirige explicitement vers la page enveloppe pour les visualiser et télécharger. Si Resend renvoie quand même une erreur, retry automatique sans pièces jointes.',
       'DIAGNOSTIC — Logs détaillés sur le pipeline finalize (stamping signature + génération certificat + envoi email récap). Permet de comprendre en un coup d\'œil pourquoi un destinataire ne reçoit pas sa signature stampée ou son email final.',
     ],
   },

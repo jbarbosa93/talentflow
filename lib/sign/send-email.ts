@@ -512,12 +512,18 @@ export interface SignFinalRecapEmailParams {
   envelopeTitle: string
   /** Nom du candidat qui a chargé des pièces jointes */
   uploaderName: string
-  /** Nombre de documents signés en pièce jointe */
+  /** Nombre de documents juridiquement signés en pièce jointe (avec champ signature) */
   signedCount: number
   /** Nombre de pièces jointes chargées par le candidat */
   uploadCount: number
+  /**
+   * v2.9.50 — Vrai si les uploads candidat ont été retirés des PJ (taille
+   * Resend > 35 MB OU retry fallback). Le mail mentionne alors explicitement
+   * de récupérer les uploads via la page enveloppe.
+   */
+  uploadsDropped?: boolean
   signedAt: Date
-  /** Toutes les pièces jointes (docs signés + uploads candidat), filename + base64 */
+  /** Pièces jointes à joindre à l'email (filename + base64) */
   attachments: { filename: string; content: string }[]
   envelopeUrl: string
 }
@@ -543,14 +549,27 @@ export async function sendSignFinalRecapEmail(
     ? `Documents signés + pièces jointes — ${params.envelopeTitle}`
     : `${sCount > 1 ? 'Documents signés' : 'Document signé'} — ${params.envelopeTitle}`
 
+  // v2.9.50 — Wording adapté selon que les uploads candidat sont joints au mail
+  // OU annoncés via lien (cas taille > 35 MB ou retry fallback Resend).
   const uploadsBlock = uCount > 0
-    ? `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 10px;">
-        <strong>${escapeHtml(params.uploaderName)}</strong> a également chargé ${uCount} pièce${uCount > 1 ? 's' : ''} jointe${uCount > 1 ? 's' : ''}
-        (carte d'identité, permis, etc.) — ${uCount > 1 ? 'elles sont jointes' : 'elle est jointe'} à cet email.
-      </p>
-      <p style="font-size:12.5px;color:#6B7280;line-height:1.55;margin:0 0 18px;">
-        Ces pièces jointes ne sont PAS renvoyées au candidat — seul vous les recevez.
-      </p>`
+    ? (params.uploadsDropped
+      ? `<div style="background:#FFF7E6;border:1px solid #F5D689;border-radius:10px;padding:14px 16px;margin:0 0 18px;">
+          <p style="font-size:13.5px;color:#1C1A14;line-height:1.55;margin:0 0 8px;">
+            <strong>${escapeHtml(params.uploaderName)}</strong> a chargé ${uCount} pièce${uCount > 1 ? 's' : ''} jointe${uCount > 1 ? 's' : ''} (carte d'identité, permis, photo…).
+          </p>
+          <p style="font-size:12.5px;color:#7A5C0A;line-height:1.55;margin:0;">
+            ${uCount > 1 ? 'Ces fichiers ne sont pas joints à cet email' : 'Ce fichier n\'est pas joint à cet email'} (taille trop importante).
+            Cliquez sur <strong>« Voir l'enveloppe »</strong> ci-dessous pour les visualiser et les télécharger.
+          </p>
+        </div>`
+      : `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 10px;">
+          <strong>${escapeHtml(params.uploaderName)}</strong> a également chargé ${uCount} pièce${uCount > 1 ? 's' : ''} jointe${uCount > 1 ? 's' : ''}
+          (carte d'identité, permis, etc.) — ${uCount > 1 ? 'elles sont jointes' : 'elle est jointe'} à cet email.
+        </p>
+        <p style="font-size:12.5px;color:#6B7280;line-height:1.55;margin:0 0 18px;">
+          Ces pièces jointes ne sont PAS renvoyées au candidat — seul vous les recevez.
+          ${uCount > 1 ? 'Vous pouvez aussi les retrouver sur' : 'Vous pouvez aussi la retrouver sur'} la page de l'enveloppe.
+        </p>`)
     : ''
 
   const html = `<!DOCTYPE html>

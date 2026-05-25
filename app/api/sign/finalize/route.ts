@@ -198,7 +198,8 @@ export async function POST(req: NextRequest) {
       let stampResult: {
         paths: { name: string; path: string; sha256: string }[]
         signedAttachments: { filename: string; content: string }[]
-      } = { paths: [], signedAttachments: [] }
+        signedOnlyAttachments: { filename: string; content: string }[]
+      } = { paths: [], signedAttachments: [], signedOnlyAttachments: [] }
       try {
         stampResult = await stampAllAndSendEmails({
           supabase,
@@ -250,27 +251,36 @@ export async function POST(req: NextRequest) {
       //   3. Si tout échoue → log error explicite (visible dans Vercel runtime).
       if (creatorEmail) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
-        const allAttachments = [...stampResult.signedAttachments, ...uploadResult.attachments]
+        // v2.9.50 — Le créateur reçoit en PJ UNIQUEMENT les docs avec champ
+        // signature (logique métier João : pas de pollution avec les rapports
+        // d'heures et fiches salaires purement informatives). Les uploads
+        // candidat sont annoncés dans le mail avec un lien explicite vers la
+        // page enveloppe pour les télécharger.
+        const allAttachments = [
+          ...stampResult.signedOnlyAttachments,
+          ...uploadResult.attachments,
+        ]
         // Taille approximative décodée : longueur base64 × 3/4
         const totalBytes = allAttachments
           .reduce((sum, a) => sum + Math.ceil((a.content?.length || 0) * 3 / 4), 0)
         const totalMB = (totalBytes / 1024 / 1024).toFixed(2)
         const SIZE_LIMIT_MB = 35
         let attachments = allAttachments
-        let dropped = 0
+        let uploadsDropped = false
         if (totalBytes > SIZE_LIMIT_MB * 1024 * 1024) {
-          // Priorité légale aux docs signés (preuve). Les uploads candidat restent
-          // accessibles côté serveur (Storage + Conformité).
-          attachments = stampResult.signedAttachments
-          dropped = uploadResult.attachments.length
+          // Priorité légale aux docs signés (preuve). Les uploads candidat
+          // restent accessibles via la page enveloppe + Conformité.
+          attachments = stampResult.signedOnlyAttachments
+          uploadsDropped = true
           console.warn(
             `[sign/finalize] récap PJ tronquées : ${totalMB} MB > ${SIZE_LIMIT_MB} MB`
-            + ` — upload candidat retiré (${dropped} fichiers, accessibles via Conformité)`,
+            + ` — upload candidat retiré (${uploadResult.attachments.length} fichiers, accessibles via /sign/${envelope.id})`,
           )
         }
         console.log(
           `[sign/finalize] récap creator=${creatorEmail}`
-          + ` signed=${stampResult.signedAttachments.length} upload=${uploadResult.attachments.length}`
+          + ` signedOnly=${stampResult.signedOnlyAttachments.length}/${stampResult.signedAttachments.length}`
+          + ` upload=${uploadResult.attachments.length}`
           + ` sent_attachments=${attachments.length} total_size=${totalMB}MB`,
         )
 
@@ -279,8 +289,9 @@ export async function POST(req: NextRequest) {
           recapResult = await sendSignFinalRecapEmail(creatorEmail, {
             envelopeTitle: envelope.title,
             uploaderName: uploadResult.uploaderName,
-            signedCount: stampResult.signedAttachments.length,
+            signedCount: stampResult.signedOnlyAttachments.length,
             uploadCount: uploadResult.attachments.length,
+            uploadsDropped,
             signedAt: new Date(nowIso),
             attachments,
             envelopeUrl: `${appUrl}/sign/${envelope.id}`,
@@ -299,8 +310,9 @@ export async function POST(req: NextRequest) {
             const fallback = await sendSignFinalRecapEmail(creatorEmail, {
               envelopeTitle: envelope.title,
               uploaderName: uploadResult.uploaderName,
-              signedCount: stampResult.signedAttachments.length,
+              signedCount: stampResult.signedOnlyAttachments.length,
               uploadCount: uploadResult.attachments.length,
+              uploadsDropped: true,
               signedAt: new Date(nowIso),
               attachments: [],
               envelopeUrl: `${appUrl}/sign/${envelope.id}`,
@@ -409,7 +421,14 @@ async function stampAllAndSendEmails(args: {
   creatorEmail?: string
 }): Promise<{
   paths: { name: string; path: string; sha256: string }[]
+  /** TOUS les docs stampés sauf certificat — pour le mail aux destinataires */
   signedAttachments: { filename: string; content: string }[]
+  /**
+   * v2.9.50 — Sous-ensemble : uniquement les docs avec champ signature/initial.
+   * Sert au mail récap créateur (pas de pollution avec rapport d'heures /
+   * fiches informatives) ; les autres restent accessibles sur la page enveloppe.
+   */
+  signedOnlyAttachments: { filename: string; content: string }[]
 }> {
   const { supabase, envelope, updatedRecipients, signedAt, signedIp, creatorEmail } = args
 
@@ -423,7 +442,7 @@ async function stampAllAndSendEmails(args: {
   const stampedDocs = result.docs
   if (stampedDocs.length === 0) {
     console.warn('[sign/finalize] aucun PDF stampé')
-    return { paths: [], signedAttachments: [] }
+    return { paths: [], signedAttachments: [], signedOnlyAttachments: [] }
   }
 
   // 2. Récupère le sender (créateur de l'enveloppe) pour l'email
@@ -474,6 +493,23 @@ async function stampAllAndSendEmails(args: {
       filename: ensurePdfFilename(d.name),
       content: d.pdfBase64,
     }))
+  // v2.9.50 — Sous-ensemble pour le mail récap créateur : on garde uniquement
+  // les docs qui ont un VRAI champ signature (= docs juridiquement signés).
+  // Les docs informatifs (rapport d'heures, fiche salaires, calendrier…)
+  // sortent du mail mais restent dans la page enveloppe / le ZIP.
+  const signedOnlyAttachments = stampedDocs
+    .filter(d => d.hasSignature && !d.name.startsWith('Certificat de signature'))
+    .map(d => ({
+      filename: ensurePdfFilename(d.name),
+      content: d.pdfBase64,
+    }))
+  const excludedFromCreator = signedAttachments.length - signedOnlyAttachments.length
+  if (excludedFromCreator > 0) {
+    console.log(
+      `[sign/finalize] récap créateur : ${signedOnlyAttachments.length}/${signedAttachments.length} docs joints`
+      + ` — ${excludedFromCreator} doc(s) informatif(s) exclu(s) (accessibles via la page enveloppe)`,
+    )
+  }
 
   // v2.9.31 — Le créateur ne reçoit PAS cet email "completed" : il recevra un
   // email fusionné unique (docs signés + pièces jointes candidat).
@@ -497,6 +533,7 @@ async function stampAllAndSendEmails(args: {
   return {
     paths: stampedDocs.map(d => ({ name: d.name, path: d.path, sha256: d.sha256 })),
     signedAttachments,
+    signedOnlyAttachments,
   }
 }
 

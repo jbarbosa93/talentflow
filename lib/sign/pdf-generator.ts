@@ -35,6 +35,14 @@ export interface SignedPdfPath {
 export interface GeneratedSignedDoc extends SignedPdfPath {
   /** Buffer base64 du PDF stampé (pour attacher en email sans re-download) */
   pdfBase64: string
+  /**
+   * v2.9.50 — Vrai si le doc contient au moins un champ signature/initial.
+   * Permet au mail récap créateur de ne joindre QUE les vrais documents
+   * signés et d'exclure les documents purement informatifs (rapport
+   * d'heures, fiche salaires, calendrier…) qui restent malgré tout sur
+   * la page enveloppe pour téléchargement.
+   */
+  hasSignature: boolean
 }
 
 export interface GenerateSignedPdfsArgs {
@@ -246,15 +254,19 @@ export async function generateAndPersistSignedPdfs(
       const blobOut = new Blob([currentBuf as BlobPart], { type: 'application/pdf' })
       const signedPath = await uploadSignDocument('signed', envelope.id, blobOut, doc.name)
       const pdfBase64 = Buffer.from(currentBuf).toString('base64')
+
+      // 6. Si le doc contient au moins une signature/initial → entrée au certificat global
+      //    + flag hasSignature pour filtrer les PJ du mail récap créateur.
+      const docHasSignature = (doc.fields || []).some(f => f.type === 'signature' || f.type === 'initial')
+
       generatedDocs.push({
         name: doc.name,
         path: signedPath,
         sha256,
         pdfBase64,
+        hasSignature: docHasSignature,
       })
 
-      // 6. Si le doc contient au moins une signature/initial → entrée au certificat global
-      const docHasSignature = (doc.fields || []).some(f => f.type === 'signature' || f.type === 'initial')
       if (docHasSignature) {
         signedDocsForCert.push({ name: doc.name, sha256 })
       } else {
@@ -291,6 +303,9 @@ export async function generateAndPersistSignedPdfs(
         path: certPath,
         sha256: signedDocsForCert[0].sha256,
         pdfBase64: certBase64,
+        // Le cert lui-même n'est pas un « document signé » au sens juridique
+        // (c'est la preuve de signature) → exclu des PJ filtrées du créateur.
+        hasSignature: false,
       })
       console.log(`[pdf-generator] cert OK path=${certPath} size=${certBuf.byteLength}B`)
     } catch (certErr) {

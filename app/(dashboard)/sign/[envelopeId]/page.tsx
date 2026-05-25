@@ -5,7 +5,7 @@
 import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Send, Trash2, Loader2, Mail, Copy, Check, Bell, MessageCircle, Download, RotateCw, Ban, Edit3, FileText } from 'lucide-react'
+import { ChevronLeft, Send, Trash2, Loader2, Mail, Copy, Check, Bell, MessageCircle, Download, RotateCw, Ban, Edit3, FileText, Paperclip, Image as ImageIcon, FileWarning } from 'lucide-react'
 import { toast } from 'sonner'
 import EnvelopeStatusBadge from '@/components/sign/EnvelopeStatusBadge'
 import EnvelopeCategoryIcon from '@/components/sign/EnvelopeCategoryIcon'
@@ -27,13 +27,30 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState<string | null>(null)
 
+  // v2.9.50 — Pièces jointes chargées par le candidat (champs `attachment`)
+  type UploadGroup = {
+    fieldId: string
+    label: string
+    files: Array<{
+      name: string
+      path: string
+      size: number
+      mimeType: string
+      expiryDate: string | null
+      readable: 'ok' | 'unreadable' | 'poor' | null
+    }>
+  }
+  const [uploadGroups, setUploadGroups] = useState<UploadGroup[]>([])
+  const [downloadingUpload, setDownloadingUpload] = useState<string | null>(null)
+
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [envR, auditR, tokensR] = await Promise.all([
+      const [envR, auditR, tokensR, uploadsR] = await Promise.all([
         fetch(`/api/sign/envelopes/${envelopeId}`),
         fetch(`/api/sign/envelopes/${envelopeId}/audit`),
         fetch(`/api/sign/envelopes/${envelopeId}/tokens`),
+        fetch(`/api/sign/envelopes/${envelopeId}/uploads`),
       ])
       const envD = await envR.json()
       if (envR.ok) setEnvelope(envD.envelope)
@@ -41,11 +58,48 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
       if (auditR.ok) setAudit(auditD.audit || [])
       const tokensD = await tokensR.json()
       setTokens(tokensD.tokens || [])
+      if (uploadsR.ok) {
+        const uploadsD = await uploadsR.json()
+        setUploadGroups(uploadsD.fields || [])
+      } else {
+        setUploadGroups([])
+      }
     } catch {
       toast.error('Erreur chargement')
     } finally {
       setLoading(false)
     }
+  }
+
+  // v2.9.50 — Télécharge une pièce jointe candidat (stream serveur, anti-traversal).
+  const handleDownloadUpload = async (filePath: string, filename: string) => {
+    setDownloadingUpload(filePath)
+    try {
+      const r = await fetch(
+        `/api/sign/envelopes/${envelopeId}/uploads?path=${encodeURIComponent(filePath)}`,
+      )
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        throw new Error(d.error || 'Erreur téléchargement')
+      }
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur téléchargement')
+    } finally {
+      setDownloadingUpload(null)
+    }
+  }
+
+  const formatFileSize = (bytes: number): string => {
+    if (!bytes || bytes < 1024) return `${bytes || 0} o`
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`
+    return `${(bytes / 1024 / 1024).toFixed(1)} Mo`
   }
 
   useEffect(() => {
@@ -593,6 +647,110 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                     </div>
                   )
                 })}
+              </div>
+            </Card>
+          )}
+
+          {/* v2.9.50 — Pièces jointes chargées par le candidat (CV, permis, photo selfie...) */}
+          {uploadGroups.length > 0 && (
+            <Card title={`Pièces jointes chargées par le candidat (${uploadGroups.reduce((n, g) => n + g.files.length, 0)})`}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {uploadGroups.map(group => (
+                  <div key={group.fieldId}>
+                    <div style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: 'var(--muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                      marginBottom: 6,
+                    }}>
+                      {group.label}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {group.files.map((f) => {
+                        const isImg = f.mimeType.startsWith('image/')
+                        const isPdf = f.mimeType === 'application/pdf'
+                        const Icon = isImg ? ImageIcon : isPdf ? FileText : Paperclip
+                        const isLoading = downloadingUpload === f.path
+                        return (
+                          <div
+                            key={f.path}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 10,
+                              padding: '8px 10px',
+                              border: '1px solid var(--border)',
+                              borderRadius: 10,
+                              background: 'var(--surface)',
+                            }}
+                          >
+                            <div style={{
+                              width: 32, height: 32, borderRadius: 8,
+                              background: 'var(--warning-soft, #FEF3C7)',
+                              color: 'var(--warning, #B45309)',
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              flexShrink: 0,
+                            }}>
+                              <Icon size={14} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                fontSize: 12.5, fontWeight: 600, color: 'var(--foreground)',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                              }}
+                              title={f.name}>
+                                {f.name}
+                              </div>
+                              <div style={{
+                                fontSize: 10.5, color: 'var(--muted)',
+                                marginTop: 1,
+                                display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+                              }}>
+                                <span>{formatFileSize(f.size)}</span>
+                                {f.expiryDate && (
+                                  <span style={{ color: 'var(--warning, #B45309)' }}>
+                                    · expire le {new Date(f.expiryDate).toLocaleDateString('fr-CH')}
+                                  </span>
+                                )}
+                                {f.readable === 'unreadable' && (
+                                  <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 2,
+                                    color: 'var(--destructive, #DC2626)',
+                                  }}>
+                                    <FileWarning size={10} /> illisible
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadUpload(f.path, f.name)}
+                              disabled={!!downloadingUpload}
+                              title="Télécharger"
+                              style={{
+                                width: 34, height: 34, borderRadius: 8,
+                                border: '1px solid var(--border)',
+                                background: 'var(--card)',
+                                color: 'var(--foreground)',
+                                cursor: downloadingUpload ? 'wait' : 'pointer',
+                                opacity: downloadingUpload && !isLoading ? 0.5 : 1,
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0,
+                                fontFamily: 'inherit',
+                              }}
+                            >
+                              {isLoading
+                                ? <Loader2 size={13} className="animate-spin" />
+                                : <Download size={13} />}
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </Card>
           )}
