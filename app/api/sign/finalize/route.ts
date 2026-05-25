@@ -679,6 +679,25 @@ async function processCandidateUploads(args: {
       }
     }
 
+    // 6. v2.9.46 — Photo de profil candidat (si flagué + fiche sans photo)
+    if (envelope.candidate_id) {
+      for (const c of collected) {
+        if (!c.field.attachmentSetAsCandidatePhoto) continue
+        const firstImg = c.files.find(f => (f.mimeType || '').startsWith('image/'))
+        if (!firstImg) continue
+        try {
+          await maybeSetCandidatPhotoFromSign({
+            supabase,
+            candidatId: envelope.candidate_id,
+            file: firstImg,
+            fetchBlob,
+          })
+        } catch (e) {
+          console.warn('[finalize] maybeSetCandidatPhotoFromSign échoué', e)
+        }
+      }
+    }
+
     return { attachments, uploaderName: collected[0]?.uploaderName || 'le candidat' }
   } catch (e) {
     console.error('[sign/finalize] processCandidateUploads échoué (non-bloquant)', e)
@@ -743,6 +762,59 @@ async function writeComplianceDoc(args: {
   } catch (e) {
     console.warn('[finalize] writeComplianceDoc échoué', e)
   }
+}
+
+/**
+ * v2.9.46 — Si le candidat n'a pas encore de photo de profil, utilise la 1ʳᵉ image
+ * chargée via un champ « pièce jointe » flagué `attachmentSetAsCandidatePhoto`
+ * (ex: photo selfie). Upload dans le bucket `cvs/photos/{candidatId}/...`,
+ * signed URL 10 ans, UPDATE candidats.photo_url. Best-effort, non-bloquant.
+ */
+async function maybeSetCandidatPhotoFromSign(args: {
+  supabase: ReturnType<typeof createAdminClient>
+  candidatId: string
+  file: SignAttachmentFile
+  fetchBlob: (path: string) => Promise<Blob | null>
+}): Promise<void> {
+  const { supabase, candidatId, file, fetchBlob } = args
+  // 1. Vérifier que la fiche n'a pas déjà une photo
+  const { data: cand } = await (supabase as any)
+    .from('candidats')
+    .select('photo_url')
+    .eq('id', candidatId)
+    .maybeSingle()
+  const existing = (cand?.photo_url || '').trim()
+  if (existing) {
+    console.log('[finalize] candidat a déjà une photo — set photo skipped')
+    return
+  }
+  // 2. Fetch + upload dans cvs/photos/{candidatId}/sign-selfie-{ts}.{ext}
+  const blob = await fetchBlob(file.path)
+  if (!blob) return
+  const mime = (file.mimeType || blob.type || 'image/jpeg').toLowerCase()
+  const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg'
+  const ts = Date.now()
+  const path = `photos/${candidatId}/sign-selfie-${ts}.${ext}`
+  const { error: upErr } = await (supabase as any).storage
+    .from('cvs')
+    .upload(path, blob, { contentType: mime, upsert: false })
+  if (upErr) {
+    console.warn('[finalize] upload photo selfie échoué', upErr)
+    return
+  }
+  // 3. Signed URL 10 ans
+  const { data: pUrl } = await (supabase as any).storage
+    .from('cvs')
+    .createSignedUrl(path, 60 * 60 * 24 * 365 * 10)
+  const signedUrl = pUrl?.signedUrl || null
+  if (!signedUrl) return
+  // 4. UPDATE candidats.photo_url (uniquement si toujours vide — anti race condition)
+  await (supabase as any)
+    .from('candidats')
+    .update({ photo_url: signedUrl })
+    .eq('id', candidatId)
+    .or('photo_url.is.null,photo_url.eq.')
+  console.log('[finalize] photo profil candidat définie depuis selfie Sign')
 }
 
 /**

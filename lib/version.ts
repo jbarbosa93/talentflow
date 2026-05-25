@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.45'
+export const APP_VERSION = '2.9.46'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.46 — Sign : intro temps réel + photo selfie → fiche + cleanup recto/verso
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.46',
+    date: '2026-05-25',
+    label: 'Sign : intro en temps réel + photo selfie sur la fiche + cleanup recto/verso',
+    features: [
+      'INTRO TEMPS RÉEL — l\'édition d\'une étape d\'introduction (titre, sous-titre, texte) est maintenant fluide : les frappes rapides ne sont plus perdues.',
+      'PHOTO SELFIE — sur un champ « pièce jointe », nouvelle option « Utiliser comme photo de profil du candidat ». Si la fiche n\'a pas encore de photo, la 1ʳᵉ image chargée à la signature devient automatiquement sa photo de profil. Idéal pour la photo selfie de la fiche d\'inscription.',
+      'TYPE DE DOCUMENT — les deux contrôles redondants (dropdown « Recto + Verso » + case « Plusieurs fichiers autorisés ») sont fusionnés en UN seul dropdown clair avec 3 options : « Une seule face », « Recto + Verso », « Plusieurs fichiers ».',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.45 — Sign : étape d'introduction personnalisable
   // ─────────────────────────────────────────────────────────────────────

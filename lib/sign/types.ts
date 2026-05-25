@@ -111,6 +111,10 @@ export interface SignField {
   // v2.9.27 — Pièce jointe : 'single' (1 fichier/photo, défaut) ou 'recto_verso'
   // (2 emplacements explicites Recto + Verso → 1 page A4 dans l'email).
   attachmentSides?: 'single' | 'recto_verso'
+  // v2.9.46 — Pièce jointe : si true, à la finalisation, le 1er fichier image
+  // chargé est aussi enregistré comme photo de profil du candidat, MAIS
+  // uniquement si la fiche n'a pas encore de photo. Idéal pour une « photo selfie ».
+  attachmentSetAsCandidatePhoto?: boolean
   // Date
   dateFormat?: string          // 'dd/MM/yyyy' | 'yyyy-MM-dd' | 'd MMMM yyyy' | 'MM/dd/yyyy'
   // Email

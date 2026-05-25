@@ -3572,23 +3572,38 @@ function TypeSpecificOptions({
       {/* PIÈCE JOINTE */}
       {t === 'attachment' && (
         <>
-          {/* v2.9.27 — Type de document : une face ou recto + verso */}
+          {/* v2.9.46 — Type de document fusionné en UN seul contrôle (3 choix).
+              Avant : dropdown « single / recto_verso » + case « Plusieurs fichiers
+              autorisés » → 2 contrôles qui se chevauchaient. Maintenant : 1 dropdown,
+              3 options claires, plus aucune ambiguïté. */}
           <Field label="Type de document">
             <select
               className="neo-input"
-              value={field.attachmentSides || 'single'}
-              onChange={e => onPatch({
-                attachmentSides: e.target.value === 'recto_verso' ? 'recto_verso' : 'single',
-              })}
+              value={
+                field.attachmentMultiple ? 'multiple'
+                  : field.attachmentSides === 'recto_verso' ? 'recto_verso'
+                  : 'single'
+              }
+              onChange={e => {
+                const v = e.target.value
+                if (v === 'multiple') {
+                  onPatch({ attachmentSides: 'single', attachmentMultiple: true })
+                } else if (v === 'recto_verso') {
+                  onPatch({ attachmentSides: 'recto_verso', attachmentMultiple: undefined })
+                } else {
+                  onPatch({ attachmentSides: 'single', attachmentMultiple: undefined })
+                }
+              }}
             >
               <option value="single">Une seule face / un fichier</option>
               <option value="recto_verso">Recto + Verso (2 photos)</option>
+              <option value="multiple">Plusieurs fichiers</option>
             </select>
           </Field>
           <div style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5, marginTop: -2 }}>
-            « Recto + Verso » affiche au candidat 2 emplacements distincts
-            (Recto / Verso) ; les 2 photos sont assemblées sur une seule page A4
-            dans l&apos;email que tu reçois.
+            « Recto + Verso » affiche au candidat 2 emplacements distincts (Recto / Verso) ;
+            les 2 photos sont assemblées sur une seule page A4 dans l&apos;email reçu.
+            « Plusieurs fichiers » laisse le candidat charger autant de pages qu&apos;il veut.
           </div>
           <Field label="Taille max (Mo)">
             <input
@@ -3631,14 +3646,22 @@ function TypeSpecificOptions({
             « Photos » couvre tous les formats d&apos;image (JPEG, PNG, HEIC iPhone,
             WebP…). Le candidat peut prendre une photo ou choisir un fichier.
           </div>
+          {/* v2.9.46 — Case « Plusieurs fichiers autorisés » retirée : fusionnée
+              dans le dropdown « Type de document » ci-dessus (3 options). */}
+
+          {/* v2.9.46 — Utiliser comme photo de profil candidat (si fiche sans photo) */}
           <label style={checkboxLabelStyle}>
             <input
               type="checkbox"
-              checked={!!field.attachmentMultiple}
-              onChange={e => onPatch({ attachmentMultiple: e.target.checked || undefined })}
+              checked={!!field.attachmentSetAsCandidatePhoto}
+              onChange={e => onPatch({ attachmentSetAsCandidatePhoto: e.target.checked || undefined })}
             />
-            Plusieurs fichiers autorisés (recto + verso…)
+            Utiliser comme <strong>photo de profil</strong> du candidat (si sa fiche n&apos;en a pas)
           </label>
+          <div style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5, marginTop: -2, marginLeft: 22 }}>
+            Idéal pour une « photo selfie ». À la finalisation, si le candidat n&apos;a pas encore
+            de photo, la 1ʳᵉ image chargée devient sa photo de profil.
+          </div>
 
           {/* v2.9.23 — Cocher automatiquement une case à cocher au chargement */}
           <Field label="Cocher automatiquement la case">

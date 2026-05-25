@@ -334,6 +334,15 @@ export default function WizardEditor({
     setSteps(prev => prev.map((s, i) => i === idx ? { ...s, ...patch } : s))
     markDirty()
   }
+  // v2.9.46 — Patch fonctionnel pour le contenu d'une étape d'intro.
+  // Lit `introContent` depuis l'état PRÉCÉDENT (pas un snapshot capturé) → les
+  // frappes rapides ne se perdent plus dans le textarea / l'input titre.
+  const patchIntroContent = (idx: number, p: Partial<NonNullable<WizardStep['introContent']>>) => {
+    setSteps(prev => prev.map((s, i) => i === idx
+      ? { ...s, introContent: { ...(s.introContent || {}), ...p } }
+      : s))
+    markDirty()
+  }
   const moveStep = (idx: number, dir: -1 | 1) => {
     const newIdx = idx + dir
     if (newIdx < 0 || newIdx >= steps.length) return
@@ -1089,6 +1098,7 @@ export default function WizardEditor({
               templateId={templateId}
               setDocuments={setDocuments}
               onUpdateStep={(p) => updateStep(selectedStepIdx, p)}
+              onPatchIntroContent={(p) => patchIntroContent(selectedStepIdx, p)}
               onMoveStep={(d) => moveStep(selectedStepIdx, d)}
               onDeleteStep={() => deleteStep(selectedStepIdx)}
               onMergeNext={() => mergeStepWithNext(selectedStepIdx)}
@@ -1197,6 +1207,8 @@ interface StepDetailProps {
   templateId: string
   setDocuments: React.Dispatch<React.SetStateAction<SignDocument[]>>
   onUpdateStep: (p: Partial<WizardStep>) => void
+  /** v2.9.46 — Patch fonctionnel pour introContent (anti closure stale) */
+  onPatchIntroContent: (p: Partial<NonNullable<WizardStep['introContent']>>) => void
   onMoveStep: (dir: -1 | 1) => void
   onDeleteStep: () => void
   onMergeNext: () => void
@@ -1219,7 +1231,7 @@ interface StepDetailProps {
 function StepDetail({
   step, stepIdx, totalSteps, allSteps, fieldIndex, allRecipientFields, documents,
   templateId, setDocuments,
-  onUpdateStep, onMoveStep, onDeleteStep, onMergeNext, onSplitAt,
+  onUpdateStep, onPatchIntroContent, onMoveStep, onDeleteStep, onMergeNext, onSplitAt,
   onUpdateField, onMoveFieldInStep, onReorderFieldInStep, onRemoveFieldFromStep, onAddFieldToStep,
   onDuplicateField, onMoveFieldToStep, onDeleteFields,
   collapsedSections, onToggleSectionCollapse,
@@ -1241,6 +1253,7 @@ function StepDetail({
         stepIdx={stepIdx}
         totalSteps={totalSteps}
         onUpdateStep={onUpdateStep}
+        onPatchIntroContent={onPatchIntroContent}
         onMoveStep={onMoveStep}
         onDeleteStep={onDeleteStep}
       />
@@ -1553,16 +1566,17 @@ interface IntroStepEditorProps {
   stepIdx: number
   totalSteps: number
   onUpdateStep: (p: Partial<WizardStep>) => void
+  /** v2.9.46 — Patch fonctionnel introContent (lit l'état précédent → frappes rapides fiables). */
+  onPatchIntroContent: (p: Partial<NonNullable<WizardStep['introContent']>>) => void
   onMoveStep: (dir: -1 | 1) => void
   onDeleteStep: () => void
 }
 
 function IntroStepEditor({
-  step, stepIdx, totalSteps, onUpdateStep, onMoveStep, onDeleteStep,
+  step, stepIdx, totalSteps, onUpdateStep, onPatchIntroContent, onMoveStep, onDeleteStep,
 }: IntroStepEditorProps) {
   const c = step.introContent || {}
-  const patchContent = (p: Partial<NonNullable<WizardStep['introContent']>>) =>
-    onUpdateStep({ introContent: { ...c, ...p } })
+  const patchContent = onPatchIntroContent
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 

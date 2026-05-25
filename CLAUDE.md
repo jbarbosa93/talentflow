@@ -115,7 +115,12 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**v2.9.45 (Sign : étape d'introduction personnalisable)** — 22/05/2026
+**v2.9.46 (Sign : intro temps réel + photo selfie + cleanup recto/verso)** — 25/05/2026
+
+### v2.9.46 — Sign : 3 ajustements suite test João
+- **Intro temps réel** : `IntroStepEditor` construisait son patch depuis un snapshot React (`const c = step.introContent`) — les frappes rapides dans titre/textarea pouvaient être écrasées. Nouveau `patchIntroContent(idx, p)` au niveau parent qui fait `setSteps(prev => prev.map(s ⇒ {...s, introContent: {...(s.introContent||{}), ...p}}))` — lecture de l'état précédent, plus de race.
+- **Photo selfie → fiche candidat** : nouvelle option `attachmentSetAsCandidatePhoto` sur un champ pièce jointe (`SignField`). Case « Utiliser comme photo de profil du candidat » dans `TemplateEditor`. À la finalisation (`processCandidateUploads`), si flagué + envelope liée à un candidat sans photo : helper `maybeSetCandidatPhotoFromSign` upload la 1ʳᵉ image dans `cvs/photos/{candidatId}/sign-selfie-{ts}.{ext}`, signed URL 10 ans, UPDATE `candidats.photo_url` (clause `.or('photo_url.is.null,photo_url.eq.')` anti-race). Best-effort, non-bloquant.
+- **Cleanup type de document** : les 2 contrôles redondants (dropdown `attachmentSides` + case `attachmentMultiple`) fusionnés en UN dropdown 3 options dans `TemplateEditor` — « Une seule face » / « Recto + Verso » / « Plusieurs fichiers ». Mapping interne : single+false / recto_verso+false / single+true. Les 2 propriétés sous-jacentes restent (rétrocompat).
 
 ### v2.9.45 — Sign : étape d'introduction
 - Nouveau type d'étape `isIntroStep` sur `WizardStep` (`lib/sign/wizard-builder.ts`) avec `introContent: { showLogo, title, subtitle, body, imageUrl }`. Additif — n'affecte pas les étapes existantes.
