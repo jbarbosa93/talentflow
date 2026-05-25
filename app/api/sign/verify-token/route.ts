@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyToken } from '@/lib/sign/tokens'
 import { logAuditEvent, extractIp } from '@/lib/sign/audit'
-import type { SignEnvelope, SignTemplate, SignDocument, SignRecipient, SignRecipientSchema } from '@/lib/sign/types'
+import type { SignEnvelope, SignTemplate, SignDocument, SignField, SignRecipient, SignRecipientSchema } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
 
 export const runtime = 'nodejs'
@@ -197,6 +197,48 @@ export async function POST(req: NextRequest) {
         }
       }
     } catch { /* silencieux */ }
+
+    // v2.9.49 — Injecte les valeurs auto-fill RÉSOLUES des signataires précédents
+    // dans previousFieldValues. Sans ça, les champs type=firstname/lastname/email/
+    // fullname/company/title du CANDIDAT apparaissent VIDES côté consultant : ils
+    // sont normalement résolus à la volée depuis le contexte du signataire courant
+    // (le consultant), qui ne contient pas les infos du candidat. Le PDF final est
+    // correct (le stamper a le bon contexte) mais l'écran intermédiaire ne l'était
+    // pas — d'où l'asymétrie vue par João.
+    if (currentRecipientOrder > 1 && candidatInfo) {
+      const ci = candidatInfo as { prenom?: string | null; nom?: string | null; email?: string | null; telephone?: string | null; metier_recherche?: string | null }
+      const cFirst = (ci.prenom || '').trim()
+      const cLast = (ci.nom || '').trim()
+      const cFull = [cFirst, cLast].filter(Boolean).join(' ')
+      const cEmail = (ci.email || '').trim()
+      const cPhone = (ci.telephone || '').trim()
+      const cTitle = (ci.metier_recherche || '').trim()
+      const resolveAutofill = (f: SignField): string | null => {
+        switch (f.type) {
+          case 'firstname': return cFirst || null
+          case 'lastname':  return cLast || null
+          case 'fullname':  return cFull || null
+          case 'email':     return cEmail || null
+          case 'company':   return effectiveCompanyName || null
+          case 'title':     return cTitle || null
+          default:
+            // Champs number marqués téléphone (autoFillSource='phone' ou libellé tél.)
+            if (f.type === 'number' && (f as unknown as { autoFillSource?: string }).autoFillSource === 'phone') {
+              return cPhone || null
+            }
+            return null
+        }
+      }
+      for (const doc of (documents as SignDocument[])) {
+        for (const f of (doc.fields || [])) {
+          const fOrder = f.recipientOrder ?? 1
+          if (fOrder >= currentRecipientOrder) continue        // pas un signataire antérieur
+          if (previousFieldValues[f.id] !== undefined) continue // déjà rempli
+          const v = resolveAutofill(f)
+          if (v) previousFieldValues[f.id] = v
+        }
+      }
+    }
 
     // v2.7.6 — Étape "À compléter" pour le consultant (recipientOrder ≥ 2) :
     // si des champs marqués `consultantCanFill` sont vides dans les valeurs du candidat,

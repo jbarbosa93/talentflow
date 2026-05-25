@@ -36,7 +36,8 @@ function SignNewPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const candidatIdParam = searchParams.get('candidatId') || ''
-  const categoryParam = (searchParams.get('category') as SignCategory | null) || 'autres'
+  // v2.9.49 — Default = 'mappe' (Général) au lieu de 'autres' (catégorie retirée).
+  const categoryParam = (searchParams.get('category') as SignCategory | null) || 'mappe'
   const templateParam = searchParams.get('template') || ''
   // v2.2.2 — Édition d'un brouillon existant (depuis bouton Modifier sur /sign/[id])
   const draftIdParam = searchParams.get('draft') || ''
@@ -130,7 +131,7 @@ function SignNewPage() {
         return
       }
       setTitle(env.title || '')
-      setCategory((env.document_category as SignCategory) || 'autres')
+      setCategory((env.document_category as SignCategory) || 'mappe')
       setTemplateId(env.template_id || '')
       setMessage(env.message || '')
       // documents : si l'enveloppe a son propre array (cas pas de template) → l'utiliser ;

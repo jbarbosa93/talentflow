@@ -131,6 +131,11 @@ export async function generateAndPersistSignedPdfs(
   }
 
   // 4. Stamp + upload chaque doc
+  // v2.9.49 — On collecte au passage les documents qui contiennent au moins une
+  // signature (signature/initial) → ils alimenteront LE certificat global (1 seul
+  // pour toute l'enveloppe). Les documents purement informatifs (rapport d'heures,
+  // calendrier) sans champ signature sont exclus du certificat.
+  const signedDocsForCert: Array<{ name: string; sha256: string }> = []
   const generatedDocs: GeneratedSignedDoc[] = []
   for (const doc of documents) {
     if (!doc.storage_path) continue
@@ -200,10 +205,11 @@ export async function generateAndPersistSignedPdfs(
         })
       }
 
-      // v2.8.5 — Le certificat est désormais un PDF SÉPARÉ (plus append au
-      // contrat). Le contrat signé contient juste les signatures + footer 30pt
-      // ZertES. Le certificat complet (tableau signataires, hash, mention RS)
-      // est généré en PDF distinct et ajouté à signed_pdf_paths.
+      // v2.8.5 — Le certificat est désormais un PDF SÉPARÉ.
+      // v2.9.49 — UN SEUL certificat GLOBAL pour TOUTE l'enveloppe est généré
+      // après cette boucle (plus 1 cert par doc). On retient juste les docs qui
+      // ont au moins une signature/initial — les autres (rapport d'heures,
+      // calendrier informatif…) ne figurent pas au certificat.
 
       // 5. Upload du CONTRAT signé (sans page certificat)
       const blobOut = new Blob([currentBuf as BlobPart], { type: 'application/pdf' })
@@ -216,32 +222,41 @@ export async function generateAndPersistSignedPdfs(
         pdfBase64,
       })
 
-      // 6. Génère + upload le CERTIFICAT en PDF distinct
-      try {
-        const certBuf = await generateCertificatePdf({
-          envelope,
-          recipients,
-          tokens: allTokens,
-          documentName: doc.name,
-          documentSha256: sha256,
-          senderCompanyName,
-          signedAt,
-        })
-        const certName = `Certificat de signature - ${doc.name.replace(/\.pdf$/i, '')}.pdf`
-        const certBlob = new Blob([certBuf as BlobPart], { type: 'application/pdf' })
-        const certPath = await uploadSignDocument('signed', envelope.id, certBlob, certName)
-        const certBase64 = Buffer.from(certBuf).toString('base64')
-        generatedDocs.push({
-          name: certName,
-          path: certPath,
-          sha256,  // même SHA que le contrat (preuve d'intégrité liée)
-          pdfBase64: certBase64,
-        })
-      } catch (certErr) {
-        console.error('[pdf-generator] certificate generation failed for', doc.name, certErr)
+      // 6. Si le doc contient au moins une signature/initial → entrée au certificat global
+      const docHasSignature = (doc.fields || []).some(f => f.type === 'signature' || f.type === 'initial')
+      if (docHasSignature) {
+        signedDocsForCert.push({ name: doc.name, sha256 })
       }
     } catch (e) {
       console.error('[pdf-generator] stamp failed for', doc.name, e)
+    }
+  }
+
+  // v2.9.49 — 6bis. UN seul certificat global pour l'enveloppe, listant tous les
+  // documents signés (zéro si aucune signature dans l'enveloppe).
+  if (signedDocsForCert.length > 0) {
+    try {
+      const certBuf = await generateCertificatePdf({
+        envelope,
+        recipients,
+        tokens: allTokens,
+        signedDocuments: signedDocsForCert,
+        senderCompanyName,
+        signedAt,
+      })
+      const certName = 'Certificat de signature.pdf'
+      const certBlob = new Blob([certBuf as BlobPart], { type: 'application/pdf' })
+      const certPath = await uploadSignDocument('signed', envelope.id, certBlob, certName)
+      const certBase64 = Buffer.from(certBuf).toString('base64')
+      // SHA-256 du 1er doc signé — repère "l'empreinte principale du lot signé"
+      generatedDocs.push({
+        name: certName,
+        path: certPath,
+        sha256: signedDocsForCert[0].sha256,
+        pdfBase64: certBase64,
+      })
+    } catch (certErr) {
+      console.error('[pdf-generator] global certificate generation failed', certErr)
     }
   }
 
@@ -288,8 +303,9 @@ interface CertificateArgs {
     signed_at: string | null
     signed_ip: string | null
   }>
-  documentName: string
-  documentSha256: string
+  // v2.9.49 — UN certificat liste TOUS les documents signés de l'enveloppe
+  // (avec leur empreinte SHA-256), plus un cert par doc.
+  signedDocuments: Array<{ name: string; sha256: string }>
   senderCompanyName: string
   signedAt: Date
 }
@@ -326,7 +342,7 @@ export async function generateCertificatePdf(
 async function appendCertificatePage(args: CertificateArgs): Promise<Uint8Array> {
   const {
     pdfBuffer, envelope, recipients, tokens,
-    documentName, documentSha256, senderCompanyName, signedAt,
+    signedDocuments, senderCompanyName, signedAt,
   } = args
 
   const pdf = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
@@ -423,7 +439,13 @@ async function appendCertificatePage(args: CertificateArgs): Promise<Uint8Array>
   y -= 16
   drawKeyValue(page, 'Titre', envelope.title, margin, y, helv, helvBold)
   y -= 14
-  drawKeyValue(page, 'Document', documentName, margin, y, helv, helvBold)
+  // v2.9.49 — Liste compacte des documents signés (au lieu d'un seul nom).
+  drawKeyValue(
+    page,
+    `Documents (${signedDocuments.length})`,
+    signedDocuments.map(d => d.name.replace(/\.pdf$/i, '')).join(' · '),
+    margin, y, helv, helvBold,
+  )
   y -= 14
   drawKeyValue(page, 'Envelope ID', envelope.id, margin, y, helv, helvBold)
   y -= 28
@@ -476,29 +498,29 @@ async function appendCertificatePage(args: CertificateArgs): Promise<Uint8Array>
 
   y -= 18
 
-  // ─── Hash SHA-256 ───
-  drawSectionLabel(page, 'Empreinte du document source (SHA-256)', margin, y, helvBold)
+  // ─── Empreintes SHA-256 par document ───
+  // v2.9.49 — Une ligne par document signé (nom + hash tronqué).
+  drawSectionLabel(page, `Empreintes SHA-256 des documents (${signedDocuments.length})`, margin, y, helvBold)
   y -= 14
-  // Hash : 64 chars hex → split en 2 lignes pour lisibilité
-  const sha1 = documentSha256.slice(0, 32)
-  const sha2 = documentSha256.slice(32)
-  page.drawText(sha1, {
-    x: margin, y, size: 8.5,
-    font: await pdf.embedFont(StandardFonts.Courier),
-    color: rgb(0.20, 0.20, 0.22),
-  })
-  y -= 12
-  page.drawText(sha2, {
-    x: margin, y, size: 8.5,
-    font: await pdf.embedFont(StandardFonts.Courier),
-    color: rgb(0.20, 0.20, 0.22),
-  })
-  y -= 18
+  const courier = await pdf.embedFont(StandardFonts.Courier)
+  for (const d of signedDocuments) {
+    if (y < 250) break  // garde-fou : ne pas déborder sur le footer
+    const cleanName = d.name.replace(/\.pdf$/i, '')
+    page.drawText(truncate(cleanName, 60), {
+      x: margin, y, size: 8.5, font: helvBold, color: rgb(0.11, 0.10, 0.08),
+    })
+    y -= 10
+    page.drawText(d.sha256, {
+      x: margin, y, size: 7.5, font: courier, color: rgb(0.30, 0.30, 0.35),
+    })
+    y -= 14
+  }
+  y -= 4
   page.drawText(
-    'Cette empreinte cryptographique identifie de manière unique le document source signé.',
+    'Ces empreintes cryptographiques identifient de manière unique chaque document signé.',
     { x: margin, y, size: 8, font: helvOblique, color: rgb(0.50, 0.50, 0.55) },
   )
-  y -= 32
+  y -= 24
 
   // ─── Footer légal ZertES ───
   // Cadre en bas de page

@@ -17,10 +17,10 @@ interface Props {
 }
 
 // v2.4.9 — Label "Mappe" → "Général" (cohérent avec CATEGORY_LABELS + CreateTemplateModal)
+// v2.9.49 — Catégorie « Autres » retirée : tout va sur Général, sauf Contrat de travail.
 const CATEGORIES: { key: SignCategory; label: string; icon: typeof FolderOpen; color: string; bg: string; border: string }[] = [
   { key: 'mappe',   label: 'Général',            icon: FolderOpen, color: 'var(--warning)', bg: 'var(--warning-soft)', border: 'var(--warning-soft)' },
   { key: 'contrat', label: 'Contrat de travail', icon: FileText,   color: 'var(--info)',    bg: 'var(--info-soft)',    border: 'var(--info-soft)' },
-  { key: 'autres',  label: 'Autres',             icon: Paperclip,  color: 'var(--muted)',   bg: 'var(--secondary)',    border: 'var(--border)' },
 ]
 
 export default function CandidatSignSection({ candidatId, candidatName: _candidatName }: Props) {
@@ -52,8 +52,14 @@ export default function CandidatSignSection({ candidatId, candidatName: _candida
     fetchEnvelopes()
   }, [candidatId])
 
+  // v2.9.49 — Les anciennes enveloppes avec document_category='autres' sont
+  // rebasculées dans 'mappe' (Général) pour ne plus avoir d'orphelins après le
+  // retrait de la catégorie Autres.
   const grouped: Record<SignCategory, SignEnvelope[]> = { mappe: [], contrat: [], autres: [] }
-  envelopes.forEach(e => grouped[e.document_category].push(e))
+  envelopes.forEach(e => {
+    const cat = e.document_category === 'autres' ? 'mappe' : e.document_category
+    grouped[cat].push(e)
+  })
 
   return (
     <div style={{ padding: '8px 24px 16px', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>

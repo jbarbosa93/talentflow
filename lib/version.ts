@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.48'
+export const APP_VERSION = '2.9.49'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.49 — Sign : 3 corrections (catégorie, auto-fill consultant, certificat unique)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.49',
+    date: '2026-05-25',
+    label: 'Sign : catégorie « Autres » retirée + auto-fill candidat visible côté consultant + UN seul certificat global',
+    features: [
+      'CATÉGORIES — La catégorie « Autres » est retirée des fiches candidat (signatures électroniques). Tout va sur « Général » par défaut, sauf le « Contrat de travail » qui reste dans sa propre catégorie. Les enveloppes existantes classées « Autres » sont automatiquement rebasculées sur « Général ».',
+      'CONSULTANT — Les champs auto-fill remplis par le candidat (nom, prénom, email, fonction, téléphone, société) apparaissent désormais correctement en lecture seule dans la vue consultant. Avant : ils s\'affichaient vides à l\'écran intermédiaire alors qu\'ils étaient bien dans le PDF final.',
+      'CERTIFICAT — UN seul certificat de signature est généré pour toute l\'enveloppe, listant tous les documents signés avec leur empreinte SHA-256. Avant : un certificat par document, y compris pour les documents purement informatifs (rapport d\'heures, calendrier). Les documents sans champ signature ne figurent plus au certificat.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.48 — Missions : tri « Début dans 1j » correct (même fix que v2.9.47)
   // ─────────────────────────────────────────────────────────────────────

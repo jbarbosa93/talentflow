@@ -55,9 +55,10 @@ export async function POST(req: NextRequest) {
     if (!body.title || typeof body.title !== 'string') {
       return NextResponse.json({ error: 'title requis' }, { status: 400 })
     }
+    // v2.9.49 — Default = 'mappe' (Général) au lieu de 'autres' (catégorie retirée de l'UI).
     const category: SignCategory = (VALID_CATEGORY as string[]).includes(body.document_category)
       ? body.document_category
-      : 'autres'
+      : 'mappe'
 
     const recipients: SignRecipient[] = Array.isArray(body.recipients) ? body.recipients : []
     // Validation minimale destinataires
