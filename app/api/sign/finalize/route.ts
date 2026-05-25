@@ -241,21 +241,81 @@ export async function POST(req: NextRequest) {
       // pièces jointes chargées par le candidat. Remplace les 2 emails séparés
       // ("Documents signés" + "X documents chargés"). Le candidat, lui, ne
       // reçoit QUE ses documents signés (jamais ses propres scans).
+      //
+      // v2.9.50 — Garde-fou taille Resend (limite ~40 MB total/email) :
+      //   1. Si total PJ > 35 MB → on retire les uploads candidat (les plus
+      //      lourds : photos iPhone non-compressées) et on garde les docs signés.
+      //   2. Si Resend renvoie quand même une erreur → on retry SANS PJ +
+      //      mention « disponibles sur la page enveloppe » + lien.
+      //   3. Si tout échoue → log error explicite (visible dans Vercel runtime).
       if (creatorEmail) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
+        const allAttachments = [...stampResult.signedAttachments, ...uploadResult.attachments]
+        // Taille approximative décodée : longueur base64 × 3/4
+        const totalBytes = allAttachments
+          .reduce((sum, a) => sum + Math.ceil((a.content?.length || 0) * 3 / 4), 0)
+        const totalMB = (totalBytes / 1024 / 1024).toFixed(2)
+        const SIZE_LIMIT_MB = 35
+        let attachments = allAttachments
+        let dropped = 0
+        if (totalBytes > SIZE_LIMIT_MB * 1024 * 1024) {
+          // Priorité légale aux docs signés (preuve). Les uploads candidat restent
+          // accessibles côté serveur (Storage + Conformité).
+          attachments = stampResult.signedAttachments
+          dropped = uploadResult.attachments.length
+          console.warn(
+            `[sign/finalize] récap PJ tronquées : ${totalMB} MB > ${SIZE_LIMIT_MB} MB`
+            + ` — upload candidat retiré (${dropped} fichiers, accessibles via Conformité)`,
+          )
+        }
+        console.log(
+          `[sign/finalize] récap creator=${creatorEmail}`
+          + ` signed=${stampResult.signedAttachments.length} upload=${uploadResult.attachments.length}`
+          + ` sent_attachments=${attachments.length} total_size=${totalMB}MB`,
+        )
+
+        let recapResult: { ok: boolean; error?: string; id?: string }
         try {
-          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
-          await sendSignFinalRecapEmail(creatorEmail, {
+          recapResult = await sendSignFinalRecapEmail(creatorEmail, {
             envelopeTitle: envelope.title,
             uploaderName: uploadResult.uploaderName,
             signedCount: stampResult.signedAttachments.length,
             uploadCount: uploadResult.attachments.length,
             signedAt: new Date(nowIso),
-            attachments: [...stampResult.signedAttachments, ...uploadResult.attachments],
+            attachments,
             envelopeUrl: `${appUrl}/sign/${envelope.id}`,
           })
         } catch (e) {
-          console.warn('[sign/finalize] email récap fusionné échoué', e)
+          console.error('[sign/finalize] récap EXCEPTION', e)
+          recapResult = { ok: false, error: e instanceof Error ? e.message : 'exception' }
         }
+
+        if (recapResult.ok) {
+          console.log(`[sign/finalize] récap OK id=${recapResult.id || 'n/a'}`)
+        } else {
+          // Retry SANS PJ — au moins le créateur saura que c'est complété.
+          console.warn(`[sign/finalize] récap KO (${recapResult.error}) → retry sans PJ`)
+          try {
+            const fallback = await sendSignFinalRecapEmail(creatorEmail, {
+              envelopeTitle: envelope.title,
+              uploaderName: uploadResult.uploaderName,
+              signedCount: stampResult.signedAttachments.length,
+              uploadCount: uploadResult.attachments.length,
+              signedAt: new Date(nowIso),
+              attachments: [],
+              envelopeUrl: `${appUrl}/sign/${envelope.id}`,
+            })
+            if (fallback.ok) {
+              console.log(`[sign/finalize] récap fallback OK id=${fallback.id || 'n/a'}`)
+            } else {
+              console.error(`[sign/finalize] récap fallback ÉCHOUÉ: ${fallback.error}`)
+            }
+          } catch (e2) {
+            console.error('[sign/finalize] récap fallback EXCEPTION', e2)
+          }
+        }
+      } else {
+        console.warn('[sign/finalize] PAS de creatorEmail — email récap non envoyé')
       }
 
       await logAuditEvent(envelope.id, 'completed', {

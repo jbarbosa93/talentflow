@@ -130,6 +130,13 @@ export async function generateAndPersistSignedPdfs(
     } catch { /* silencieux */ }
   }
 
+  // v2.9.50 — Logs de diagnostic pour identifier les mismatchs recipientOrder
+  // (cause #1 de signatures non stampées en prod).
+  console.log(
+    `[pdf-generator] envelope=${envelope.id} docs=${documents.length}`
+    + ` recipients=${JSON.stringify(recipients.map(r => ({ email: r.email, order: r.order, role: r.role })))}`,
+  )
+
   // 4. Stamp + upload chaque doc
   // v2.9.49 — On collecte au passage les documents qui contiennent au moins une
   // signature (signature/initial) → ils alimenteront LE certificat global (1 seul
@@ -163,6 +170,21 @@ export async function generateAndPersistSignedPdfs(
       const recipientOrders = recipients.map((r, i) =>
         (typeof r.order === 'number' ? r.order : (i + 1)))
       const minRecipientOrder = recipientOrders.length > 0 ? Math.min(...recipientOrders) : 1
+      // v2.9.50 — Diagnostic : distribution des recipientOrder dans les fields
+      // du doc (avant filter par destinataire). Permet d'identifier en un
+      // coup d'œil un mismatch entre fields du template et destinataires.
+      const fieldOrderDistribution: Record<string, number> = {}
+      for (const f of (doc.fields || [])) {
+        const key = String(f.recipientOrder ?? 'undefined')
+        fieldOrderDistribution[key] = (fieldOrderDistribution[key] || 0) + 1
+      }
+      const sigFieldCount = (doc.fields || []).filter(f => f.type === 'signature' || f.type === 'initial').length
+      console.log(
+        `[pdf-generator] doc="${doc.name}" fields=${(doc.fields || []).length}`
+        + ` signatures=${sigFieldCount} order_distribution=${JSON.stringify(fieldOrderDistribution)}`
+        + ` minRecipientOrder=${minRecipientOrder}`,
+      )
+
       for (let recIdx = 0; recIdx < recipients.length; recIdx++) {
         const rec = recipients[recIdx]
         // v2.8.5 — Avant : `recIdx + 1` forçait 1-based → les fields des rôles
@@ -173,11 +195,20 @@ export async function generateAndPersistSignedPdfs(
         const tok = allTokens.find(t =>
           t.recipient_email.toLowerCase().trim() === rec.email.toLowerCase().trim(),
         )
-        if (!tok) continue
+        if (!tok) {
+          console.warn(`[pdf-generator] doc="${doc.name}" recipient=${rec.email} order=${recipientOrder} — TOKEN MANQUANT, skip stamp`)
+          continue
+        }
         // v2.9.24 — Fallback = ordre minimum (les champs sans recipientOrder
         // appartiennent au 1er destinataire, qu'il soit 0-based ou 1-based).
         const recFields = (doc.fields || []).filter(f =>
           (f.recipientOrder ?? minRecipientOrder) === recipientOrder)
+        const recSigCount = recFields.filter(f => f.type === 'signature' || f.type === 'initial').length
+        console.log(
+          `[pdf-generator] doc="${doc.name}" recipient=${rec.email} order=${recipientOrder}`
+          + ` matched_fields=${recFields.length} signatures=${recSigCount}`
+          + ` has_signature_data=${!!tok.signature_data_url}`,
+        )
         if (recFields.length === 0) continue
 
         const nameParts = (rec.name || '').trim().split(/\s+/)
@@ -226,6 +257,8 @@ export async function generateAndPersistSignedPdfs(
       const docHasSignature = (doc.fields || []).some(f => f.type === 'signature' || f.type === 'initial')
       if (docHasSignature) {
         signedDocsForCert.push({ name: doc.name, sha256 })
+      } else {
+        console.log(`[pdf-generator] doc="${doc.name}" exclu du certificat (0 champ signature/initial)`)
       }
     } catch (e) {
       console.error('[pdf-generator] stamp failed for', doc.name, e)
@@ -234,6 +267,10 @@ export async function generateAndPersistSignedPdfs(
 
   // v2.9.49 — 6bis. UN seul certificat global pour l'enveloppe, listant tous les
   // documents signés (zéro si aucune signature dans l'enveloppe).
+  console.log(
+    `[pdf-generator] cert décision : ${signedDocsForCert.length} doc(s) avec signature`
+    + ` — ${signedDocsForCert.length > 0 ? 'génération du cert global' : 'PAS de cert (aucune signature détectée)'}`,
+  )
   if (signedDocsForCert.length > 0) {
     try {
       const certBuf = await generateCertificatePdf({
@@ -255,8 +292,9 @@ export async function generateAndPersistSignedPdfs(
         sha256: signedDocsForCert[0].sha256,
         pdfBase64: certBase64,
       })
+      console.log(`[pdf-generator] cert OK path=${certPath} size=${certBuf.byteLength}B`)
     } catch (certErr) {
-      console.error('[pdf-generator] global certificate generation failed', certErr)
+      console.error('[pdf-generator] global certificate generation FAILED', certErr)
     }
   }
 

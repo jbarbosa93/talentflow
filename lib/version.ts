@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.49'
+export const APP_VERSION = '2.9.50'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.50 — Sign : email récap consultant fiabilisé + logs diagnostic
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.50',
+    date: '2026-05-25',
+    label: 'Sign : email récap consultant fiabilisé (taille PJ + retry sans pièces jointes) + logs diagnostic',
+    features: [
+      'EMAIL RÉCAP — Si la taille totale des pièces jointes dépasse 35 Mo, les uploads candidat sont retirés (les documents signés sont prioritaires juridiquement). Si Resend renvoie quand même une erreur, retry automatique sans pièces jointes avec lien vers la page de l\'enveloppe. Avant : silence total, le consultant ne recevait rien.',
+      'DIAGNOSTIC — Logs détaillés sur le pipeline finalize (stamping signature + génération certificat + envoi email récap). Permet de comprendre en un coup d\'œil pourquoi un destinataire ne reçoit pas sa signature stampée ou son email final.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.49 — Sign : 3 corrections (catégorie, auto-fill consultant, certificat unique)
   // ─────────────────────────────────────────────────────────────────────
