@@ -303,6 +303,8 @@ export default function PublicSignPage({ params }: PageProps) {
       }
     }
     if (Object.keys(keyToFieldIds).length === 0) return
+    // eslint-disable-next-line no-console
+    console.log(`[cross-key/mount] keys présentes dans le template : ${JSON.stringify(Object.keys(keyToFieldIds))} — fetch /api/sign/cross-fill`)
     fetch('/api/sign/cross-fill', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -310,24 +312,35 @@ export default function PublicSignPage({ params }: PageProps) {
     })
       .then(r => r.ok ? r.json() : null)
       .then((d: { values?: Record<string, string> } | null) => {
+        // eslint-disable-next-line no-console
+        console.log(`[cross-key/mount] réponse cross-fill : ${JSON.stringify(d?.values || {})}`)
         if (!d?.values) return
         setFieldValues(prev => {
           const next = { ...prev }
-          let touched = false
+          let touched = 0
+          let skipped = 0
           for (const [key, value] of Object.entries(d.values || {})) {
             const fieldIds = keyToFieldIds[key]
             if (!fieldIds) continue
             for (const fid of fieldIds) {
               // Skip si le candidat a déjà saisi qqch (ne pas écraser)
-              if (next[fid] !== undefined && next[fid] !== null && next[fid] !== '') continue
+              if (next[fid] !== undefined && next[fid] !== null && next[fid] !== '') {
+                skipped++
+                continue
+              }
               next[fid] = value
-              touched = true
+              touched++
             }
           }
-          return touched ? next : prev
+          // eslint-disable-next-line no-console
+          console.log(`[cross-key/mount] champs préremplis=${touched} skippés=${skipped}`)
+          return touched > 0 ? next : prev
         })
       })
-      .catch(() => { /* silent */ })
+      .catch((e) => {
+        // eslint-disable-next-line no-console
+        console.warn('[cross-key/mount] échec fetch cross-fill', e)
+      })
   }, [data, state, token])
 
   const documents = useMemo(() => data?.documents || [], [data])
@@ -579,14 +592,32 @@ export default function PublicSignPage({ params }: PageProps) {
       // v2.9.27 — Clé partagée : propage la valeur aux autres champs de la
       // MÊME enveloppe portant le même crossTemplateKey (s'ils sont vides).
       // Couvre le cas Fiche d'inscription + Contrat cadre dans le même envoi.
+      // v2.9.52 — Logs diagnostic pour Bug cross-key signalé par João : on
+      // veut voir au prochain test si la propagation se déclenche bien,
+      // combien de champs cibles existent et combien sont remplis.
       if (fld?.crossTemplateKey && typeof value === 'string' && value.trim()) {
+        const targets: string[] = []
+        const skipped: Array<{ id: string; reason: string }> = []
         for (const [fid, other] of allFieldsById) {
           if (fid === fieldId) continue
           if (other.crossTemplateKey && other.crossTemplateKey === fld.crossTemplateKey) {
             const cur = next[fid]
-            if (cur === undefined || cur === null || cur === '') next[fid] = value
+            if (cur === undefined || cur === null || cur === '') {
+              next[fid] = value
+              targets.push(fid.slice(0, 8))
+            } else {
+              skipped.push({ id: fid.slice(0, 8), reason: `déjà rempli (${String(cur).slice(0, 20)})` })
+            }
           }
         }
+        // eslint-disable-next-line no-console
+        console.log(
+          `[cross-key] propagation key="${fld.crossTemplateKey}" value="${value.slice(0, 30)}" `
+          + `source=${fieldId.slice(0, 8)} `
+          + `propagés=[${targets.join(',')}] (${targets.length}) `
+          + `skippés=[${skipped.map(s => `${s.id}:${s.reason}`).join(', ')}] (${skipped.length}) `
+          + `total_fields_map=${allFieldsById.size}`,
+        )
       }
       syncFieldValues(next)
       return next
