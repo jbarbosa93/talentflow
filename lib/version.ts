@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.46'
+export const APP_VERSION = '2.9.47'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.47 — Missions : statut « Début dans Nj » correct pour le lendemain
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.47',
+    date: '2026-05-25',
+    label: 'Missions : statut « Début dans 1j » correct pour les missions qui démarrent demain',
+    features: [
+      'Une mission qui démarrait le lendemain (J+1) tombait à tort sur le statut « En mission » au lieu de « Début dans 1j ». Cause : un piège de fuseau horaire (les dates ISO sont parsées en UTC alors que l\'heure courante est en heure locale). Le calcul du statut compare désormais au niveau du jour, pas du datetime — toutes les missions à venir affichent le bon décompte.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.46 — Sign : intro temps réel + photo selfie → fiche + cleanup recto/verso
   // ─────────────────────────────────────────────────────────────────────

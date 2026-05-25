@@ -133,12 +133,17 @@ function getMissionBadge(m: Mission & { _expired?: boolean }): { label: string; 
     return { label: `Absence ${formatDateShort(absence.debut)}→${formatDateShort(absence.fin)}`, bg: 'rgba(245,166,35,0.12)', color: '#F5A623' }
   }
   // Priorité 4 : Début bientôt (jaune) — date_debut entre demain et +7 jours
+  // v2.9.47 — Comparaison au niveau du JOUR (pas du datetime). `new Date('YYYY-MM-DD')`
+  // parse en UTC (= 02:00 heure locale CH en été), et `new Date()` contient l'heure
+  // courante → une mission qui démarrait demain tombait à tort en « En mission »
+  // (debut 02:00 < tomorrow 09:29). On normalise tout à minuit local.
   if (m.statut === 'en_cours' && !m._expired) {
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
-    const in7 = new Date(); in7.setDate(in7.getDate() + 7)
-    const debut = new Date(m.date_debut)
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
+    const in7 = new Date(today); in7.setDate(today.getDate() + 7)
+    const debut = new Date(m.date_debut + 'T00:00:00')
     if (debut >= tomorrow && debut <= in7) {
-      const diffDays = Math.ceil((debut.getTime() - new Date().getTime()) / 86400000)
+      const diffDays = Math.round((debut.getTime() - today.getTime()) / 86400000)
       return { label: `Début dans ${diffDays}j`, bg: 'rgba(234,179,8,0.12)', color: '#EAB308' }
     }
   }
