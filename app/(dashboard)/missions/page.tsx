@@ -1057,10 +1057,13 @@ export default function MissionsPage() {
     // 2 = Absence
     if (m.statut === 'en_cours' && !m._expired && isInPeriod(m.absences || [], todayStr)) return 2
     // 3 = Début bientôt (entre demain et dans 7 jours)
+    // v2.9.48 — Comparaison au niveau du JOUR (même piège TZ que getMissionStatus :
+    // `new Date('YYYY-MM-DD')` parse en UTC, `new Date()` contient l'heure courante).
     if (m.statut === 'en_cours' && !m._expired) {
-      const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
-      const in7 = new Date(); in7.setDate(in7.getDate() + 7)
-      const debut = new Date(m.date_debut)
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
+      const in7 = new Date(today); in7.setDate(today.getDate() + 7)
+      const debut = new Date(m.date_debut + 'T00:00:00')
       if (debut >= tomorrow && debut <= in7) return 3
     }
     // 4 = Fin bientôt (aujourd'hui à dans 7 jours) — v1.9.126
@@ -1070,7 +1073,7 @@ export default function MissionsPage() {
     if (m.statut === 'en_cours' && !m._expired && m.date_fin) {
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const in7End = new Date(today); in7End.setDate(today.getDate() + 7)
-      const fin = new Date(m.date_fin)
+      const fin = new Date(m.date_fin + 'T00:00:00')
       if (fin >= today && fin <= in7End) return 4
     }
     // 5 = Actif normal (fin > 7j)

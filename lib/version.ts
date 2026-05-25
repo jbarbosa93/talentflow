@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.47'
+export const APP_VERSION = '2.9.48'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.48 — Missions : tri « Début dans 1j » correct (même fix que v2.9.47)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.48',
+    date: '2026-05-25',
+    label: 'Missions : les missions « Début dans 1j » se classent maintenant en haut avec les autres « Début dans Nj »',
+    features: [
+      'Suite à la v2.9.47, le statut affichait bien « Début dans 1j » mais la mission restait classée tout en bas avec les missions actives. Le tri avait la même typo de fuseau horaire (déjà corrigée pour l\'affichage). Comparaison de tri désormais alignée → les missions qui démarrent demain remontent au-dessus des missions actives.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.47 — Missions : statut « Début dans Nj » correct pour le lendemain
   // ─────────────────────────────────────────────────────────────────────
