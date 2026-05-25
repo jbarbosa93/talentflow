@@ -90,23 +90,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const ttlDays = (env as unknown as { expires_in_days?: number | null }).expires_in_days || undefined
 
   // v2.9.51 — Auto-sign destinataire en mode « signature en dur ».
-  //
-  // Si TOUS les champs signature/initial d'un destinataire sont pré-remplis
-  // dans le template (presetSignatureDataUrl), on l'auto-signe à l'envoi :
-  //  - on génère son token avec signed_at=now, signature_data_url=null,
-  //    signature_method='auto'
-  //  - on marque recipient.status='signed'
-  //  - on log audit 'signed' avec metadata.method='preset_template'
-  //  - il ne reçoit pas de lien d'invitation
-  // Le candidat (qui doit signer son propre champ) reste le seul destinataire
-  // actif. À la signature du candidat, finalize voit que tout est signé →
-  // l'enveloppe est complète et le pdf-generator stampe la signature preset
-  // depuis le field (cf. lib/sign/pdf-stamp.ts case 'signature'/'initial').
+  // v2.9.52 — Critère relâché : si AU MOINS UN champ signature/initial du
+  // destinataire a une preset → on auto-signe avec cette preset, qui s'applique
+  // à TOUS ses champs signature/initial (via sigImage du token = preset).
+  // Avant : il fallait que TOUS les champs aient une preset, sinon flow manuel
+  // → bug récurrent quand le consultant a 2+ pages avec 1 seule preset.
+  // Le nom du destinataire est aussi auto-rempli avec user_metadata.full_name
+  // du créateur si vide ET destinataire = créateur (pour autofill firstname/
+  // lastname/fullname dans le PDF).
   const allRecipients = env.recipients as SignRecipient[]
   const allSigners = allRecipients.filter(r => r.role !== 'cc')
 
-  // Construit le map order → { hasAny, hasManual } en UN PASSAGE sur le template
-  const sigFieldsByOrder = new Map<number, { hasAny: boolean; hasManual: boolean }>()
+  // Construit le map order → { firstPresetDataUrl, totalSig, presetCount }
+  // EN UN PASSAGE sur le template
+  const sigInfoByOrder = new Map<number, {
+    firstPresetDataUrl: string | null
+    totalSig: number
+    presetCount: number
+  }>()
   if (env.template_id) {
     try {
       const { data: tpl } = await supabase
@@ -123,59 +124,96 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         for (const f of (d.fields || []) as SignField[]) {
           if (f.type !== 'signature' && f.type !== 'initial') continue
           const ord = typeof f.recipientOrder === 'number' ? f.recipientOrder : minRecOrder
-          const entry = sigFieldsByOrder.get(ord) || { hasAny: false, hasManual: false }
-          entry.hasAny = true
+          const entry = sigInfoByOrder.get(ord) || {
+            firstPresetDataUrl: null, totalSig: 0, presetCount: 0,
+          }
+          entry.totalSig += 1
           const isPreset = typeof f.presetSignatureDataUrl === 'string'
             && f.presetSignatureDataUrl.length > 0
-          if (!isPreset) entry.hasManual = true
-          sigFieldsByOrder.set(ord, entry)
+          if (isPreset) {
+            entry.presetCount += 1
+            if (!entry.firstPresetDataUrl) {
+              entry.firstPresetDataUrl = f.presetSignatureDataUrl as string
+            }
+          }
+          sigInfoByOrder.set(ord, entry)
         }
       }
     } catch (e) {
-      console.warn('[sign/send] lecture sigFieldsByOrder échouée', e)
+      console.warn('[sign/send] lecture sigInfoByOrder échouée', e)
     }
   }
+  console.log(`[sign/send] sigInfoByOrder = ${JSON.stringify(Array.from(sigInfoByOrder.entries()).map(([k, v]) => [k, { totalSig: v.totalSig, presetCount: v.presetCount, hasPreset: !!v.firstPresetDataUrl }]))}`)
 
-  // Auto-signe les destinataires « 100 % preset »
+  // Auto-signe les destinataires avec AU MOINS UNE preset
   const updatedRecipients: SignRecipient[] = [...allRecipients]
   const autoSignedEmails: string[] = []
   for (const rec of allSigners) {
     if (rec.status === 'signed') continue
-    const sig = sigFieldsByOrder.get(rec.order ?? 0)
-    if (!sig || !sig.hasAny || sig.hasManual) continue
-    // → 100 % preset : auto-sign
+    const sig = sigInfoByOrder.get(rec.order ?? 0)
+    if (!sig || !sig.firstPresetDataUrl) continue
+    // → AU MOINS 1 preset : auto-sign avec cette preset comme signature globale
     try {
-      // 1. Crée le token avec signature déjà apposée
       const nowIso = new Date().toISOString()
       const safeTtl = ttlDays || 30
       const expiresAt = new Date(Date.now() + safeTtl * 24 * 60 * 60 * 1000).toISOString()
+
+      // v2.9.52 — Si rec.name vide ET destinataire = créateur, on pré-remplit
+      // avec le user_metadata.full_name (sinon les autofill firstname/lastname
+      // du PDF restent vides — cf. Bug 3 post-test João v2.9.51).
+      const isCreator = (rec.email || '').toLowerCase().trim()
+        === (senderEmail || '').toLowerCase().trim()
+      const fullNameMeta = (meta?.full_name || meta?.name || '').trim()
+      const effectiveName = (rec.name || '').trim()
+        || (isCreator && fullNameMeta ? fullNameMeta : '')
+        || rec.email
+        || ''
+
+      // 1. Crée le token avec la PRESET comme signature_data_url
+      // → pdf-stamp utilisera cette image pour TOUS les champs signature/initial
+      //   de ce destinataire (Bug 1 post-test : avant la preset n'était dispo
+      //   que par-field via f.presetSignatureDataUrl, donc les champs sans
+      //   preset propre restaient vides).
       await supabase.from('sign_tokens' as any).insert({
         envelope_id: id,
         recipient_email: (rec.email || '').toLowerCase().trim(),
-        recipient_name: (rec.name || '').trim(),
+        recipient_name: effectiveName,
         recipient_phone: rec.phone || null,
         expires_at: expiresAt,
         signed_at: nowIso,
-        signature_data_url: null,
+        signature_data_url: sig.firstPresetDataUrl,
         signature_method: 'auto',
         signed_ip: null,
         terms_accepted_at: nowIso,
       })
-      // 2. Update recipient.status = 'signed' dans le tableau local
+      // 2. Update recipient.status='signed' + .name si on l'a pré-rempli
       const idx = updatedRecipients.findIndex(r =>
         (r.email || '').toLowerCase().trim() === (rec.email || '').toLowerCase().trim(),
       )
       if (idx >= 0) {
-        updatedRecipients[idx] = { ...updatedRecipients[idx], status: 'signed' }
+        updatedRecipients[idx] = {
+          ...updatedRecipients[idx],
+          status: 'signed',
+          name: effectiveName,
+        }
       }
       // 3. Audit
       await logAuditEvent(id, 'signed', {
         recipientEmail: rec.email,
         ip: extractIp(req),
-        metadata: { method: 'preset_template', role: 'Signataire' },
+        metadata: {
+          method: 'preset_template',
+          role: 'Signataire',
+          presetCount: sig.presetCount,
+          totalSig: sig.totalSig,
+        },
       })
       autoSignedEmails.push(rec.email)
-      console.log(`[sign/send] auto-sign preset_template : ${rec.email} order=${rec.order ?? 0}`)
+      console.log(
+        `[sign/send] auto-sign preset_template : ${rec.email}`
+        + ` order=${rec.order ?? 0} preset=${sig.presetCount}/${sig.totalSig}`
+        + ` name="${effectiveName}"`,
+      )
     } catch (e) {
       console.warn('[sign/send] auto-sign échoué pour', rec.email, e)
     }

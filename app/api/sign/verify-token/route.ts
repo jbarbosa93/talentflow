@@ -74,6 +74,25 @@ export async function POST(req: NextRequest) {
       : (currentRecipientIdx >= 0 ? currentRecipientIdx + 1 : 1)
     const isCC = currentRecipient?.role === 'cc'
 
+    // v2.9.52 — Diagnostic Bug 2 (signer 2x) : log la résolution recipient +
+    // distribution des recipientOrder dans les fields du template. Permet de
+    // voir au prochain test si un mismatch fait que le candidat « voit » des
+    // champs signature du consultant (et inversement).
+    try {
+      const allFields = (documents || []).flatMap((d) => (d.fields || [])) as Array<{ type: string; recipientOrder?: number }>
+      const distrib: Record<string, Record<string, number>> = {}
+      for (const f of allFields) {
+        const ord = String(f.recipientOrder ?? 'undefined')
+        if (!distrib[ord]) distrib[ord] = {}
+        distrib[ord][f.type] = (distrib[ord][f.type] || 0) + 1
+      }
+      console.log(
+        `[sign/verify-token] envelope=${envelope.id} recipient=${lcRecipientEmail}`
+        + ` idx=${currentRecipientIdx} order=${currentRecipientOrder} role=${currentRecipient?.role || 'unknown'}`
+        + ` fields_distrib_by_order=${JSON.stringify(distrib)}`,
+      )
+    } catch { /* silent */ }
+
     // Récup info expéditeur (pour afficher "X vous invite à signer")
     // Priorité affichage : nom de l'ENTREPRISE > nom user > email split
     // (le candidat doit voir "L-Agence SA vous invite", pas "j.barbosa")

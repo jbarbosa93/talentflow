@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.51'
+export const APP_VERSION = '2.9.52'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.52 — Sign : signature consultant en dur (4 fixes post-test João)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.52',
+    date: '2026-05-25',
+    label: 'Sign : signature consultant en dur — auto-sign dès qu\'au moins un champ a une preset + nom auto + pas de doublon mail',
+    features: [
+      'AUTO-SIGN ÉLARGI — Le destinataire consultant est désormais auto-signé dès qu\'AU MOINS UN de ses champs signature/paraphe a une signature pré-remplie (avant : il en fallait sur TOUS). Cette unique preset est utilisée pour stamper TOUS ses champs signature/paraphe du PDF final (typique : 1 seule signature dessinée → appliquée sur les 5 pages).',
+      'NOM AUTO-REMPLI — Quand le destinataire auto-signé correspond au créateur de l\'enveloppe et que son Prénom/Nom est vide dans le formulaire d\'envoi, on le remplit automatiquement avec son full_name profil. Évite les champs « Nom du consultant » vides sur la fiche d\'inscription.',
+      'PAS DE DOUBLON MAIL — Les destinataires auto-signés ne reçoivent plus le mail « Documents signés » de fin d\'enveloppe (ils n\'ont jamais signé manuellement, pas besoin de les confirmer). Évite le doublon récap quand l\'adresse de réception est un groupe Exchange qui forward vers le consultant.',
+      'LOGS DIAGNOSTIC — Logs détaillés dans /api/sign/verify-token (distribution recipientOrder des fields) pour identifier d\'un coup d\'œil les bugs « le candidat signe 2 fois » ou « le consultant voit la signature du candidat ».',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.51 — Sign : signature consultant en dur dans le template + email de réception
   // ─────────────────────────────────────────────────────────────────────

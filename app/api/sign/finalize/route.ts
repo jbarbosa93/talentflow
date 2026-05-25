@@ -524,9 +524,32 @@ async function stampAllAndSendEmails(args: {
 
   // v2.9.31 — Le créateur ne reçoit PAS cet email "completed" : il recevra un
   // email fusionné unique (docs signés + pièces jointes candidat).
+  // v2.9.52 — On exclut AUSSI les destinataires auto-signés (preset_template,
+  // signature_method='auto') : ils n'ont jamais ouvert de lien et n'attendent
+  // pas de confirmation. Évite le doublon récap si recapEmail est un groupe
+  // qui forward vers le destinataire (cas info@l-agence.ch → j.barbosa@).
   const creatorNorm = normalizeEmail(creatorEmail || '')
+  let autoSignedEmails = new Set<string>()
+  try {
+    const { data: tokSign } = await supabase
+      .from('sign_tokens' as any)
+      .select('recipient_email, signature_method')
+      .eq('envelope_id', envelope.id)
+    autoSignedEmails = new Set(
+      ((tokSign || []) as unknown as Array<{ recipient_email: string; signature_method: string | null }>)
+        .filter(t => t.signature_method === 'auto')
+        .map(t => normalizeEmail(t.recipient_email)),
+    )
+    if (autoSignedEmails.size > 0) {
+      console.log(`[sign/finalize] exclus sendSignCompletedEmail (auto-signés) = ${JSON.stringify(Array.from(autoSignedEmails))}`)
+    }
+  } catch (e) {
+    console.warn('[sign/finalize] lecture tokens auto-signés échouée', e)
+  }
   for (const rec of recipients) {
-    if (creatorNorm && normalizeEmail(rec.email) === creatorNorm) continue
+    const norm = normalizeEmail(rec.email)
+    if (creatorNorm && norm === creatorNorm) continue
+    if (autoSignedEmails.has(norm)) continue
     try {
       await sendSignCompletedEmail(rec.email, {
         recipientName: rec.name,
