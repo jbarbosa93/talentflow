@@ -191,7 +191,18 @@ export async function POST(req: NextRequest) {
       // v2.9.31 — Le créateur reçoit UN SEUL email fusionné (docs signés +
       // pièces jointes candidat). On l'identifie ici pour l'exclure de l'email
       // "completed" standard envoyé aux autres destinataires.
-      const creatorEmail = senderInfo.email || process.env.ADMIN_EMAIL || undefined
+      // v2.9.51 — Override possible via envelope.context_data.recapEmail (champ
+      // « Email de réception » saisi sur la page d'envoi). Permet aux secrétaires
+      // d'envoyer un template Seb et recevoir le récap sur info@l-agence.ch.
+      const recapEmailOverride = (() => {
+        const ctx = (envelope as unknown as { context_data?: Record<string, unknown> | null }).context_data
+        const v = ctx && typeof ctx.recapEmail === 'string' ? ctx.recapEmail.trim() : ''
+        return v && /.+@.+\..+/.test(v) ? v : undefined
+      })()
+      const creatorEmail = recapEmailOverride || senderInfo.email || process.env.ADMIN_EMAIL || undefined
+      if (recapEmailOverride) {
+        console.log(`[sign/finalize] recap_email override → ${recapEmailOverride} (au lieu de ${senderInfo.email || 'ADMIN_EMAIL'})`)
+      }
 
       // Phase 4b + 4c — Stamp tous les PDFs + envoie copie aux destinataires
       // (best-effort). Le créateur est exclu : il aura l'email fusionné.

@@ -7,7 +7,7 @@ import { requireAuth } from '@/lib/auth-guard'
 import { generateTokensForEnvelope } from '@/lib/sign/tokens'
 import { logAuditEvent, extractIp } from '@/lib/sign/audit'
 import { dispatchInvite } from '@/lib/sign/sequential'
-import type { SignEnvelope, SignRecipient } from '@/lib/sign/types'
+import type { SignDocument, SignEnvelope, SignField, SignRecipient } from '@/lib/sign/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -89,15 +89,105 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   const ttlDays = (env as unknown as { expires_in_days?: number | null }).expires_in_days || undefined
 
-  // v2.9.16 — Auto-sign du créateur DÉSACTIVÉ. Chaque destinataire (même
-  // le créateur s'il est dans la chaîne) doit signer manuellement via son
-  // propre lien. Ça garantit la validité juridique (chaque signature reflète
-  // une action consciente du signataire) et permet à João de tester chaque
-  // flow sans contournement automatique.
+  // v2.9.51 — Auto-sign destinataire en mode « signature en dur ».
   //
-  // Historique : v2.8.5 introduisait l'auto-sign pour gagner du temps quand
-  // le consultant envoie un doc qu'il doit aussi signer. v2.9.15 l'avait
-  // restreint au rôle non-Candidat. v2.9.16 supprime complètement.
+  // Si TOUS les champs signature/initial d'un destinataire sont pré-remplis
+  // dans le template (presetSignatureDataUrl), on l'auto-signe à l'envoi :
+  //  - on génère son token avec signed_at=now, signature_data_url=null,
+  //    signature_method='auto'
+  //  - on marque recipient.status='signed'
+  //  - on log audit 'signed' avec metadata.method='preset_template'
+  //  - il ne reçoit pas de lien d'invitation
+  // Le candidat (qui doit signer son propre champ) reste le seul destinataire
+  // actif. À la signature du candidat, finalize voit que tout est signé →
+  // l'enveloppe est complète et le pdf-generator stampe la signature preset
+  // depuis le field (cf. lib/sign/pdf-stamp.ts case 'signature'/'initial').
+  const allRecipients = env.recipients as SignRecipient[]
+  const allSigners = allRecipients.filter(r => r.role !== 'cc')
+
+  // Construit le map order → { hasAny, hasManual } en UN PASSAGE sur le template
+  const sigFieldsByOrder = new Map<number, { hasAny: boolean; hasManual: boolean }>()
+  if (env.template_id) {
+    try {
+      const { data: tpl } = await supabase
+        .from('sign_templates' as any)
+        .select('documents')
+        .eq('id', env.template_id)
+        .maybeSingle()
+      const tplDocs = ((tpl as unknown as { documents?: SignDocument[] } | null)?.documents || []) as SignDocument[]
+      // Fallback ordre = min des recipient orders (cohérent pdf-generator)
+      const minRecOrder = allSigners.length > 0
+        ? Math.min(...allSigners.map(r => r.order ?? 0))
+        : 0
+      for (const d of tplDocs) {
+        for (const f of (d.fields || []) as SignField[]) {
+          if (f.type !== 'signature' && f.type !== 'initial') continue
+          const ord = typeof f.recipientOrder === 'number' ? f.recipientOrder : minRecOrder
+          const entry = sigFieldsByOrder.get(ord) || { hasAny: false, hasManual: false }
+          entry.hasAny = true
+          const isPreset = typeof f.presetSignatureDataUrl === 'string'
+            && f.presetSignatureDataUrl.length > 0
+          if (!isPreset) entry.hasManual = true
+          sigFieldsByOrder.set(ord, entry)
+        }
+      }
+    } catch (e) {
+      console.warn('[sign/send] lecture sigFieldsByOrder échouée', e)
+    }
+  }
+
+  // Auto-signe les destinataires « 100 % preset »
+  const updatedRecipients: SignRecipient[] = [...allRecipients]
+  const autoSignedEmails: string[] = []
+  for (const rec of allSigners) {
+    if (rec.status === 'signed') continue
+    const sig = sigFieldsByOrder.get(rec.order ?? 0)
+    if (!sig || !sig.hasAny || sig.hasManual) continue
+    // → 100 % preset : auto-sign
+    try {
+      // 1. Crée le token avec signature déjà apposée
+      const nowIso = new Date().toISOString()
+      const safeTtl = ttlDays || 30
+      const expiresAt = new Date(Date.now() + safeTtl * 24 * 60 * 60 * 1000).toISOString()
+      await supabase.from('sign_tokens' as any).insert({
+        envelope_id: id,
+        recipient_email: (rec.email || '').toLowerCase().trim(),
+        recipient_name: (rec.name || '').trim(),
+        recipient_phone: rec.phone || null,
+        expires_at: expiresAt,
+        signed_at: nowIso,
+        signature_data_url: null,
+        signature_method: 'auto',
+        signed_ip: null,
+        terms_accepted_at: nowIso,
+      })
+      // 2. Update recipient.status = 'signed' dans le tableau local
+      const idx = updatedRecipients.findIndex(r =>
+        (r.email || '').toLowerCase().trim() === (rec.email || '').toLowerCase().trim(),
+      )
+      if (idx >= 0) {
+        updatedRecipients[idx] = { ...updatedRecipients[idx], status: 'signed' }
+      }
+      // 3. Audit
+      await logAuditEvent(id, 'signed', {
+        recipientEmail: rec.email,
+        ip: extractIp(req),
+        metadata: { method: 'preset_template', role: 'Signataire' },
+      })
+      autoSignedEmails.push(rec.email)
+      console.log(`[sign/send] auto-sign preset_template : ${rec.email} order=${rec.order ?? 0}`)
+    } catch (e) {
+      console.warn('[sign/send] auto-sign échoué pour', rec.email, e)
+    }
+  }
+
+  // Persiste les recipients à jour (status: 'signed' pour les auto-signés)
+  if (autoSignedEmails.length > 0) {
+    await supabase
+      .from('sign_envelopes' as any)
+      .update({ recipients: updatedRecipients })
+      .eq('id', id)
+  }
 
   // v2.2.1 — Workflow séquentiel + PARALLÈLE :
   // Plusieurs destinataires peuvent partager le MÊME `order` → ils reçoivent
@@ -108,9 +198,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   // À l'envoi initial : on envoie à TOUS les signers ayant order = min(orders)
   // CC : pas de token initial, ils reçoivent juste la copie complète à la fin.
   // v2.8.5 — On exclut les signers déjà signés (cas preset_signature) du calcul.
-  const allRecipients = env.recipients as SignRecipient[]
-  const allSigners = allRecipients.filter(r => r.role !== 'cc')
-  const pendingSigners = allSigners.filter(r => r.status !== 'signed')
+  // v2.9.51 — Les auto-signés à l'envoi sont déjà status='signed' → exclus.
+  const allSignersFresh = updatedRecipients.filter(r => r.role !== 'cc')
+  const pendingSigners = allSignersFresh.filter(r => r.status !== 'signed')
   const minOrder = pendingSigners.length > 0
     ? Math.min(...pendingSigners.map(r => r.order ?? 0))
     : 0

@@ -184,6 +184,16 @@ export interface SignField {
   // `wizardSection` (édition sur un field → patch sur tous les siblings).
   sectionDescription?: string
 
+  // v2.9.51 — Signature pré-remplie en dur (type 'signature' / 'initial' uniquement).
+  // Quand renseignée, cette image (data URL PNG) est stampée auto à la
+  // finalisation, sans attendre qu'un destinataire signe ce champ. Idéal pour
+  // dupliquer un template par consultant (1 template "João", 1 "Seb") avec
+  // la signature consultant intégrée — le candidat est alors le seul à devoir
+  // signer son propre champ. Pour qu'un destinataire (rôle / order) soit
+  // « auto-signé » à l'envoi : il faut que TOUS ses champs signature/initial
+  // aient un presetSignatureDataUrl. Cf. /api/sign/envelopes/[id]/send.
+  presetSignatureDataUrl?: string | null
+
   // Métadonnées spécifiques (ex: DocuSign listItems pour 'select', tabType original)
   metadata?: Record<string, unknown>
 }

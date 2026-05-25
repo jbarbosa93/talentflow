@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.50'
+export const APP_VERSION = '2.9.51'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.51 — Sign : signature consultant en dur dans le template + email de réception
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.51',
+    date: '2026-05-25',
+    label: 'Sign : signature consultant intégrée au template (« en dur ») + email de réception personnalisable',
+    features: [
+      'SIGNATURE EN DUR — Sur n\'importe quel champ signature ou paraphe d\'un template, nouveau bouton « Dessiner la signature pré-remplie » (consultant). Quand activée, cette image est stampée automatiquement à la finalisation, à la place d\'attendre une signature live. Permet de dupliquer un template par consultant (un « Joao », un « Seb ») avec sa propre signature consultant intégrée — le candidat n\'a plus que sa propre signature à faire.',
+      'AUTO-SIGN À L\'ENVOI — Si TOUS les champs signature/paraphe d\'un destinataire sont en mode pré-rempli, il est auto-signé à l\'envoi (status passe à signé, audit log « preset_template ») et ne reçoit pas de lien d\'invitation. Le candidat reste le seul destinataire actif.',
+      'EMAIL DE RÉCEPTION DU RÉCAP — Nouveau champ dans les options avancées de la page d\'envoi : « Email de réception du récap final ». Par défaut le récap part sur ton adresse, mais tu peux mettre n\'importe quelle adresse (ex : info@l-agence.ch). Permet aux secrétaires d\'envoyer un template Seb et recevoir le récap sur la BAL collective. Le candidat ne voit pas cette adresse.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.50 — Sign : email récap consultant fiabilisé + logs diagnostic
   // ─────────────────────────────────────────────────────────────────────

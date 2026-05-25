@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 // v2.7.6 — Import partagé du modal "Champs orphelins" (défini dans WizardEditor, réutilisé ici)
 import { OrphanFieldsModal } from './WizardEditor'
+// v2.9.51 — Signature pré-remplie (en dur) sur un field signature/initial
+const SignaturePadDynamic = dynamic(() => import('./SignaturePad'), { ssr: false })
 // v2.9.21 — Gestion des sections (wizardSection)
 import SectionManager, { type SectionManagerRow } from './SectionManager'
 import { collectSections, loadCollapsedSections, saveCollapsedSections } from '@/lib/sign/section-helpers'
@@ -3569,6 +3571,11 @@ function TypeSpecificOptions({
         </>
       )}
 
+      {/* v2.9.51 — SIGNATURE PRÉ-REMPLIE (signature / initial) */}
+      {(t === 'signature' || t === 'initial') && (
+        <PresetSignatureOption field={field} onPatch={onPatch} />
+      )}
+
       {/* PIÈCE JOINTE */}
       {t === 'attachment' && (
         <>
@@ -4321,6 +4328,90 @@ const checkboxLabelStyle: React.CSSProperties = {
 
 // v2.2.4 — RecalibratePanel + ShiftBtn supprimés (peu utilisés en pratique).
 // L'admin peut décaler tous les champs via lasso-sélection + drag.
+
+// v2.9.51 — Signature pré-remplie (« en dur ») sur un champ signature/initial.
+// Permet de dupliquer un template par consultant (1 João, 1 Seb) avec la
+// signature consultant intégrée. À la finalisation, l'image est stampée auto.
+function PresetSignatureOption({
+  field, onPatch,
+}: {
+  field: SignField
+  onPatch: (patch: Partial<SignField>) => void
+}) {
+  const [padOpen, setPadOpen] = useState(false)
+  const hasPreset = typeof field.presetSignatureDataUrl === 'string'
+    && field.presetSignatureDataUrl.length > 0
+  return (
+    <div style={{
+      borderTop: '1px dashed var(--border)',
+      paddingTop: 10,
+      marginTop: 4,
+      display: 'flex', flexDirection: 'column', gap: 8,
+    }}>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--foreground)' }}>
+        Signature pré-remplie (consultant en dur)
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.55 }}>
+        Si activée, cette image est stampée automatiquement à la place d'attendre
+        une signature live. Idéal pour dupliquer le template par consultant
+        (Joao / Seb) avec la signature consultant intégrée — le candidat n'aura
+        plus que sa propre signature à faire.
+      </div>
+      {hasPreset ? (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: 8, border: '1px solid var(--border)', borderRadius: 8,
+          background: 'var(--card)',
+        }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={field.presetSignatureDataUrl as string}
+            alt="Signature pré-remplie"
+            style={{ maxHeight: 60, maxWidth: '100%', objectFit: 'contain', background: '#fff', borderRadius: 4, padding: 2 }}
+          />
+          <div style={{ flex: 1 }} />
+          <button
+            type="button"
+            onClick={() => setPadOpen(true)}
+            className="neo-btn-ghost neo-btn-sm"
+            style={{ fontSize: 11 }}
+          >
+            Modifier
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Retirer la signature pré-remplie ? Ce champ deviendra à nouveau interactif.')) {
+                onPatch({ presetSignatureDataUrl: null })
+              }
+            }}
+            className="neo-btn-ghost neo-btn-sm"
+            style={{ fontSize: 11, color: 'var(--destructive, #DC2626)' }}
+          >
+            Retirer
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setPadOpen(true)}
+          className="neo-btn"
+          style={{ alignSelf: 'flex-start', fontSize: 12 }}
+        >
+          + Dessiner la signature pré-remplie
+        </button>
+      )}
+      <SignaturePadDynamic
+        open={padOpen}
+        onClose={() => setPadOpen(false)}
+        onAdopt={(dataUrl) => {
+          onPatch({ presetSignatureDataUrl: dataUrl })
+          setPadOpen(false)
+        }}
+      />
+    </div>
+  )
+}
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (

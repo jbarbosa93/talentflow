@@ -8,7 +8,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronUp, Bell, Clock, MessageCircle, Mail } from 'lucide-react'
+import { ChevronDown, ChevronUp, Bell, Clock, MessageCircle, Mail, Inbox } from 'lucide-react'
 
 export interface AdvancedOptionsValue {
   reminderFrequencyDays: number | null  // null/0 = pas de rappels
@@ -23,6 +23,12 @@ export interface AdvancedOptionsValue {
    *  dans les fields type=company du template. Si le template a un champ company
    *  et que cette valeur est vide, l'envoi est bloqué (companyRequired=true). */
   companyName: string | null
+  /** v2.9.51 — Email de réception du récap final (override). Par défaut vide
+   *  → le récap part sur l'email du créateur de l'enveloppe. Si rempli (ex:
+   *  `info@l-agence.ch`), le récap part sur CETTE adresse. Permet aux
+   *  secrétaires d'envoyer un template Seb et recevoir le récap sur la BAL
+   *  collective. Stocké dans envelope.context_data.recapEmail. */
+  recapEmail?: string | null
 }
 
 export const DEFAULT_OPTIONS: AdvancedOptionsValue = {
@@ -31,6 +37,7 @@ export const DEFAULT_OPTIONS: AdvancedOptionsValue = {
   expiryWarningDays: null,
   channel: 'email',
   companyName: null,
+  recapEmail: null,
 }
 
 interface Props {
@@ -121,6 +128,25 @@ export default function AdvancedOptions({ value, onChange, companyRequired }: Pr
           borderTop: '1px solid var(--border)',
           paddingTop: 18,
         }}>
+          {/* v2.9.51 — Email de réception du récap final (override créateur) */}
+          <Section icon={Inbox} title="Email de réception du récap final">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <input
+                type="email"
+                value={value.recapEmail || ''}
+                onChange={e => onChange({ ...value, recapEmail: e.target.value || null })}
+                placeholder="Laisser vide = envoyer à ton adresse (créateur de l'enveloppe)"
+                className="neo-input"
+                style={{ height: 40, fontSize: 14, border: '1px solid var(--border)', background: 'var(--card)' }}
+              />
+              <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+                Adresse qui recevra le récap final avec les documents signés. Utile pour les secrétaires :
+                envoyer un template Seb pour un candidat à Seb et recevoir le récap sur <code>info@l-agence.ch</code>.
+                Le candidat ne voit pas cette adresse.
+              </div>
+            </div>
+          </Section>
+
           {/* v2.2.4 — Nom de la société cliente (obligatoire si template a un field type=company) */}
           {companyRequired && (
             <Section icon={Bell} title="Société cliente *">

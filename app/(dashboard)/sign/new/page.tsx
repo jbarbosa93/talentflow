@@ -163,6 +163,7 @@ function SignNewPage() {
         expiryWarningDays: env.expiry_warning_days ?? prev.expiryWarningDays,
         weekStartDate: typeof ctx.weekStartDate === 'string' ? ctx.weekStartDate : prev.weekStartDate,
         companyName: typeof ctx.companyName === 'string' ? ctx.companyName : prev.companyName,
+        recapEmail: typeof ctx.recapEmail === 'string' ? ctx.recapEmail : prev.recapEmail,
       }))
     }).catch(() => toast.error('Erreur de chargement du brouillon'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -371,6 +372,12 @@ function SignNewPage() {
           const ctx: Record<string, string> = {}
           if (advanced.weekStartDate) ctx.weekStartDate = advanced.weekStartDate
           if (advanced.companyName && advanced.companyName.trim()) ctx.companyName = advanced.companyName.trim()
+          // v2.9.51 — Email de réception du récap final (override créateur). Validé email valide.
+          if (advanced.recapEmail
+            && advanced.recapEmail.trim()
+            && /.+@.+\..+/.test(advanced.recapEmail.trim())) {
+            ctx.recapEmail = advanced.recapEmail.trim()
+          }
           return Object.keys(ctx).length > 0 ? ctx : null
         })(),
       }

@@ -191,7 +191,7 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
   const helvBold = await pdf.embedFont(StandardFonts.HelveticaBold)
   const pages = pdf.getPages()
 
-  // Embed image signature 1 fois
+  // Embed image signature 1 fois (signature « live » du destinataire)
   let sigImage: Awaited<ReturnType<typeof pdf.embedPng>> | null = null
   if (opts.signatureDataUrl) {
     try {
@@ -201,6 +201,26 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
       sigImage = isJpeg ? await pdf.embedJpg(buf) : await pdf.embedPng(buf)
     } catch (e) {
       console.warn('[pdf-stamp] embed signature failed', e)
+    }
+  }
+
+  // v2.9.51 — Cache d'embed pour les signatures PRESET du template (signature
+  // consultant en dur, intégrée au template par João/Seb). Évite N embeds
+  // si plusieurs fields partagent la même image.
+  const presetSigCache = new Map<string, Awaited<ReturnType<typeof pdf.embedPng>>>()
+  const embedPresetSig = async (dataUrl: string) => {
+    const cached = presetSigCache.get(dataUrl)
+    if (cached) return cached
+    try {
+      const isJpeg = dataUrl.startsWith('data:image/jpeg')
+      const base64 = dataUrl.split(',')[1] || ''
+      const buf = Uint8Array.from(Buffer.from(base64, 'base64'))
+      const img = isJpeg ? await pdf.embedJpg(buf) : await pdf.embedPng(buf)
+      presetSigCache.set(dataUrl, img)
+      return img
+    } catch (e) {
+      console.warn('[pdf-stamp] embed preset signature failed', e)
+      return null
     }
   }
 
@@ -251,8 +271,17 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
       switch (f.type) {
         case 'signature':
         case 'initial': {
-          if (!sigImage) break
-          const imgRatio = sigImage.width / sigImage.height
+          // v2.9.51 — Priorité à la signature PRESET du template (signature
+          // consultant en dur). Sinon, fallback sur la signature « live » du
+          // destinataire (sigImage). Un field peut donc être stampé même si
+          // le token n'a pas de signature_data_url (auto-sign consultant).
+          let img = sigImage
+          if (f.presetSignatureDataUrl) {
+            const preset = await embedPresetSig(f.presetSignatureDataUrl)
+            if (preset) img = preset
+          }
+          if (!img) break
+          const imgRatio = img.width / img.height
           const targetW = wPts - SIG_PADDING * 2
           const targetH = hPts - SIG_PADDING * 2
           let drawW = targetW
@@ -263,7 +292,7 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
           }
           const offX = xPts + (wPts - drawW) / 2
           const offY = yPtsBL + (hPts - drawH) / 2
-          page.drawImage(sigImage, { x: offX, y: offY, width: drawW, height: drawH })
+          page.drawImage(img, { x: offX, y: offY, width: drawW, height: drawH })
           break
         }
 
