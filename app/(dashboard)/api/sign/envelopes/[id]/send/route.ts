@@ -101,13 +101,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const allRecipients = env.recipients as SignRecipient[]
   const allSigners = allRecipients.filter(r => r.role !== 'cc')
 
-  // Construit le map order → { firstPresetDataUrl, totalSig, presetCount }
-  // EN UN PASSAGE sur le template
-  const sigInfoByOrder = new Map<number, {
+  // v2.9.53 — Mapping robuste destinataire ↔ template order (pattern #71).
+  // Le template peut être 1-based (recipientOrder 1, 2, ...) alors que
+  // les destinataires de l'envelope peuvent être 0-based (order 0, 1, ...).
+  // Solution : matcher par INDEX dans la liste triée. Le Nème destinataire
+  // (trié par order) correspond au Nème order distinct du template.
+  // Cohérent avec verify-token et SignWizard (effectiveRecipientOrder).
+  const sigInfoByTplOrder = new Map<number, {
     firstPresetDataUrl: string | null
     totalSig: number
     presetCount: number
   }>()
+  const tplOrdersSorted: number[] = []
   if (env.template_id) {
     try {
       const { data: tpl } = await supabase
@@ -116,15 +121,21 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         .eq('id', env.template_id)
         .maybeSingle()
       const tplDocs = ((tpl as unknown as { documents?: SignDocument[] } | null)?.documents || []) as SignDocument[]
-      // Fallback ordre = min des recipient orders (cohérent pdf-generator)
-      const minRecOrder = allSigners.length > 0
-        ? Math.min(...allSigners.map(r => r.order ?? 0))
-        : 0
+      // Collecte les orders distincts du template
+      const tplOrdersSet = new Set<number>()
+      for (const d of tplDocs) {
+        for (const f of (d.fields || []) as SignField[]) {
+          if (typeof f.recipientOrder === 'number') tplOrdersSet.add(f.recipientOrder)
+        }
+      }
+      tplOrdersSorted.push(...Array.from(tplOrdersSet).sort((a, b) => a - b))
+
+      const fallbackOrder = tplOrdersSorted[0] ?? 1
       for (const d of tplDocs) {
         for (const f of (d.fields || []) as SignField[]) {
           if (f.type !== 'signature' && f.type !== 'initial') continue
-          const ord = typeof f.recipientOrder === 'number' ? f.recipientOrder : minRecOrder
-          const entry = sigInfoByOrder.get(ord) || {
+          const ord = typeof f.recipientOrder === 'number' ? f.recipientOrder : fallbackOrder
+          const entry = sigInfoByTplOrder.get(ord) || {
             firstPresetDataUrl: null, totalSig: 0, presetCount: 0,
           }
           entry.totalSig += 1
@@ -136,21 +147,40 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
               entry.firstPresetDataUrl = f.presetSignatureDataUrl as string
             }
           }
-          sigInfoByOrder.set(ord, entry)
+          sigInfoByTplOrder.set(ord, entry)
         }
       }
     } catch (e) {
-      console.warn('[sign/send] lecture sigInfoByOrder échouée', e)
+      console.warn('[sign/send] lecture sigInfoByTplOrder échouée', e)
     }
   }
-  console.log(`[sign/send] sigInfoByOrder = ${JSON.stringify(Array.from(sigInfoByOrder.entries()).map(([k, v]) => [k, { totalSig: v.totalSig, presetCount: v.presetCount, hasPreset: !!v.firstPresetDataUrl }]))}`)
+
+  // Mapping destinataire.order → template.recipientOrder par index
+  // Ex : destinataires [order=0, order=1] / template orders [1, 2]
+  //      → 0→1, 1→2 (consultant 0-based envelope = consultant 1-based template)
+  const recipientToTplOrder = new Map<number, number>()
+  const sortedSignerOrders = Array.from(new Set(allSigners.map(r => r.order ?? 0))).sort((a, b) => a - b)
+  for (let i = 0; i < sortedSignerOrders.length; i++) {
+    const envOrd = sortedSignerOrders[i]
+    const tplOrd = tplOrdersSorted[i] ?? envOrd
+    recipientToTplOrder.set(envOrd, tplOrd)
+  }
+
+  console.log(
+    `[sign/send] tplOrders=${JSON.stringify(tplOrdersSorted)}`
+    + ` envOrders=${JSON.stringify(sortedSignerOrders)}`
+    + ` mapping=${JSON.stringify(Array.from(recipientToTplOrder.entries()))}`
+    + ` sigInfo=${JSON.stringify(Array.from(sigInfoByTplOrder.entries()).map(([k, v]) => [k, { totalSig: v.totalSig, presetCount: v.presetCount, hasPreset: !!v.firstPresetDataUrl }]))}`,
+  )
 
   // Auto-signe les destinataires avec AU MOINS UNE preset
   const updatedRecipients: SignRecipient[] = [...allRecipients]
   const autoSignedEmails: string[] = []
   for (const rec of allSigners) {
     if (rec.status === 'signed') continue
-    const sig = sigInfoByOrder.get(rec.order ?? 0)
+    // v2.9.53 — Résolution via mapping pattern #71
+    const tplOrd = recipientToTplOrder.get(rec.order ?? 0) ?? (rec.order ?? 0)
+    const sig = sigInfoByTplOrder.get(tplOrd)
     if (!sig || !sig.firstPresetDataUrl) continue
     // → AU MOINS 1 preset : auto-sign avec cette preset comme signature globale
     try {
@@ -211,8 +241,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       autoSignedEmails.push(rec.email)
       console.log(
         `[sign/send] auto-sign preset_template : ${rec.email}`
-        + ` order=${rec.order ?? 0} preset=${sig.presetCount}/${sig.totalSig}`
-        + ` name="${effectiveName}"`,
+        + ` envOrder=${rec.order ?? 0} → tplOrder=${tplOrd}`
+        + ` preset=${sig.presetCount}/${sig.totalSig} name="${effectiveName}"`,
       )
     } catch (e) {
       console.warn('[sign/send] auto-sign échoué pour', rec.email, e)

@@ -590,24 +590,20 @@ export default function PublicSignPage({ params }: PageProps) {
         next[fld.attachmentLinkedCheckboxId] = Array.isArray(files) && files.length > 0
       }
       // v2.9.27 — Clé partagée : propage la valeur aux autres champs de la
-      // MÊME enveloppe portant le même crossTemplateKey (s'ils sont vides).
-      // Couvre le cas Fiche d'inscription + Contrat cadre dans le même envoi.
-      // v2.9.52 — Logs diagnostic pour Bug cross-key signalé par João : on
-      // veut voir au prochain test si la propagation se déclenche bien,
-      // combien de champs cibles existent et combien sont remplis.
-      if (fld?.crossTemplateKey && typeof value === 'string' && value.trim()) {
+      // MÊME enveloppe portant le même crossTemplateKey.
+      // v2.9.53 — Propagation TOUJOURS (synchronisation bidirectionnelle).
+      // Avant : la condition « skip si cible déjà remplie » bloquait après
+      // le 1er caractère (cible="R" → skip pour "Ro" car déjà rempli avec "R").
+      // Désormais : la cible suit toujours la source. Si le candidat veut
+      // 2 valeurs différentes, il modifie directement la cible (qui devient
+      // alors la source de propagation).
+      if (fld?.crossTemplateKey && typeof value === 'string') {
         const targets: string[] = []
-        const skipped: Array<{ id: string; reason: string }> = []
         for (const [fid, other] of allFieldsById) {
           if (fid === fieldId) continue
           if (other.crossTemplateKey && other.crossTemplateKey === fld.crossTemplateKey) {
-            const cur = next[fid]
-            if (cur === undefined || cur === null || cur === '') {
-              next[fid] = value
-              targets.push(fid.slice(0, 8))
-            } else {
-              skipped.push({ id: fid.slice(0, 8), reason: `déjà rempli (${String(cur).slice(0, 20)})` })
-            }
+            next[fid] = value
+            targets.push(fid.slice(0, 8))
           }
         }
         // eslint-disable-next-line no-console
@@ -615,7 +611,6 @@ export default function PublicSignPage({ params }: PageProps) {
           `[cross-key] propagation key="${fld.crossTemplateKey}" value="${value.slice(0, 30)}" `
           + `source=${fieldId.slice(0, 8)} `
           + `propagés=[${targets.join(',')}] (${targets.length}) `
-          + `skippés=[${skipped.map(s => `${s.id}:${s.reason}`).join(', ')}] (${skipped.length}) `
           + `total_fields_map=${allFieldsById.size}`,
         )
       }

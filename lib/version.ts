@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.52'
+export const APP_VERSION = '2.9.53'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.53 — Sign : auto-sign consultant via pattern #71 + cross-key toujours
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.53',
+    date: '2026-05-25',
+    label: 'Sign : auto-sign consultant fiabilisé (pattern recipientOrder) + clé partagée propage toujours',
+    features: [
+      'AUTO-SIGN PATTERN #71 — Le mapping destinataire ↔ champ template est désormais fait par INDEX des orders distincts (cohérent avec verify-token et SignWizard). Avant : le consultant en order 1 (0-based) cherchait les champs preset en order 1 (= candidat dans le template 1-based) → mismatch → mail signature reçu quand même.',
+      'CLÉ PARTAGÉE PROPAGE TOUJOURS — La cross-template key (Code postal, Ville, Adresse) propage maintenant à chaque saisie, sans condition « si cible vide ». Avant : seul le 1er caractère se propageait (la cible « R » bloquait « Ro » comme déjà rempli). Synchronisation bidirectionnelle : si le candidat saisit dans la cible, la source est aussi mise à jour.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.52 — Sign : signature consultant en dur (4 fixes post-test João)
   // ─────────────────────────────────────────────────────────────────────
