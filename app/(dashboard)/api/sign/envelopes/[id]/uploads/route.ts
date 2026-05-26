@@ -28,6 +28,8 @@ export const maxDuration = 30
 interface UploadFieldGroup {
   fieldId: string
   label: string
+  /** v2.9.61 — 'single' | 'recto_verso' — sert à afficher les badges Recto/Verso */
+  sides: 'single' | 'recto_verso' | 'multiple'
   files: Array<{
     name: string
     path: string
@@ -131,9 +133,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       }
     }
     if (files.length > 0) {
+      // v2.9.61 — Détermine le mode "sides" pour les badges UI :
+      //   - attachmentMultiple=true → 'multiple'
+      //   - attachmentSides='recto_verso' → 'recto_verso'
+      //   - sinon → 'single'
+      const sides: UploadFieldGroup['sides'] = af.attachmentMultiple
+        ? 'multiple'
+        : (af.attachmentSides === 'recto_verso' ? 'recto_verso' : 'single')
       result.push({
         fieldId: af.id,
         label: (af.tooltip || af.label || 'Document').slice(0, 200),
+        sides,
         files,
       })
     }

@@ -500,7 +500,7 @@ async function appendCertificatePage(args: CertificateArgs): Promise<Uint8Array>
     // Fallback texte si le PNG est absent (build sans public/ ou bug FS)
   }
   if (!logoEmbedded) {
-    const logoText = senderCompanyName.toUpperCase()
+    const logoText = safePdfText(senderCompanyName).toUpperCase()
     const logoSize = 22
     const logoWidth = helvBold.widthOfTextAtSize(logoText, logoSize)
     page.drawText(logoText, {
@@ -665,7 +665,7 @@ async function appendCertificatePage(args: CertificateArgs): Promise<Uint8Array>
   )
   fy -= 14
   page.drawText(
-    `Émis par ${senderCompanyName} via TalentFlow Sign - ${new Date().getFullYear()}.`,
+    safePdfText(`Émis par ${senderCompanyName} via TalentFlow Sign - ${new Date().getFullYear()}.`),
     { x: margin + 12, y: fy, size: 8, font: helvOblique, color: rgb(0.50, 0.50, 0.55) },
   )
 
@@ -697,10 +697,36 @@ function drawKeyValue(
   })
 }
 
+/**
+ * v2.9.61 — Normalise une chaîne pour qu'elle soit encodable par pdf-lib
+ * StandardFonts (WinAnsi/Helvetica). Sans ce fix, un nom de doc en UTF-8
+ * NFD (« Sécurité » = e + U+0301 décomposé) plante l'encodage WinAnsi
+ * qui ne supporte que les caractères précomposés.
+ *
+ * Étapes :
+ *  1. NFC : recompose les caractères combinants (é, à, ç, etc.)
+ *  2. Strip des caractères restants non-WinAnsi (emojis, U+2019 guillemet
+ *     typographique smart quote, etc.) → remplacés par leur équivalent ASCII
+ *     basique ou un point d'interrogation.
+ */
+function safePdfText(s: string): string {
+  if (!s) return ''
+  return s
+    .normalize('NFC')
+    // Smart quotes / dashes courants en typographie française moderne
+    .replace(/[‘’‚‛]/g, "'")  // ' ' ‚ ‛ → '
+    .replace(/[“”„‟]/g, '"')  // " " „ ‟ → "
+    .replace(/[–—]/g, '-')              // – — → -
+    .replace(/…/g, '...')                    // … → ...
+    .replace(/ /g, ' ')                      // espace insécable → espace
+}
+
 function truncate(s: string, n: number): string {
   if (!s) return ''
-  if (s.length <= n) return s
-  return s.slice(0, n - 1) + '...'
+  // v2.9.61 — Normalise AVANT troncature pour éviter WinAnsi cannot encode
+  const safe = safePdfText(s)
+  if (safe.length <= n) return safe
+  return safe.slice(0, n - 1) + '...'
 }
 
 function formatDateTime(d: Date): string {

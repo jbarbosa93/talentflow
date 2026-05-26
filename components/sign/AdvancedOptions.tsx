@@ -114,8 +114,6 @@ export default function AdvancedOptions({ value, onChange, companyRequired }: Pr
             : 'Pas de rappels'}
           {' · '}
           Expire dans {value.expiresInDays}j
-          {' · '}
-          {value.channel === 'email' ? '📧 Email' : value.channel === 'whatsapp' ? '💬 WhatsApp' : '📧 + 💬 Email + WhatsApp'}
         </span>
         <span style={{ flex: 1 }} />
         {open ? <ChevronUp size={16} style={{ color: 'var(--muted)' }} /> : <ChevronDown size={16} style={{ color: 'var(--muted)' }} />}
@@ -269,45 +267,11 @@ export default function AdvancedOptions({ value, onChange, companyRequired }: Pr
           {/* v2.2.5 — weekStartDate retiré : la semaine est saisie par le candidat
               dans son wizard via le champ "Date de début de semaine" du template. */}
 
-          {/* Canal */}
-          <Section icon={Mail} title="Canal d'envoi">
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <ChannelOption
-                active={value.channel === 'email'}
-                icon={Mail}
-                label="Email"
-                description="Envoi via Resend"
-                onClick={() => onChange({ ...value, channel: 'email' })}
-              />
-              <ChannelOption
-                active={value.channel === 'whatsapp'}
-                icon={MessageCircle}
-                label="WhatsApp"
-                description="Envoi auto via Meta Cloud API"
-                onClick={() => onChange({ ...value, channel: 'whatsapp' })}
-              />
-              <ChannelOption
-                active={value.channel === 'both'}
-                icon={Mail}
-                label="Email + WhatsApp"
-                description="Les deux canaux en parallèle"
-                onClick={() => onChange({ ...value, channel: 'both' })}
-              />
-            </div>
-            {(value.channel === 'whatsapp' || value.channel === 'both') && (
-              <div style={{
-                marginTop: 10,
-                padding: '8px 12px',
-                background: 'var(--info-soft)',
-                borderRadius: 8,
-                fontSize: 11.5,
-                color: 'var(--info)',
-                lineHeight: 1.5,
-              }}>
-                ℹ️ Tous les destinataires devront avoir un <strong>numéro WhatsApp</strong> (E.164, ex&nbsp;: +41&nbsp;79&nbsp;123&nbsp;45&nbsp;67) renseigné dans leur card. Sinon l&apos;envoi sera bloqué.
-              </div>
-            )}
-          </Section>
+          {/* v2.9.61 — Section « Canal d'envoi » retirée : email auto
+              (Resend) toujours. WhatsApp via API Meta n'est pas configuré
+              côté L-Agence — le canal restait en pratique inutilisable.
+              Pour partage manuel WhatsApp, utiliser le bouton « WhatsApp »
+              de la page enveloppe (deep link wa.me). */}
         </div>
       )}
     </div>

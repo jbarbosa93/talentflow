@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.60'
+export const APP_VERSION = '2.9.61'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.61 — Sign : certificat encore en panne (accents UTF-8 NFD) + badges recto/verso + canal WhatsApp retiré
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.61',
+    date: '2026-05-26',
+    label: 'Sign : certificat de signature généré pour de bon + badges Recto/Verso sur les pièces jointes + section WhatsApp retirée',
+    features: [
+      'CERTIFICAT — Cause racine du certificat manquant trouvée : certains noms de documents (« Sécurité… ») étaient stockés en UTF-8 NFD (forme décomposée : « e » + accent combinant séparé). pdf-lib StandardFonts utilise WinAnsi qui ne supporte QUE les caractères précomposés → throw silencieux à la génération du certificat. Désormais : helper safePdfText() normalise NFC + remplace les guillemets typographiques, tirets cadratin, etc. Le certificat est désormais généré pour toutes les enveloppes, sur la liste de l\'enveloppe.',
+      'BADGES RECTO/VERSO — Sur la section « Pièces jointes chargées par le candidat » : les fichiers d\'un champ configuré en Recto + Verso affichent désormais un badge jaune « RECTO » sur le 1er et « VERSO » sur le 2e. Les champs « Plusieurs fichiers » affichent « FICHIER 1 », « FICHIER 2 », etc.',
+      'CANAL D\'ENVOI — La section « Canal d\'envoi » (Email / WhatsApp / Email+WhatsApp) est retirée des Options avancées. L\'envoi par email (Resend) reste la seule option. Pour un partage manuel WhatsApp, utiliser le bouton « WhatsApp » de la page enveloppe (deep link wa.me).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.60 — Sign : certificat absent → bouton « Régénérer » + fallback minimal
   // ─────────────────────────────────────────────────────────────────────

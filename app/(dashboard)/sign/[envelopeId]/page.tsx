@@ -31,6 +31,7 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
   type UploadGroup = {
     fieldId: string
     label: string
+    sides?: 'single' | 'recto_verso' | 'multiple'
     files: Array<{
       name: string
       path: string
@@ -695,11 +696,18 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                       {group.label}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {group.files.map((f) => {
+                      {group.files.map((f, idx) => {
                         const isImg = f.mimeType.startsWith('image/')
                         const isPdf = f.mimeType === 'application/pdf'
                         const Icon = isImg ? ImageIcon : isPdf ? FileText : Paperclip
                         const isLoading = downloadingUpload === f.path
+                        // v2.9.61 — Badge Recto/Verso (recto_verso 2 fichiers)
+                        // ou « Fichier N » (multiple) selon le mode du champ.
+                        const sideLabel: string | null = group.sides === 'recto_verso' && group.files.length <= 2
+                          ? (idx === 0 ? 'Recto' : 'Verso')
+                          : group.sides === 'multiple' && group.files.length > 1
+                            ? `Fichier ${idx + 1}`
+                            : null
                         return (
                           <div
                             key={f.path}
@@ -724,11 +732,32 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
                                 fontSize: 12.5, fontWeight: 600, color: 'var(--foreground)',
-                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                              }}
-                              title={f.name}>
-                                {f.name}
+                              }}>
+                                {sideLabel && (
+                                  <span style={{
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    color: 'var(--warning, #B45309)',
+                                    background: 'var(--warning-soft, #FEF3C7)',
+                                    border: '1px solid var(--warning-soft, #F5D689)',
+                                    borderRadius: 6,
+                                    padding: '2px 7px',
+                                    letterSpacing: '0.02em',
+                                    textTransform: 'uppercase',
+                                    flexShrink: 0,
+                                  }}>
+                                    {sideLabel}
+                                  </span>
+                                )}
+                                <span style={{
+                                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                  minWidth: 0,
+                                }}
+                                title={f.name}>
+                                  {f.name}
+                                </span>
                               </div>
                               <div style={{
                                 fontSize: 10.5, color: 'var(--muted)',
