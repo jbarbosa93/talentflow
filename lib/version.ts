@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.70'
+export const APP_VERSION = '2.9.71'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.71 — Sign : fix modal preview (createPortal)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.71',
+    date: '2026-05-26',
+    label: 'Sign : fix modal aperçu (👁) qui ne couvrait pas tout l\'écran',
+    features: [
+      'Le modal preview ajouté en v2.9.70 était rendu directement dans le composant parent au lieu d\'être portalisé. Un ancêtre avec `transform`/`filter` cassait `position: fixed` (pattern #10) → le backdrop restait limité à la largeur de son conteneur. Désormais : `createPortal(modal, document.body)` → couvre tout l\'écran, scroll bloqué, clic hors zone ferme.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.70 — Sign : route /sign/rapports/templates/[id]/edit + modal sections + œil preview + recto-verso 1 PDF + lien fiche candidat
   // ─────────────────────────────────────────────────────────────────────

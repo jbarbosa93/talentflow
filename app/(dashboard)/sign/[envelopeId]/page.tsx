@@ -3,6 +3,7 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Send, Trash2, Loader2, Mail, Copy, Check, Bell, MessageCircle, Download, RotateCw, Ban, Edit3, FileText, Paperclip, Image as ImageIcon, FileWarning, Eye, FileStack, ExternalLink } from 'lucide-react'
@@ -1098,7 +1099,11 @@ function FilePreviewModal({
   }, [onClose])
   const isImg = mimeType.startsWith('image/')
   const isPdf = mimeType === 'application/pdf'
-  return (
+  // v2.9.71 — Portalisé via createPortal pour ignorer les ancêtres avec
+  // transform/filter qui cassent position:fixed (pattern #10). Sinon le
+  // modal restait limité à la largeur du conteneur parent.
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div
       onClick={onClose}
       style={{
@@ -1173,7 +1178,8 @@ function FilePreviewModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
