@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.57'
+export const APP_VERSION = '2.9.58'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.58 — Sign : « Texte par défaut » du template stampé sur le PDF final
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.58',
+    date: '2026-05-26',
+    label: 'Sign : la valeur par défaut configurée dans le template (ex: « CCT », « Monthey le ») apparaît désormais sur le PDF final',
+    features: [
+      'TEXTE PAR DÉFAUT — Si tu configures un « Texte par défaut » sur un champ dans l\'éditeur template (ex: « CCT », « Monthey le »), cette valeur est désormais pré-remplie côté candidat (modifiable) ET stampée sur le PDF final si le candidat ne la modifie pas. Avant : la valeur n\'était utilisée que comme placeholder gris dans l\'input — jamais sauvegardée ni stampée.',
+      'DOUBLE PROTECTION — Pré-remplissage côté client (le candidat voit la valeur dans son input) + filet de sécurité côté serveur (pdf-stamp fallback sur defaultValue si fieldValues vide). Si le candidat modifie la valeur, sa saisie prend le dessus partout.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.57 — Sign : tél pré-rempli ciblé + tooltip flip + pad ne se ré-ouvre plus
   // ─────────────────────────────────────────────────────────────────────

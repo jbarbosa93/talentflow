@@ -383,6 +383,12 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
           } else if (f.type === 'number' && f.autoFillSource === 'phone' && opts.autoFill.telephone) {
             // v2.7.6 — Fallback téléphone candidat si le champ n'a pas été modifié
             toDraw = opts.autoFill.telephone
+          } else if (f.defaultValue && typeof f.defaultValue === 'string' && f.defaultValue.trim()) {
+            // v2.9.58 — Filet de sécurité serveur : si le candidat n'a rien saisi
+            // ET pas de fallback téléphone, on stamp le defaultValue du template
+            // (ex: "CCT", "Monthey le"). Cohérent avec le pré-remplissage client
+            // au mount (sign/v/[token]/page.tsx ctxAutoFill).
+            toDraw = f.defaultValue
           }
           if (toDraw) drawTextInBox(page, toDraw, xPts, yPtsBL, wPts, hPts, helv, f)
           break

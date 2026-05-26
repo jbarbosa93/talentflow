@@ -234,6 +234,18 @@ export default function PublicSignPage({ params }: PageProps) {
           //      → injecte la date calculée (weekStartDate + offset jour)
           // Le candidat peut toujours override.
           const ctxAutoFill: Record<string, unknown> = {}
+          // v2.9.58 — Pré-remplit les fields avec leur `defaultValue` (texte par
+          // défaut configuré dans le template, ex: "CCT", "Monthey le").
+          // Avant : defaultValue n'était utilisé que comme placeholder visuel.
+          // Maintenant : devient une vraie pré-valeur, modifiable par le candidat,
+          // et stampée sur le PDF si pas modifiée.
+          for (const doc of (d.documents || [])) {
+            for (const f of (doc.fields || [])) {
+              if (!f.defaultValue || typeof f.defaultValue !== 'string') continue
+              if (!f.defaultValue.trim()) continue
+              ctxAutoFill[f.id] = f.defaultValue
+            }
+          }
           const ctxWeekStart = (d.envelope as { context_data?: { weekStartDate?: string | null } | null } | undefined)?.context_data?.weekStartDate
           if (ctxWeekStart && typeof ctxWeekStart === 'string') {
             for (const doc of (d.documents || [])) {
