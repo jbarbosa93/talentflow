@@ -71,6 +71,24 @@ export function looksLikePhoneField(field: SignField): boolean {
 }
 
 /**
+ * v2.9.57 — Détecte si un champ téléphone DEVRAIT être pré-rempli avec le
+ * téléphone du candidat lui-même (vs. téléphone d'urgence / conjoint / parent
+ * qui ne sont PAS le numéro du candidat).
+ *
+ * Règle :
+ *  - Doit ressembler à un champ téléphone (looksLikePhoneField).
+ *  - NE doit PAS contenir de mots-clés "tiers" : urgence, conjoint, parent,
+ *    proche, famille, maman, papa, employeur, contact, mère, père.
+ */
+export function isCandidatePhoneField(field: SignField): boolean {
+  if (!looksLikePhoneField(field)) return false
+  const txt = `${field.tooltip || ''} ${field.label || ''}`.toLowerCase()
+  // Mots-clés EXCLUSIFS (= n'est PAS le téléphone du candidat)
+  const isThirdParty = /(urgence|conjoint|m[èe]re\b|p[èe]re\b|maman|papa|parent|proche|famille|employeur|contact\b|enfant)/i.test(txt)
+  return !isThirdParty
+}
+
+/**
  * Détecte si un field text devrait être rendu comme date picker.
  * Heuristique : tooltip / label contient "date" + (naissance|expiration|début|fin|...).
  */

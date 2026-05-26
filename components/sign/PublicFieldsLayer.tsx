@@ -16,7 +16,7 @@
 //  - tabgroup metadata.hidden : ignoré
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PenLine, Check, Paperclip, X } from 'lucide-react'
 import type { SignField, SignFieldType, SignAttachmentValue } from '@/lib/sign/types'
@@ -804,11 +804,24 @@ function BlockedFieldDisplay({
 }
 
 function FocusTooltipBubble({ text }: { text: string }) {
+  // v2.9.57 — Flip auto : si la bulle déborde par le haut du viewport
+  // (champ en haut de page → pas la place au-dessus), on bascule en bas.
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [flip, setFlip] = useState(false)
+  useLayoutEffect(() => {
+    if (!ref.current) return
+    const rect = ref.current.getBoundingClientRect()
+    // Si la bulle déborde le bord supérieur du viewport (< 8px) → flip
+    if (rect.top < 8) setFlip(true)
+  }, [text])
   return (
     <div
+      ref={ref}
       style={{
         position: 'absolute',
-        bottom: 'calc(100% + 6px)',
+        ...(flip
+          ? { top: 'calc(100% + 6px)' }
+          : { bottom: 'calc(100% + 6px)' }),
         left: '50%',
         transform: 'translateX(-50%)',
         minWidth: 140,
@@ -830,7 +843,10 @@ function FocusTooltipBubble({ text }: { text: string }) {
       {text}
       <div style={{
         position: 'absolute',
-        bottom: -4, left: '50%',
+        ...(flip
+          ? { top: -4 }  // flèche pointe vers le haut (vers le champ au-dessus)
+          : { bottom: -4 }),  // flèche pointe vers le bas (vers le champ en dessous)
+        left: '50%',
         transform: 'translateX(-50%) rotate(45deg)',
         width: 8, height: 8,
         background: '#1C1A14',

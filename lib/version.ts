@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.56'
+export const APP_VERSION = '2.9.57'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.57 — Sign : tél pré-rempli ciblé + tooltip flip + pad ne se ré-ouvre plus
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.57',
+    date: '2026-05-26',
+    label: 'Sign : téléphone candidat ne déborde plus sur les champs urgence/conjoint + info-bulle visible en haut de page + pad signature ne se ré-ouvre plus après signature',
+    features: [
+      'TÉLÉPHONE CIBLÉ — Le pré-remplissage du téléphone du candidat exclut désormais les champs « tiers » : urgence, conjoint, parent, mère, père, maman, papa, proche, famille, employeur, contact, enfant. Seuls les vrais champs « Tél. portable » / « Numéro de portable » du candidat sont remplis.',
+      'INFO-BULLE FLIP — Quand un champ est en haut de page, l\'info-bulle (« Votre numéro de portable », etc.) bascule automatiquement EN BAS au lieu d\'être coupée par le bord supérieur de l\'écran.',
+      'PAD SIGNATURE NE SE RÉ-OUVRE PLUS — Après avoir signé et cliqué « Adopter et signer », le pad ne se ré-ouvre plus instantanément (race condition entre adoption + re-render React). Ref synchrone empêche toute réouverture si signature déjà adoptée.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.56 — Sign : impossible d'ouvrir la signature tant que les champs ne sont pas remplis
   // ─────────────────────────────────────────────────────────────────────

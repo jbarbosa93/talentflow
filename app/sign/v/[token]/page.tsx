@@ -30,7 +30,7 @@ const SignWizard = dynamic(() => import('@/components/sign/SignWizard'), { ssr: 
 import PublicFieldsLayer, { areAllRequiredFieldsFilled, isFieldFilledExt } from '@/components/sign/PublicFieldsLayer'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
-import { getDayOffsetFromSection, dateForDayOfWeek, effectiveFieldState, looksLikePhoneField } from '@/lib/sign/field-helpers'
+import { getDayOffsetFromSection, dateForDayOfWeek, effectiveFieldState, looksLikePhoneField, isCandidatePhoneField } from '@/lib/sign/field-helpers'
 import LogoLAgence from '@/components/report/LogoLAgence'
 
 interface PageProps {
@@ -119,6 +119,9 @@ export default function PublicSignPage({ params }: PageProps) {
   const [hasConsented, setHasConsented] = useState(false)
   // v2.2.0 Phase 4a — Signature électronique
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
+  // v2.9.57 — Ref synchrone pour éviter race condition (le pad se ré-ouvrait
+  // après adoption car signatureDataUrl n'avait pas encore propagé en state).
+  const signatureDataUrlRef = useRef<string | null>(null)
   const [signatureMethod, setSignatureMethod] = useState<'drawn' | 'typed' | null>(null)
   const [signaturePadOpen, setSignaturePadOpen] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
@@ -548,7 +551,15 @@ export default function PublicSignPage({ params }: PageProps) {
   // tant que des champs obligatoires NON-signature sont vides (sur l'ensemble
   // des documents). Évite le bug : pad ouvert alors qu'il reste « Date début
   // de mission » à remplir → candidat signe → bouton Terminer grisé.
+  // v2.9.57 — Ne ré-ouvre PAS le pad si on a DÉJÀ une signature (race condition
+  // entre adoption + re-render React).
   const tryOpenSignaturePad = useCallback(() => {
+    // Garde anti-réouverture : si déjà signé, on n'ouvre pas le pad.
+    if (signatureDataUrlRef.current) {
+      // eslint-disable-next-line no-console
+      console.log('[tryOpenSignaturePad] déjà signé, pas de réouverture')
+      return
+    }
     // Cherche un champ obligatoire non rempli QUI N'EST PAS une signature/initial.
     // Si trouvé → on y va, pas d'ouverture du pad.
     const firstBlocker = nextFieldsQueue.find(q => {
@@ -711,7 +722,7 @@ export default function PublicSignPage({ params }: PageProps) {
       }
     }
     const phoneFieldIds: string[] = []
-    const phoneFieldsDetected: Array<{ id: string; label: string; matched: boolean; cur: unknown }> = []
+    const phoneFieldsDetected: Array<{ id: string; label: string; matched: boolean; isCandidate: boolean; cur: unknown }> = []
     for (const d of documents) {
       for (const f of (d.fields || [])) {
         const isPhone = looksLikePhoneField(f)
@@ -720,11 +731,14 @@ export default function PublicSignPage({ params }: PageProps) {
             id: f.id.slice(0, 8),
             label: (f.label || f.tooltip || '').slice(0, 30),
             matched: candidateFieldIds.has(f.id),
+            isCandidate: isCandidatePhoneField(f),
             cur: fieldValues[f.id],
           })
         }
         if (!candidateFieldIds.has(f.id)) continue
-        if (!isPhone) continue
+        // v2.9.57 — Ne pré-remplir QUE les champs téléphone DU candidat
+        // (exclut urgence, conjoint, parents, employeur, etc.).
+        if (!isCandidatePhoneField(f)) continue
         const v = fieldValues[f.id]
         if (v === undefined || v === null || v === '') phoneFieldIds.push(f.id)
       }
@@ -991,6 +1005,9 @@ export default function PublicSignPage({ params }: PageProps) {
 
   // ─── Phase 4a — Handlers signature ───
   const handleSignatureAdopted = async (dataUrl: string, method: 'drawn' | 'typed') => {
+    // v2.9.57 — Ref SYNCHRONE en premier pour empêcher tryOpenSignaturePad
+    // de ré-ouvrir le pad pendant le re-render React (race condition).
+    signatureDataUrlRef.current = dataUrl
     setSignatureDataUrl(dataUrl)
     setSignatureMethod(method)
     setSignaturePadOpen(false)
