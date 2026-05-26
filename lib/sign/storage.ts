@@ -36,6 +36,28 @@ export async function uploadSignDocument(
 }
 
 /**
+ * v2.9.72 — Upload d'une « aide visuelle » (PDF ou image) attachée à un champ
+ * de template. Stockée dans `templates/{templateId}/help/{ts}_{filename}`.
+ * Accepte tout mimeType (PDF, JPEG, PNG, WebP). Servie publiquement via
+ * /api/sign/document/[token]?path=... (vérif token + appartenance au template).
+ */
+export async function uploadFieldHelpAttachment(
+  templateId: string,
+  file: File | Blob,
+  filename: string,
+  mimeType: string,
+): Promise<string> {
+  const supabase = createAdminClient()
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const path = `templates/${templateId}/help/${Date.now()}_${safe}`
+  const { error } = await supabase.storage
+    .from(SIGN_BUCKET)
+    .upload(path, file, { contentType: mimeType, upsert: false })
+  if (error) throw new Error(`uploadFieldHelpAttachment: ${error.message}`)
+  return path
+}
+
+/**
  * Récupère une URL signée temporaire pour servir un PDF.
  * TTL par défaut : 5 min (page de signature).
  */

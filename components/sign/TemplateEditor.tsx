@@ -1558,6 +1558,7 @@ export default function TemplateEditor({
             selectedIds={selectedIds}
             fields={fields}
             recipients={recipients}
+            templateId={templateId}
             onPatch={patchField}
             onPatchMany={patchFields}
             onPatchManyMixed={patchFieldsMixed}
@@ -1970,13 +1971,15 @@ export default function TemplateEditor({
 // Panel "Champ(s) sélectionné(s)" — gère 1 ou plusieurs sélections
 // ─────────────────────────────────────────────────────────────────
 function SelectedFieldsPanel({
-  selectedIds, fields, recipients, onPatch, onPatchMany, onPatchManyMixed, onApplySizeToSimilar, onDelete,
+  selectedIds, fields, recipients, templateId, onPatch, onPatchMany, onPatchManyMixed, onApplySizeToSimilar, onDelete,
   onGroupCheckboxes, onUngroup, onPatchAllInGroup,
   wizardSteps, setWizardSteps,
 }: {
   selectedIds: string[]
   fields: SignField[]
   recipients: SignRecipientSchema[]
+  /** v2.9.72 — Pour upload des aides visuelles attachées aux champs */
+  templateId: string
   onPatch: (id: string, patch: Partial<SignField>) => void
   onPatchMany: (ids: string[], patch: Partial<SignField>) => void
   /** v2.6.10 — Pour aligner/distribuer : patch différent par field */
@@ -2719,6 +2722,13 @@ function SelectedFieldsPanel({
           <TypeSpecificOptions
             field={f}
             allFields={fields}
+            onPatch={patch => onPatch(f.id, patch)}
+          />
+
+          {/* v2.9.72 — Aide visuelle (PDF/image à afficher au candidat sur clic) */}
+          <FieldHelpAttachmentEditor
+            templateId={templateId}
+            field={f}
             onPatch={patch => onPatch(f.id, patch)}
           />
 
@@ -4344,6 +4354,156 @@ const checkboxLabelStyle: React.CSSProperties = {
 
 // v2.2.4 — RecalibratePanel + ShiftBtn supprimés (peu utilisés en pratique).
 // L'admin peut décaler tous les champs via lasso-sélection + drag.
+
+// ─────────────────────────────────────────────────────────────────────────
+// v2.9.72 — Aide visuelle attachée à un champ (PDF ou image)
+//
+// Le candidat voit un bouton ℹ️ + texte custom à droite du label dans le wizard.
+// Clic → modal preview portalisé (FilePreviewModal). Fichier stocké dans
+// `talentflow-sign/templates/{tplId}/help/` via /api/sign/templates/[id]/help-upload.
+// Servi au candidat via /api/sign/document/[token]?path=... (vérif token + path).
+// ─────────────────────────────────────────────────────────────────────────
+function FieldHelpAttachmentEditor({
+  templateId, field, onPatch,
+}: {
+  templateId: string
+  field: SignField
+  onPatch: (patch: Partial<SignField>) => void
+}) {
+  const help = field.helpAttachment
+  const [uploading, setUploading] = useState(false)
+
+  const handleUpload = async (file: File) => {
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Fichier > 10 MB')
+      return
+    }
+    const okMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+    if (!okMimes.includes(file.type)) {
+      toast.error(`Type non supporté (${file.type}). Accepté : PDF, JPEG, PNG, WebP.`)
+      return
+    }
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const r = await fetch(`/api/sign/templates/${templateId}/help-upload`, {
+        method: 'POST', body: fd,
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Erreur upload')
+      onPatch({
+        helpAttachment: {
+          path: d.path,
+          mimeType: d.mimeType,
+          fileName: d.fileName,
+          buttonLabel: help?.buttonLabel,
+        },
+      })
+      toast.success('Aide visuelle chargée')
+    } catch (e) {
+      console.error('[help-upload]', e)
+      toast.error(e instanceof Error ? e.message : 'Erreur upload')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div style={{
+      marginTop: 10,
+      padding: 12,
+      border: '1px solid var(--border)',
+      borderRadius: 8,
+      background: 'var(--surface, var(--card))',
+      display: 'flex', flexDirection: 'column', gap: 8,
+    }}>
+      <div style={{
+        fontSize: 11, fontWeight: 700, color: 'var(--muted)',
+        textTransform: 'uppercase', letterSpacing: '0.05em',
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}>
+        💡 Aide visuelle (PDF/image)
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
+        Bouton cliquable affiché à droite du label dans le wizard candidat.
+        Idéal pour expliquer une option : calendrier des paiements, exemple à
+        suivre, capture d'écran, etc.
+      </div>
+
+      {help ? (
+        <>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '6px 10px', borderRadius: 6,
+            background: 'var(--card)', border: '1px solid var(--border)',
+          }}>
+            <span style={{
+              fontSize: 10, fontWeight: 700,
+              padding: '2px 6px', borderRadius: 4,
+              background: help.mimeType === 'application/pdf' ? '#FEE2E2' : '#DBEAFE',
+              color: help.mimeType === 'application/pdf' ? '#991B1B' : '#1E40AF',
+            }}>
+              {help.mimeType === 'application/pdf' ? 'PDF' : 'IMAGE'}
+            </span>
+            <span style={{
+              flex: 1, minWidth: 0, fontSize: 12, color: 'var(--foreground)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {help.fileName}
+            </span>
+            <button
+              type="button"
+              onClick={() => onPatch({ helpAttachment: null })}
+              className="neo-btn-ghost neo-btn-sm"
+              style={{ fontSize: 11, color: 'var(--destructive)' }}
+            >
+              Retirer
+            </button>
+          </div>
+          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--foreground)' }}>
+            Texte du bouton (optionnel — défaut « Voir infos »)
+            <input
+              type="text"
+              value={help.buttonLabel || ''}
+              onChange={(e) => onPatch({
+                helpAttachment: { ...help, buttonLabel: e.target.value || undefined },
+              })}
+              placeholder="Voir infos"
+              maxLength={40}
+              className="neo-input"
+              style={{ marginTop: 4, fontSize: 12 }}
+            />
+          </label>
+        </>
+      ) : (
+        <label style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          gap: 6, padding: '8px 12px', borderRadius: 6,
+          border: '1px dashed var(--border)',
+          background: 'var(--card)',
+          fontSize: 12, fontWeight: 600, color: 'var(--foreground)',
+          cursor: uploading ? 'wait' : 'pointer',
+          opacity: uploading ? 0.6 : 1,
+        }}>
+          {uploading ? '⏳ Upload…' : '📎 Charger un PDF ou une image (10 MB max)'}
+          <input
+            type="file"
+            accept="application/pdf,image/jpeg,image/png,image/webp"
+            disabled={uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) handleUpload(f)
+              e.target.value = ''
+            }}
+            style={{ display: 'none' }}
+          />
+        </label>
+      )}
+    </div>
+  )
+}
 
 // v2.9.51 — Signature pré-remplie (« en dur ») sur un champ signature/initial.
 // Permet de dupliquer un template par consultant (1 João, 1 Seb) avec la

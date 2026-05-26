@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.71'
+export const APP_VERSION = '2.9.72'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.72 — Sign : aide visuelle par champ (bouton ℹ️ dans le wizard)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.72',
+    date: '2026-05-26',
+    label: 'Sign : aide visuelle par champ — PDF/image attaché à un champ, bouton « ℹ️ Voir infos » dans le wizard candidat',
+    features: [
+      'NOUVELLE OPTION ÉDITEUR — Sur n\'importe quel type de champ (case, texte, date, etc.), nouveau panneau « 💡 Aide visuelle » dans l\'éditeur de template : charge un PDF ou image (max 10 MB) + personnalise le texte du bouton (défaut « Voir infos », ou écris « Cliquez ici », « Voici comment », etc.). Stockage Supabase `talentflow-sign/templates/{tplId}/help/`.',
+      'BOUTON ℹ️ DANS LE WIZARD — Quand un champ a une aide visuelle, un bouton jaune « ℹ️ Voir infos » apparaît à droite du label du champ dans le wizard candidat. Clic → ouvre le modal preview portalisé (PDF iframe / image zoom 1-5× / Imprimer / Télécharger).',
+      'COMPOSANT PARTAGÉ — FilePreviewModal extrait de /sign/[envelopeId]/page.tsx vers components/sign/FilePreviewModal.tsx pour réutilisation (page enveloppe + wizard).',
+      'ROUTE PUBLIQUE — /api/sign/document/[token] étendue pour servir les helpAttachments (vérif token + appartenance au template). Pas de stamp envelope ID sur les fichiers d\'aide (servis tels quels).',
+      'NOUVELLE ROUTE ADMIN — POST /api/sign/templates/[id]/help-upload (PDF + JPEG/PNG/WebP, 10 MB max).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.71 — Sign : fix modal preview (createPortal)
   // ─────────────────────────────────────────────────────────────────────

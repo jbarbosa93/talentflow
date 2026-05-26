@@ -44,7 +44,10 @@ export async function GET(
       allowed = true
     }
 
-    // Ou dans les documents du template lié
+    // Ou dans les documents du template lié — OU dans les helpAttachments
+    // d'un field du template (v2.9.72 — aide visuelle par champ).
+    let isHelpAttachment = false
+    let helpMimeType: string | null = null
     if (!allowed && envelope?.template_id) {
       const { data: tpl } = await supabase
         .from('sign_templates' as any)
@@ -54,6 +57,21 @@ export async function GET(
       const t = tpl as unknown as Pick<SignTemplate, 'documents'> | null
       const docs = (t?.documents || []) as SignDocument[]
       allowed = docs.some(d => d.storage_path === path)
+      // v2.9.72 — Check helpAttachment du field (PDF ou image)
+      if (!allowed) {
+        for (const d of docs) {
+          for (const f of (d.fields || [])) {
+            const help = (f as { helpAttachment?: { path: string; mimeType: string } }).helpAttachment
+            if (help && help.path === path) {
+              allowed = true
+              isHelpAttachment = true
+              helpMimeType = help.mimeType || null
+              break
+            }
+          }
+          if (allowed) break
+        }
+      }
     }
 
     if (!allowed) {
@@ -62,6 +80,20 @@ export async function GET(
 
     const blob = await downloadSignDocument(path)
     const arrayBuffer = await blob.arrayBuffer()
+
+    // v2.9.72 — Aide visuelle : pas de stamp envelope ID (juste servir le fichier
+    // tel quel, sinon les images sont cassées et les PDF stamped portent un ID
+    // sans rapport avec leur usage).
+    if (isHelpAttachment) {
+      return new NextResponse(arrayBuffer as unknown as BodyInit, {
+        status: 200,
+        headers: {
+          'Content-Type': helpMimeType || blob.type || 'application/octet-stream',
+          'Content-Disposition': 'inline',
+          'Cache-Control': 'private, max-age=300',
+        },
+      })
+    }
 
     // v2.2.0 Phase 3 — Stamp TalentFlow Envelope ID en haut de chaque page
     // (couvre le header "Docusign Envelope ID: ..." qui vient de l'export DocuSign)

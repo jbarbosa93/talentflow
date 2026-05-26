@@ -11,12 +11,13 @@ import { useState, useMemo, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import {
   ChevronLeft, ChevronRight, Check, CheckCircle2, PenLine,
-  AlertCircle, Loader2, FileText, ListChecks, Paperclip,
+  AlertCircle, Loader2, FileText, ListChecks, Paperclip, Info,
 } from 'lucide-react'
 import type { SignField, SignFieldType, SignDocument, SignAttachmentValue } from '@/lib/sign/types'
 import type { WizardStep, WizardStepAttachment } from '@/lib/sign/wizard-builder'
 import { fieldsByStep } from '@/lib/sign/wizard-builder'
 import AttachmentField from './AttachmentField'
+import FilePreviewModal from './FilePreviewModal'
 
 const AttachmentViewerModal = dynamic(() => import('./AttachmentViewerModal'), { ssr: false })
 
@@ -1058,7 +1059,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
     if (field.autoFillLocked) {
       return (
         <div>
-          {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
+          {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
           <HelpText text={field.helpText} />
           <div style={{
             ...inputStyle,
@@ -1077,7 +1078,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
     const inputValue = typeof value === 'string' && value.length > 0 ? value : val
     return (
       <div>
-        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
         <input
           type={t === 'email' ? 'email' : 'text'}
@@ -1097,7 +1098,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
   if (t === 'signature' || t === 'initial') {
     return (
       <div>
-        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>}
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
         {signatureDataUrl ? (
           <div
@@ -1144,7 +1145,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
   if (t === 'date' && field.metadata?.tabType === 'datesigned') {
     return (
       <div>
-        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
         <div style={{ ...inputStyle, background: '#F0FDF4', borderColor: '#86EFAC' }}>
           {autoFill.today}
@@ -1216,6 +1217,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
           <span style={{ fontSize: 14, color: '#1C1A14', lineHeight: 1.4 }}>
             {label}
             {isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}
+            <HelpAttachmentButton field={field} token={token} />
             {field.helpText && field.helpText.trim() && (
               <div style={{ marginTop: 3, fontSize: 12, color: '#6B7280', fontStyle: 'italic', lineHeight: 1.45 }}>
                 {field.helpText}
@@ -1235,7 +1237,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
     const stringValue = typeof value === 'string' ? value : ''
     return (
       <div>
-        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
         <select
           value={stringValue}
@@ -1255,7 +1257,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
     const stringValue = typeof value === 'string' ? value : ''
     return (
       <div>
-        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
         <input
           type="date"
@@ -1273,7 +1275,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
     const formatted = formatFormulaValue(field, computed)
     return (
       <div>
-        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
         <div style={{
           ...inputStyle,
@@ -1301,7 +1303,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
       : undefined
     return (
       <div>
-        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>}
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
         <AttachmentField field={field} value={attVal} onChange={v => onChange(v)} token={token} />
       </div>
@@ -1322,7 +1324,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
     const displayed = explicitOverride || phoneAutoValue
     return (
       <div>
-        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
         <div style={{
           ...inputStyle,
@@ -1343,7 +1345,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
   if (renderAsDate) {
     return (
       <div>
-        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
         <input
           type="date"
@@ -1363,7 +1365,7 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
   const inputType = isPhoneField ? 'tel' : (isNumber ? 'number' : 'text')
   return (
     <div>
-      {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}</label>}
+      {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: "#DC2626", marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
       <input
         type={inputType}
@@ -1383,6 +1385,48 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
         style={inputStyle}
       />
     </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// v2.9.72 — Bouton « ℹ️ Voir infos » à droite du label d'un field si
+// helpAttachment configuré. Clic → ouvre FilePreviewModal portalisé qui
+// affiche le PDF/image via /api/sign/document/[token]?path=...
+// ─────────────────────────────────────────────────────────────────────
+function HelpAttachmentButton({ field, token }: { field: SignField; token?: string }) {
+  const help = field.helpAttachment
+  const [open, setOpen] = useState(false)
+  if (!help || !help.path || !token) return null
+  const label = (help.buttonLabel || '').trim() || 'Voir infos'
+  const url = `/api/sign/document/${token}?path=${encodeURIComponent(help.path)}`
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true) }}
+        title="Voir l'aide explicative"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          marginLeft: 8, padding: '2px 8px', borderRadius: 999,
+          background: 'rgba(245,166,35,0.12)',
+          border: '1px solid rgba(245,166,35,0.4)',
+          color: '#92400E', fontSize: 11, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'inherit',
+          verticalAlign: 'middle',
+        }}
+      >
+        <Info size={11} />
+        {label}
+      </button>
+      {open && (
+        <FilePreviewModal
+          url={url}
+          name={help.fileName || 'aide.pdf'}
+          mimeType={help.mimeType || 'application/pdf'}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
   )
 }
 

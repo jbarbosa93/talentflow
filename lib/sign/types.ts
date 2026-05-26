@@ -203,6 +203,23 @@ export interface SignField {
   // aient un presetSignatureDataUrl. Cf. /api/sign/envelopes/[id]/send.
   presetSignatureDataUrl?: string | null
 
+  /**
+   * v2.9.72 — Aide visuelle attachée au champ : PDF ou image que le candidat
+   * peut ouvrir depuis le wizard (bouton ℹ️ + texte custom à droite du label).
+   * Stockée dans `templates/{templateId}/help/` (bucket talentflow-sign).
+   * Servie au candidat via /api/sign/document/[token]?path=... (vérif token).
+   */
+  helpAttachment?: {
+    /** Path Storage : `templates/{tplId}/help/{ts}_{filename}` */
+    path: string
+    /** MimeType (application/pdf, image/jpeg, image/png, image/webp) */
+    mimeType: string
+    /** Nom de fichier d'origine (pour Télécharger) */
+    fileName: string
+    /** Texte du bouton dans le wizard (ex: « Voir infos », « Cliquez ici »). Défaut : « Voir infos ». */
+    buttonLabel?: string
+  } | null
+
   // Métadonnées spécifiques (ex: DocuSign listItems pour 'select', tabType original)
   metadata?: Record<string, unknown>
 }
