@@ -3487,7 +3487,21 @@ function TypeSpecificOptions({
             <>
               <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5, marginTop: -2 }}>
                 Le candidat peut saisir n&apos;importe quel numéro (portable, fixe, urgence).
-                Si l&apos;enveloppe est liée à un candidat, son téléphone est pré-rempli.
+              </div>
+              {/* v2.9.58 — Case explicite : pré-remplir avec le tél du candidat lié.
+                  À cocher SEULEMENT sur le « Tél portable du candidat ». NE PAS
+                  cocher pour Tél urgence, conjoint, parent, etc. */}
+              <label style={checkboxLabelStyle}>
+                <input
+                  type="checkbox"
+                  checked={!!field.autoFillCandidatePhone}
+                  onChange={e => onPatch({ autoFillCandidatePhone: e.target.checked || undefined })}
+                />
+                Pré-remplir avec le téléphone du candidat lié à l&apos;enveloppe
+              </label>
+              <div style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5, marginLeft: 22, marginTop: -4 }}>
+                À cocher uniquement sur le champ « Tél portable du candidat ». Pour
+                tél urgence / conjoint / parent → laisse décoché.
               </div>
               <label style={checkboxLabelStyle}>
                 <input

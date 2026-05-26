@@ -75,12 +75,21 @@ export function looksLikePhoneField(field: SignField): boolean {
  * téléphone du candidat lui-même (vs. téléphone d'urgence / conjoint / parent
  * qui ne sont PAS le numéro du candidat).
  *
- * Règle :
+ * v2.9.58 — Priorité au flag explicite `autoFillCandidatePhone` :
+ *  - true  → toujours pré-remplir (l'admin a coché la case)
+ *  - false → jamais pré-remplir (l'admin a explicitement décoché)
+ *  - undefined → fallback heuristique mots-clés (rétrocompat templates existants)
+ *
+ * Heuristique fallback (si flag undefined) :
  *  - Doit ressembler à un champ téléphone (looksLikePhoneField).
  *  - NE doit PAS contenir de mots-clés "tiers" : urgence, conjoint, parent,
  *    proche, famille, maman, papa, employeur, contact, mère, père.
  */
 export function isCandidatePhoneField(field: SignField): boolean {
+  // v2.9.58 — Flag explicite gagne TOUJOURS sur l'heuristique
+  if (typeof field.autoFillCandidatePhone === 'boolean') {
+    return field.autoFillCandidatePhone
+  }
   if (!looksLikePhoneField(field)) return false
   const txt = `${field.tooltip || ''} ${field.label || ''}`.toLowerCase()
   // Mots-clés EXCLUSIFS (= n'est PAS le téléphone du candidat)

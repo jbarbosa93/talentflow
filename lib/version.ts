@@ -22,10 +22,12 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '2.9.58',
     date: '2026-05-26',
-    label: 'Sign : la valeur par défaut configurée dans le template (ex: « CCT », « Monthey le ») apparaît désormais sur le PDF final',
+    label: 'Sign : 4 fixes UX — defaultValue stampé + checkbox tél candidat + banner d\'erreur listant les bloqueurs + log diag enrichi',
     features: [
       'TEXTE PAR DÉFAUT — Si tu configures un « Texte par défaut » sur un champ dans l\'éditeur template (ex: « CCT », « Monthey le »), cette valeur est désormais pré-remplie côté candidat (modifiable) ET stampée sur le PDF final si le candidat ne la modifie pas. Avant : la valeur n\'était utilisée que comme placeholder gris dans l\'input — jamais sauvegardée ni stampée.',
-      'DOUBLE PROTECTION — Pré-remplissage côté client (le candidat voit la valeur dans son input) + filet de sécurité côté serveur (pdf-stamp fallback sur defaultValue si fieldValues vide). Si le candidat modifie la valeur, sa saisie prend le dessus partout.',
+      'TÉL CANDIDAT EXPLICITE — Nouvelle case à cocher dans l\'éditeur de champ Numéro/Téléphone : « Pré-remplir avec le téléphone du candidat lié à l\'enveloppe ». À cocher UNIQUEMENT sur le champ « Tél portable du candidat » — laisser décochée pour tél urgence / conjoint / parent. Plus fiable que la devinette par mots-clés.',
+      'BANNER D\'ERREUR EN MODE DOCUMENT — Quand le bouton Terminer reste grisé en mode Document, un bandeau rouge en haut liste désormais les champs/groupes/signatures qui bloquent (avec le nom du document et la page). Évite à l\'utilisateur de chercher à l\'aveugle.',
+      'LOG DIAG ENRICHI — La console du candidat (DevTools) liste maintenant les 3 types de bloqueurs : champs obligatoires vides, signatures manquantes, groupes de checkboxes incomplets (« Choisir Suisse OU Étranger », etc.). Permet d\'identifier instantanément la cause d\'un Terminer grisé.',
     ],
   },
   // ─────────────────────────────────────────────────────────────────────

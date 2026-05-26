@@ -129,8 +129,17 @@ export interface SignField {
   autoFillLocked?: boolean
 
   // v2.7.6 — Source d'auto-remplissage pour les champs `number` (Numéro).
-  // 'phone' = téléphone portable du candidat (depuis sa fiche).
+  // 'phone' = format téléphone (input avec + espaces accepté).
+  // ⚠️ N'IMPLIQUE PLUS le pré-remplissage automatique du tél candidat (v2.9.58) —
+  // utiliser `autoFillCandidatePhone` pour ça.
   autoFillSource?: 'phone'
+
+  // v2.9.58 — Pré-remplir le champ avec le téléphone du candidat lié à l'enveloppe.
+  // À cocher UNIQUEMENT sur le « Tél portable du candidat » — pas sur urgence,
+  // conjoint, parent, etc. Si undefined : on utilise l'heuristique de
+  // rétrocompatibilité (isCandidatePhoneField) basée sur les mots-clés du label.
+  // Si explicitement false : pas de pré-remplissage (même si label « portable »).
+  autoFillCandidatePhone?: boolean
 
   // v2.9.12 — Clé métier partagée entre templates pour autofill cross-template.
   // Ex: 'address', 'npa', 'ville', 'pays', 'avs', 'iban'. Si un autre template

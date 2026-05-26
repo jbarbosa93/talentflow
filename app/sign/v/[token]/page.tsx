@@ -451,38 +451,108 @@ export default function PublicSignPage({ params }: PageProps) {
     return (activeDoc.fields || []).filter(f => f.recipientOrder === effectiveRecipientOrder)
   }, [activeDoc, effectiveRecipientOrder])
 
+  // v2.9.58 — Calcule la liste détaillée des bloqueurs (fields requis vides +
+  // signatures vides + groupes checkbox incomplets). Utilisée à la fois pour
+  // canFinalize (bool) ET pour le banner d'erreur affiché en mode Document.
+  const finalizeBlockers = useMemo<Array<{ kind: 'field' | 'signature' | 'group'; doc: string; page: number; label: string; detail?: string }>>(() => {
+    if (isCC) return []
+    const blockers: Array<{ kind: 'field' | 'signature' | 'group'; doc: string; page: number; label: string; detail?: string }> = []
+    documents.forEach((d) => {
+      // 1. Fields obligatoires non remplis (hors signatures, traitées à part)
+      for (const f of (d.fields || [])) {
+        if (f.recipientOrder !== effectiveRecipientOrder) continue
+        if (f.type === 'signature' || f.type === 'initial') continue
+        // Checkboxes groupées : validées via la règle, pas individuellement
+        if (f.type === 'checkbox' && f.groupId && f.groupRule) continue
+        const eff = effectiveFieldState(f, fieldValues)
+        if (!eff.visible || !eff.required) continue
+        if (isFieldFilledExt(f, fieldValues[f.id], signatureDataUrl, autoFill)) continue
+        blockers.push({
+          kind: 'field',
+          doc: d.name || '?',
+          page: f.page,
+          label: (f.label || f.tooltip || 'Champ').slice(0, 50),
+        })
+      }
+      // 2. Signatures requises non signées
+      const hasSignatureField = (d.fields || []).some(f =>
+        f.recipientOrder === effectiveRecipientOrder
+        && (f.type === 'signature' || f.type === 'initial')
+        && !f.metadata?.hidden
+        && effectiveFieldState(f, fieldValues).visible,
+      )
+      if (hasSignatureField && !signatureDataUrl) {
+        const sigField = (d.fields || []).find(f =>
+          f.recipientOrder === effectiveRecipientOrder
+          && (f.type === 'signature' || f.type === 'initial'),
+        )
+        if (sigField) {
+          blockers.push({
+            kind: 'signature',
+            doc: d.name || '?',
+            page: sigField.page,
+            label: 'Signature manquante',
+          })
+        }
+      }
+      // 3. Groupes de checkboxes avec règle non respectée
+      const groups = new Map<string, { rule?: string; min?: number; max?: number; name?: string; members: SignField[]; page: number }>()
+      for (const f of (d.fields || [])) {
+        if (f.type !== 'checkbox' || !f.groupId || !f.groupRule) continue
+        if (f.recipientOrder !== effectiveRecipientOrder) continue
+        const eff = effectiveFieldState(f, fieldValues)
+        if (!eff.visible) continue
+        const g = groups.get(f.groupId)
+        if (g) g.members.push(f)
+        else groups.set(f.groupId, {
+          rule: f.groupRule, min: f.groupMin, max: f.groupMax,
+          name: f.groupName, members: [f], page: f.page,
+        })
+      }
+      for (const g of groups.values()) {
+        if (!g.rule) continue
+        const checked = g.members.filter(m => fieldValues[m.id] === true).length
+        let isBad = false
+        let detail = ''
+        if (g.rule === 'SelectExactly') {
+          const want = g.min ?? 1
+          isBad = checked !== want
+          detail = `sélectionne exactement ${want} (actuellement ${checked})`
+        } else if (g.rule === 'SelectAtLeast') {
+          const want = g.min ?? 1
+          isBad = checked < want
+          detail = `sélectionne au moins ${want} (actuellement ${checked})`
+        } else if (g.rule === 'SelectAtMost') {
+          const want = g.max ?? 1
+          isBad = checked > want
+          detail = `sélectionne au plus ${want} (actuellement ${checked})`
+        }
+        if (isBad) {
+          blockers.push({
+            kind: 'group',
+            doc: d.name || '?',
+            page: g.page,
+            label: g.name || 'Groupe de cases à cocher',
+            detail,
+          })
+        }
+      }
+    })
+    return blockers
+  }, [documents, effectiveRecipientOrder, fieldValues, signatureDataUrl, autoFill, isCC])
+
   const canFinalize = useMemo(() => {
     if (isCC) return true
     const allRecipientFields = documents.flatMap(d =>
       (d.fields || []).filter(f => f.recipientOrder === effectiveRecipientOrder)
     )
     const ok = areAllRequiredFieldsFilled(allRecipientFields, fieldValues, signatureDataUrl, autoFill)
-    // v2.9.56 — Diagnostic Terminer grisé : si bloqué, liste les champs bloquants
-    // avec leur doc + page + label, pour identifier au prochain test le coupable.
     if (!ok) {
-      const blockers: Array<{ doc: string; page: number; type: string; label: string; id: string }> = []
-      documents.forEach((d) => {
-        for (const f of (d.fields || [])) {
-          if (f.recipientOrder !== effectiveRecipientOrder) continue
-          if (isFieldFilledExt(f, fieldValues[f.id], signatureDataUrl, autoFill)) continue
-          // Skip non-requis sauf signature/initial
-          const eff = effectiveFieldState(f, fieldValues)
-          if (!eff.visible) continue
-          if (!eff.required && f.type !== 'signature' && f.type !== 'initial') continue
-          blockers.push({
-            doc: d.name || '?',
-            page: f.page,
-            type: f.type,
-            label: (f.label || f.tooltip || '').slice(0, 40),
-            id: f.id.slice(0, 8),
-          })
-        }
-      })
       // eslint-disable-next-line no-console
-      console.log(`[canFinalize] FALSE — ${blockers.length} bloqueur(s) :`, blockers)
+      console.log(`[canFinalize] FALSE — ${finalizeBlockers.length} bloqueur(s) :`, finalizeBlockers)
     }
     return ok
-  }, [documents, effectiveRecipientOrder, fieldValues, signatureDataUrl, autoFill, isCC])
+  }, [documents, effectiveRecipientOrder, fieldValues, signatureDataUrl, autoFill, isCC, finalizeBlockers])
 
   // v2.2.0 — Liste ordonnée des champs requis non-remplis (signature exclue ici, gérée à part)
   // Ordre lecture document : doc → page → y → x
@@ -1364,6 +1434,44 @@ export default function PublicSignPage({ params }: PageProps) {
                 <span>Cliquez sur <strong>Suivant</strong> pour passer au prochain champ</span>
               </>
             )}
+          </div>
+        )}
+
+        {/* v2.9.58 — Banner d'erreur en mode Document quand le bouton Terminer
+            est grisé : liste les champs/groupes/signatures qui bloquent encore.
+            Évite à l'utilisateur de chercher à l'aveugle. Limité à 5 entrées
+            pour ne pas écraser la page. */}
+        {viewMode === 'document' && !completed && !canFinalize && hasStarted && finalizeBlockers.length > 0 && (
+          <div style={{
+            margin: '0 16px 8px',
+            padding: '10px 14px',
+            background: 'rgba(220, 38, 38, 0.08)',
+            border: '1px solid rgba(220, 38, 38, 0.30)',
+            borderRadius: 8,
+            fontSize: 12,
+            color: '#7F1D1D',
+            lineHeight: 1.5,
+          }}>
+            <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <AlertTriangle size={13} />
+              {finalizeBlockers.length === 1
+                ? '1 élément empêche de terminer :'
+                : `${finalizeBlockers.length} éléments empêchent de terminer :`}
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {finalizeBlockers.slice(0, 5).map((b, i) => (
+                <li key={i} style={{ marginBottom: 2 }}>
+                  <strong>{b.label}</strong>
+                  {b.detail ? ` — ${b.detail}` : ''}
+                  {' '}<span style={{ color: '#9B1C1C', opacity: 0.8 }}>({b.doc}, page {b.page})</span>
+                </li>
+              ))}
+              {finalizeBlockers.length > 5 && (
+                <li style={{ fontStyle: 'italic', opacity: 0.8 }}>
+                  … et {finalizeBlockers.length - 5} de plus
+                </li>
+              )}
+            </ul>
           </div>
         )}
 
