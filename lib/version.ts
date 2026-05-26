@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.53'
+export const APP_VERSION = '2.9.54'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.54 — Sign : bloque signer si champs obligatoires vides + logs diag téléphone
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.54',
+    date: '2026-05-26',
+    label: 'Sign : impossible de signer si un champ obligatoire est vide + diagnostic pré-remplissage téléphone',
+    features: [
+      'BLOQUE SIGNER SI CHAMPS VIDES — Cliquer sur une zone de signature alors que des champs obligatoires sont vides affiche désormais un message d\'erreur et amène automatiquement au prochain champ à remplir, au lieu d\'ouvrir le pad de signature. Avant : le candidat pouvait signer, puis se retrouvait avec un bouton Terminer grisé sans savoir pourquoi.',
+      'DIAGNOSTIC TÉLÉPHONE — Logs détaillés sur le pré-remplissage du téléphone candidat (autoFill.telephone, candidateFieldIds, phoneFieldsDetected) pour identifier au prochain test pourquoi certains champs « Tél. portable » restent vides malgré la liaison candidat.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.53 — Sign : auto-sign consultant via pattern #71 + cross-key toujours
   // ─────────────────────────────────────────────────────────────────────

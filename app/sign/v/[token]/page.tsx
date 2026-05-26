@@ -624,15 +624,18 @@ export default function PublicSignPage({ params }: PageProps) {
   // du destinataire courant — y compris ceux détectés par libellé (« Tél.
   // portable ») même sans réglage « Format → Téléphone ». Écrit dans
   // fieldValues → la valeur est affichée, sauvegardée ET stampée.
+  // v2.9.54 — Logs diagnostic Bug A (téléphone pas pré-rempli en prod).
   const phonePrefilledRef = useRef(false)
   useEffect(() => {
     if (phonePrefilledRef.current) return
     const tel = autoFill.telephone
-    if (!tel) return
+    if (!tel) {
+      // eslint-disable-next-line no-console
+      console.log('[phone-prefill] autoFill.telephone vide → skip', { candidat: !!candidat, telDb: candidat?.telephone })
+      return
+    }
     // v2.9.28 — Champs du candidat = ceux de ses étapes wizard OU de son
-    // recipientOrder. Avant : filtre strict `recipientOrder === effective…`
-    // qui ratait les champs présents dans le wizard mais d'order divergent
-    // (pattern #71 — 0/1-based) → aucun champ téléphone n'était pré-rempli.
+    // recipientOrder.
     const candidateFieldIds = new Set<string>()
     for (const s of (data?.wizard?.steps || [])) {
       if ((s.recipientOrder ?? 1) === effectiveRecipientOrder) {
@@ -645,14 +648,31 @@ export default function PublicSignPage({ params }: PageProps) {
       }
     }
     const phoneFieldIds: string[] = []
+    const phoneFieldsDetected: Array<{ id: string; label: string; matched: boolean; cur: unknown }> = []
     for (const d of documents) {
       for (const f of (d.fields || [])) {
+        const isPhone = looksLikePhoneField(f)
+        if (isPhone) {
+          phoneFieldsDetected.push({
+            id: f.id.slice(0, 8),
+            label: (f.label || f.tooltip || '').slice(0, 30),
+            matched: candidateFieldIds.has(f.id),
+            cur: fieldValues[f.id],
+          })
+        }
         if (!candidateFieldIds.has(f.id)) continue
-        if (!looksLikePhoneField(f)) continue
+        if (!isPhone) continue
         const v = fieldValues[f.id]
         if (v === undefined || v === null || v === '') phoneFieldIds.push(f.id)
       }
     }
+    // eslint-disable-next-line no-console
+    console.log(
+      `[phone-prefill] tel="${tel}" effectiveRecipientOrder=${effectiveRecipientOrder}`
+      + ` candidateFieldIds.size=${candidateFieldIds.size}`
+      + ` phoneFieldsDetected=${JSON.stringify(phoneFieldsDetected)}`
+      + ` toFill=${phoneFieldIds.length}`,
+    )
     if (phoneFieldIds.length === 0) return
     phonePrefilledRef.current = true
     setFieldValues(prev => {
@@ -667,7 +687,7 @@ export default function PublicSignPage({ params }: PageProps) {
       if (touched) syncFieldValues(next)
       return next
     })
-  }, [documents, autoFill, effectiveRecipientOrder, fieldValues, syncFieldValues, data])
+  }, [documents, autoFill, effectiveRecipientOrder, fieldValues, syncFieldValues, data, candidat])
 
   // ── ÉTATS D'ERREUR ──────────────────────────────────────────────────────────
   if (state === 'loading') {
@@ -1269,7 +1289,17 @@ export default function PublicSignPage({ params }: PageProps) {
               fieldValues={fieldValues}
               onValueChange={handleFieldChange}
               signatureDataUrl={signatureDataUrl}
-              onRequestSignature={() => setSignaturePadOpen(true)}
+              onRequestSignature={() => {
+                // v2.9.54 — Garde : si des champs obligatoires sont vides,
+                // on ne laisse pas signer (sinon le candidat se retrouve
+                // bloqué avec un bouton Terminer grisé).
+                if (!canFinalize) {
+                  toast.error('Tous les champs obligatoires doivent être remplis avant de signer.')
+                  goToNextField()
+                  return
+                }
+                setSignaturePadOpen(true)
+              }}
               autoFill={autoFill}
               recipientName={recipientName}
               envelopeTitle={envelope?.title || ''}
@@ -1328,7 +1358,17 @@ export default function PublicSignPage({ params }: PageProps) {
                   values={fieldValues}
                   onValueChange={handleFieldChange}
                   signatureDataUrl={signatureDataUrl}
-                  onRequestSignature={() => setSignaturePadOpen(true)}
+                  onRequestSignature={() => {
+                    // v2.9.54 — Bloque la signature en mode Document si des
+                    // champs obligatoires sont vides (sinon le candidat se
+                    // retrouve avec bouton Terminer grisé après signature).
+                    if (!canFinalize) {
+                      toast.error('Tous les champs obligatoires doivent être remplis avant de signer.')
+                      goToNextField()
+                      return
+                    }
+                    setSignaturePadOpen(true)
+                  }}
                   recipientColor={recipientPalette}
                   autoFill={autoFill}
                   currentFieldId={currentFieldId}
