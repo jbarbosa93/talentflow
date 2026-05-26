@@ -47,6 +47,7 @@ import type { WizardStep, WizardStepAttachment } from '@/lib/sign/wizard-builder
 import { getFieldDisplayLabel, groupFieldsBySection } from '@/lib/sign/field-helpers'
 // v2.9.21 — Gestion des sections (wizardSection)
 import SectionManager, { type SectionManagerRow } from './SectionManager'
+import FieldHelpAttachmentEditor from './FieldHelpAttachmentEditor'
 import {
   collectSections, moveSectionBlock,
   loadCollapsedSections, saveCollapsedSections,
@@ -1614,6 +1615,7 @@ function StepDetail({
                         fieldIdxInStep={i}
                         totalFieldsInStep={stepFields.length}
                         allRecipientFields={allRecipientFields}
+                        templateId={templateId}
                         onUpdate={(patch) => onUpdateField(f.id, patch)}
                         onUpdateAnyField={onUpdateField}
                         onRemove={() => onRemoveFieldFromStep(f.id)}
@@ -1894,6 +1896,8 @@ interface SortableFieldRowProps {
   fieldIdxInStep: number
   totalFieldsInStep: number
   allRecipientFields: SignField[]
+  /** v2.9.73 — Pour upload des aides visuelles attachées aux champs */
+  templateId: string
   onUpdate: (patch: Partial<SignField>) => void
   onUpdateAnyField?: (fieldId: string, patch: Partial<SignField>) => void
   onRemove: () => void
@@ -1933,6 +1937,8 @@ interface FieldEditorProps {
   fieldIdxInStep: number
   totalFieldsInStep: number
   allRecipientFields: SignField[]
+  /** v2.9.73 — Pour upload des aides visuelles attachées aux champs */
+  templateId: string
   onUpdate: (patch: Partial<SignField>) => void
   /** v2.7.6 — Update arbitraire par fieldId (utilisé pour syncer la description de section
    *  sur tous les fields siblings avec le même wizardSection). */
@@ -1949,7 +1955,7 @@ interface FieldEditorProps {
 }
 
 function FieldEditor({
-  field, fieldIdxInStep, totalFieldsInStep, allRecipientFields,
+  field, fieldIdxInStep, totalFieldsInStep, allRecipientFields, templateId,
   onUpdate, onUpdateAnyField, onRemove, onSplitAfter, onDuplicate, dragHandleProps,
   availableTargetSteps, onMoveToStep,
 }: FieldEditorProps) {
@@ -2337,6 +2343,13 @@ function FieldEditor({
               placeholder="(aucune)"
             />
           </div>
+
+          {/* v2.9.73 — Aide visuelle (PDF/image affiché au candidat sur clic) */}
+          <FieldHelpAttachmentEditor
+            templateId={templateId}
+            field={field}
+            onPatch={onUpdate}
+          />
 
           {/* v2.2.1 — Section d'affichage Wizard (groupage visuel)
               Combobox HTML5 natif : autocomplete sur les sections déjà utilisées + création libre */}

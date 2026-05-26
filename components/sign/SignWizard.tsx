@@ -1396,15 +1396,31 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
 function HelpAttachmentButton({ field, token }: { field: SignField; token?: string }) {
   const help = field.helpAttachment
   const [open, setOpen] = useState(false)
-  if (!help || !help.path || !token) return null
+  if (!help || !help.path) return null
   const label = (help.buttonLabel || '').trim() || 'Voir infos'
-  const url = `/api/sign/document/${token}?path=${encodeURIComponent(help.path)}`
+  // v2.9.73 — Sans token (preview admin dans l'éditeur) : bouton visible
+  // mais le clic affiche juste un toast d'info (l'URL signée n'est servie
+  // qu'au candidat avec un token valide via /api/sign/document/[token]).
+  const isPreview = !token
+  const url = token ? `/api/sign/document/${token}?path=${encodeURIComponent(help.path)}` : ''
   return (
     <>
       <button
         type="button"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true) }}
-        title="Voir l'aide explicative"
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          if (isPreview) {
+            // eslint-disable-next-line no-alert
+            alert(`Aperçu admin — disponible côté candidat.\nFichier : ${help.fileName || 'aide'} (${help.mimeType})`)
+            return
+          }
+          setOpen(true)
+        }}
+        title={isPreview
+          ? `Aperçu admin (le candidat ouvrira ${help.fileName})`
+          : "Voir l'aide explicative"
+        }
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
           marginLeft: 8, padding: '2px 8px', borderRadius: 999,
@@ -1418,7 +1434,7 @@ function HelpAttachmentButton({ field, token }: { field: SignField; token?: stri
         <Info size={11} />
         {label}
       </button>
-      {open && (
+      {open && !isPreview && (
         <FilePreviewModal
           url={url}
           name={help.fileName || 'aide.pdf'}

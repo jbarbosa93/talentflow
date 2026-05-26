@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.72'
+export const APP_VERSION = '2.9.73'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.73 — Sign : aide visuelle dans éditeur WizardEditor + preview admin
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.73',
+    date: '2026-05-26',
+    label: 'Sign : panneau « Aide visuelle » désormais aussi dans l\'éditeur Mode Wizard + bouton visible en preview admin',
+    features: [
+      'PANNEAU AIDE VISUELLE EN MODE WIZARD — En v2.9.72, le panneau n\'était disponible que dans Mode Document (SelectedFieldsPanel). Désormais visible aussi dans le panneau d\'édition d\'un champ en Mode Wizard (FieldEditor). FieldHelpAttachmentEditor extrait en composant standalone réutilisé par les 2 éditeurs.',
+      'BOUTON ℹ️ VISIBLE EN APERÇU LIVE — Avant : `if (!token) return null` masquait le bouton dans l\'aperçu mobile de l\'éditeur (pas de token côté admin). Désormais : bouton affiché en mode preview, clic = alert info « Aperçu admin — disponible côté candidat ». Côté wizard candidat (token valide), comportement identique à v2.9.72.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.72 — Sign : aide visuelle par champ (bouton ℹ️ dans le wizard)
   // ─────────────────────────────────────────────────────────────────────
