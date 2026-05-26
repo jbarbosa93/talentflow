@@ -45,6 +45,11 @@ function detectIOS(): boolean {
   return iphone || ipadOS
 }
 
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+}
+
 export default function MobileInstallPrompt() {
   const pathname = usePathname()
   const [mounted, setMounted] = useState(false)
@@ -76,6 +81,7 @@ export default function MobileInstallPrompt() {
   const onDashboard = pathname === '/dashboard'
 
   if (!mounted || hidden || !onDashboard) return null
+  if (!isMobileDevice()) return null
   if (!isIOS && !deferred) return null
 
   function dismiss() {

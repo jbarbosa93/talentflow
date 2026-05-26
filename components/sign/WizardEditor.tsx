@@ -1478,16 +1478,17 @@ function StepDetail({
                 // dès qu'on rencontre une nouvelle valeur de wizardSection. Les
                 // champs sans section sont rendus sans en-tête (juste empilés).
                 const els: React.ReactNode[] = []
-                let currentSection: string | null = null
+                // Set pour ne rendre chaque header de section qu'UNE SEULE FOIS.
+                // L'ancienne variable `currentSection` (run-length) créait des headers
+                // en double quand les fields d'une même section n'étaient pas consécutifs
+                // dans step.fieldIds (ex: tous les "Date" en premier, puis tous les "Heures").
+                const seenSections = new Set<string>()
                 stepFields.forEach((f, i) => {
                   const sec = (f.wizardSection || '').trim()
-                  if (sec && sec !== currentSection) {
-                    currentSection = sec
-                    // Description partagée (sib field avec la même section)
+                  if (sec && !seenSections.has(sec)) {
+                    seenSections.add(sec)
                     const sib = stepFields.find(x => (x.wizardSection || '').trim() === sec && x.sectionDescription)
                     const sectionMembers = stepFields.filter(x => (x.wizardSection || '').trim() === sec)
-                    // v2.8.10 — On ignore les checkboxes groupées dans le calcul allRequired :
-                    // leur "obligatoire" est porté par la règle du groupe, pas par required.
                     const allRequiredTargets = sectionMembers.filter(x => !(x.type === 'checkbox' && x.groupId && x.groupRule))
                     const allRequired = allRequiredTargets.length > 0 && allRequiredTargets.every(x => x.required)
                     els.push(
@@ -1503,14 +1504,10 @@ function StepDetail({
                         onRename={(newName) => {
                           const trimmed = newName.trim()
                           if (!trimmed || trimmed === sec) return
-                          // Renomme la section sur TOUS les fields qui la portent (tous docs)
                           for (const m of sectionMembers) onUpdateField(m.id, { wizardSection: trimmed })
                           toast.success(`Section renommée : « ${sec} » → « ${trimmed} »`)
                         }}
                         onRequiredToggle={(required) => {
-                          // v2.8.10 — Exclut les checkboxes groupées : leur "obligatoire"
-                          // est porté par la règle du groupe (SelectExactly/AtLeast/AtMost),
-                          // pas par le flag required individuel (sinon Oui+Non=impossible).
                           const targets = sectionMembers.filter(m => !(m.type === 'checkbox' && m.groupId && m.groupRule))
                           for (const m of targets) onUpdateField(m.id, { required })
                           const skipped = sectionMembers.length - targets.length
@@ -1521,9 +1518,6 @@ function StepDetail({
                         }}
                       />,
                     )
-                  } else if (!sec && currentSection !== null) {
-                    // On sort d'une section (champ sans section après une section)
-                    currentSection = null
                   }
                   // v2.9.21 — Section repliée : on n'affiche QUE l'en-tête, pas les champs
                   if (sec && collapsedSections.has(sec)) return

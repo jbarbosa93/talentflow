@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.67'
+export const APP_VERSION = '2.9.68'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.68 — Sign : fix 500 /uploads (docs null) + badge Auto-signé visible
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.68',
+    date: '2026-05-26',
+    label: 'Fix : sections dupliquées wizard + install prompt desktop + crash retour arrière',
+    features: [
+      'SECTIONS DUPLIQUÉES — Dans l\'éditeur Wizard, les sections (Lundi, Mardi…) apparaissaient plusieurs fois et ne se dépliaient pas. Cause : l\'algorithme « run-length » recréait un header à chaque changement de section, donc si les champs n\'étaient pas triés par section dans step.fieldIds, chaque section apparaissait autant de fois qu\'elle avait de blocs discontinus. Fix : remplacement par un Set seenSections → chaque header s\'affiche exactement une fois.',
+      'INSTALL PROMPT SUR DESKTOP — Le bandeau « Installer TalentFlow » apparaissait sur Chrome desktop car beforeinstallprompt se déclenche aussi sur desktop quand le manifeste est installable. Ajout du guard isMobileDevice() (innerWidth ≤ 768 ou UA mobile) → bandeau visible uniquement sur mobile.',
+      'CRASH AU RETOUR ARRIÈRE — La page /sign/templates crashait avec « Cannot read properties of null (reading fields) » après un retour depuis l\'éditeur. Cause : certains templates avaient des entrées null dans leur tableau documents JSONB. Le .reduce() sur d.fields plantait sur ces null. Fix : .filter(Boolean) sur documents avant toute itération.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.67 — Sign : 4 bugs + 4 features (tél, erreurs lisibles, titre email, filename, Auto-signé, rôles)
   // ─────────────────────────────────────────────────────────────────────

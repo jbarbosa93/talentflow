@@ -121,9 +121,10 @@ function TemplateRow({
   onToggle: () => void; onToggleFav: () => void; onChange: () => void
 }) {
   const router = useRouter()
-  const docsCount = (tpl.documents || []).length
-  const fieldsCount = (tpl.documents || []).reduce((s, d) => s + ((d.fields || []).length), 0)
-  const isDocusignImport = (tpl.documents || []).some(d => (d.fields || []).some(f => f.source === 'docusign'))
+  const docs = (tpl.documents || []).filter(Boolean)
+  const docsCount = docs.length
+  const fieldsCount = docs.reduce((s, d) => s + ((d.fields || []).length), 0)
+  const isDocusignImport = docs.some(d => (d.fields || []).some(f => f.source === 'docusign'))
   const created = new Date(tpl.created_at)
   const updated = new Date(tpl.updated_at)
 
