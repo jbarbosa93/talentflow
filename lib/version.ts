@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.59'
+export const APP_VERSION = '2.9.60'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.60 — Sign : certificat absent → bouton « Régénérer » + fallback minimal
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.60',
+    date: '2026-05-26',
+    label: 'Sign : récupérer le certificat de signature manquant + fallback minimal sans logo',
+    features: [
+      'BOUTON « RÉGÉNÉRER LE CERTIFICAT » — Quand une enveloppe est complétée mais que le certificat de signature manque (erreur silencieuse à la finalisation), un bandeau jaune apparaît sur la page de l\'enveloppe avec un bouton pour le régénérer manuellement.',
+      'FALLBACK SANS LOGO — Si la génération du certificat plante (cause #1 probable : le logo PNG ne se charge pas côté serveur), un second essai est fait sans le logo (juste texte). Évite que le cert ne soit pas généré pour une raison cosmétique.',
+      'LOGS ENRICHIS — La cause exacte de l\'échec est désormais loguée (stack trace) au lieu d\'un simple warn. Permet d\'identifier rapidement la racine pour les futures versions.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.59 — Sign : suite v2.9.58 — tél candidat ne déborde plus sur tél urgence/conjoint
   // ─────────────────────────────────────────────────────────────────────

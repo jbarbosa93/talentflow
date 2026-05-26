@@ -316,8 +316,10 @@ export async function generateAndPersistSignedPdfs(
     + ` — ${signedDocsForCert.length > 0 ? 'génération du cert global' : 'PAS de cert (aucune signature détectée)'}`,
   )
   if (signedDocsForCert.length > 0) {
+    let certBuf: Uint8Array | null = null
+    // v2.9.60 — Essai 1 : version riche (avec logo PNG L-Agence).
     try {
-      const certBuf = await generateCertificatePdf({
+      certBuf = await generateCertificatePdf({
         envelope,
         recipients,
         tokens: allTokens,
@@ -325,23 +327,48 @@ export async function generateAndPersistSignedPdfs(
         senderCompanyName,
         signedAt,
       })
-      const certName = 'Certificat de signature.pdf'
-      const certBlob = new Blob([certBuf as BlobPart], { type: 'application/pdf' })
-      const certPath = await uploadSignDocument('signed', envelope.id, certBlob, certName)
-      const certBase64 = Buffer.from(certBuf).toString('base64')
-      // SHA-256 du 1er doc signé — repère "l'empreinte principale du lot signé"
-      generatedDocs.push({
-        name: certName,
-        path: certPath,
-        sha256: signedDocsForCert[0].sha256,
-        pdfBase64: certBase64,
-        // Le cert lui-même n'est pas un « document signé » au sens juridique
-        // (c'est la preuve de signature) → exclu des PJ filtrées du créateur.
-        hasSignature: false,
-      })
-      console.log(`[pdf-generator] cert OK path=${certPath} size=${certBuf.byteLength}B`)
     } catch (certErr) {
-      console.error('[pdf-generator] global certificate generation FAILED', certErr)
+      const errMsg = certErr instanceof Error ? certErr.message : String(certErr)
+      const errStack = certErr instanceof Error ? certErr.stack : ''
+      console.error(`[pdf-generator] cert FAILED (v1 avec logo) : ${errMsg}`, errStack)
+      // v2.9.60 — Essai 2 : fallback minimal SANS logo PNG (cause #1 probable
+      // côté serverless : fs.readFileSync du logo plante). Si même ce fallback
+      // plante, on a vraiment un bug pdf-lib.
+      try {
+        certBuf = await generateCertificatePdf({
+          envelope,
+          recipients,
+          tokens: allTokens,
+          signedDocuments: signedDocsForCert,
+          senderCompanyName,
+          signedAt,
+          skipLogo: true,
+        })
+        console.warn('[pdf-generator] cert généré via fallback (sans logo)')
+      } catch (fallbackErr) {
+        const errMsg2 = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)
+        console.error(`[pdf-generator] cert FAILED même en fallback : ${errMsg2}`)
+      }
+    }
+    if (certBuf) {
+      try {
+        const certName = 'Certificat de signature.pdf'
+        const certBlob = new Blob([certBuf as BlobPart], { type: 'application/pdf' })
+        const certPath = await uploadSignDocument('signed', envelope.id, certBlob, certName)
+        const certBase64 = Buffer.from(certBuf).toString('base64')
+        generatedDocs.push({
+          name: certName,
+          path: certPath,
+          sha256: signedDocsForCert[0].sha256,
+          pdfBase64: certBase64,
+          // Le cert lui-même n'est pas un « document signé » au sens juridique
+          // (c'est la preuve de signature) → exclu des PJ filtrées du créateur.
+          hasSignature: false,
+        })
+        console.log(`[pdf-generator] cert OK path=${certPath} size=${certBuf.byteLength}B`)
+      } catch (uploadErr) {
+        console.error('[pdf-generator] cert upload FAILED', uploadErr)
+      }
     }
   }
 
@@ -393,6 +420,8 @@ interface CertificateArgs {
   signedDocuments: Array<{ name: string; sha256: string }>
   senderCompanyName: string
   signedAt: Date
+  // v2.9.60 — Skip l'embedPng du logo (fallback si fs.readFileSync plante côté serverless)
+  skipLogo?: boolean
 }
 
 /**
@@ -450,8 +479,9 @@ async function appendCertificatePage(args: CertificateArgs): Promise<Uint8Array>
 
   // v2.6.3 — Vrai logo L-Agence officiel (PNG transparent texte noir).
   // Fallback texte si le fichier est absent (lecture FS).
+  // v2.9.60 — skipLogo=true (fallback) → skip direct, fallback texte.
   let logoEmbedded = false
-  try {
+  if (!args.skipLogo) try {
     const logoPath = path.join(process.cwd(), 'public', 'logo-agence-officiel-noir.png')
     const logoBytes = fs.readFileSync(logoPath)
     const logoPng = await pdf.embedPng(logoBytes)

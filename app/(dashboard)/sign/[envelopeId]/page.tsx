@@ -225,6 +225,29 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
     }
   }
 
+  // v2.9.60 — Régénération du certificat absent (envelopes anciennes)
+  const [regeneratingCert, setRegeneratingCert] = useState(false)
+  const handleRegenerateCert = async () => {
+    if (!envelope || regeneratingCert) return
+    if (!confirm('Régénérer le certificat de signature pour cette enveloppe ?')) return
+    setRegeneratingCert(true)
+    try {
+      const r = await fetch(`/api/sign/envelopes/${envelopeId}/regenerate-cert`, { method: 'POST' })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Erreur')
+      if (d.alreadyExists) {
+        toast.info('Le certificat existait déjà')
+      } else {
+        toast.success(`Certificat généré ✓ (${d.docsInCert} document${d.docsInCert > 1 ? 's' : ''}${d.usedFallback ? ' — version simplifiée' : ''})`)
+      }
+      fetchData()
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur régénération certificat')
+    } finally {
+      setRegeneratingCert(false)
+    }
+  }
+
   const [cancelling, setCancelling] = useState(false)
   const handleCancel = async () => {
     if (!envelope) return
@@ -343,6 +366,10 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
     signed_pdf_paths?: { name: string; path: string; sha256: string }[] | null
   }).signed_pdf_paths || []
   const hasSignedPdfs = envelope.status === 'completed' && signedPdfPaths.length > 0
+  // v2.9.60 — Cert absent ? Bouton « Régénérer le certificat » pour rattraper
+  // les envelopes anciennes où generateCertificatePdf avait throw silencieusement.
+  const hasCert = signedPdfPaths.some(p => p.name.startsWith('Certificat de signature'))
+  const certMissing = hasSignedPdfs && !hasCert
 
   return (
     <div className="d-page" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
@@ -753,6 +780,44 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                 ))}
               </div>
             </Card>
+          )}
+
+          {/* v2.9.60 — Banner régénération certificat (envelopes anciennes) */}
+          {certMissing && (
+            <div style={{
+              padding: '12px 14px',
+              border: '1px solid var(--warning-soft, #F5D689)',
+              background: 'var(--warning-soft, #FEF3C7)',
+              borderRadius: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}>
+              <div style={{ flex: 1, fontSize: 13, color: '#7A5C0A', lineHeight: 1.5 }}>
+                <strong>Certificat de signature manquant.</strong> Probable erreur silencieuse lors
+                de la finalisation. Clique pour le régénérer maintenant.
+              </div>
+              <button
+                type="button"
+                onClick={handleRegenerateCert}
+                disabled={regeneratingCert}
+                className="neo-btn"
+                style={{
+                  background: '#1C1A14',
+                  color: '#EAB308',
+                  border: 'none',
+                  padding: '8px 14px',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  borderRadius: 8,
+                  cursor: regeneratingCert ? 'wait' : 'pointer',
+                  whiteSpace: 'nowrap',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {regeneratingCert ? <Loader2 size={14} className="animate-spin" /> : 'Régénérer le certificat'}
+              </button>
+            </div>
           )}
 
           {/* v2.2.5 Phase 4c — Documents signés (visible uniquement si completed + paths) */}
