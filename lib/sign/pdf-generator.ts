@@ -58,7 +58,7 @@ export interface GenerateSignedPdfsResult {
   docs: GeneratedSignedDoc[]
   /** Société expéditrice utilisée pour le stamping (auto-fill company) */
   senderCompanyName: string
-  /** Titre/fonction utilisé pour le stamping (auto-fill title = candidat.metier_recherche) */
+  /** Titre/fonction utilisé pour le stamping (auto-fill title = candidat.pipeline_metier) */
   candidateTitle: string
 }
 
@@ -129,11 +129,11 @@ export async function generateAndPersistSignedPdfs(
     try {
       const { data: cand } = await supabase
         .from('candidats')
-        .select('metier_recherche, telephone')
+        .select('pipeline_metier, telephone')
         .eq('id', envelope.candidate_id)
         .maybeSingle()
-      const c = cand as unknown as { metier_recherche?: string | null; telephone?: string | null } | null
-      if (c?.metier_recherche) candidateTitle = c.metier_recherche
+      const c = cand as unknown as { pipeline_metier?: string | null; telephone?: string | null } | null
+      if (c?.pipeline_metier) candidateTitle = c.pipeline_metier
       if (c?.telephone) candidateTelephone = c.telephone
     } catch { /* silencieux */ }
   }

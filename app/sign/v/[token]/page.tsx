@@ -93,7 +93,7 @@ interface VerifyResponse {
     date_naissance?: string | null
     localisation?: string | null
     /** v2.2.2 — Métier candidat → utilisé pour fields type=title */
-    metier_recherche?: string | null
+    pipeline_metier?: string | null
   } | null
   /** v2.2.2 — Nom de la société expéditrice → utilisé pour fields type=company */
   companyName?: string
@@ -413,9 +413,9 @@ export default function PublicSignPage({ params }: PageProps) {
       : recipientName
 
   // v2.2.2 — companyName depuis verify-token (priorité override context_data > sender.entreprise > fallback)
-  // title (fonction professionnelle) depuis candidat.metier_recherche
+  // title (fonction professionnelle) depuis candidat.pipeline_metier
   const senderCompanyName = data?.companyName || ''
-  const candidatTitle = candidat?.metier_recherche || ''
+  const candidatTitle = candidat?.pipeline_metier || ''
 
   const autoFill = useMemo(() => ({
     firstName, lastName, fullName, email: recipientEmail, today,
@@ -441,7 +441,32 @@ export default function PublicSignPage({ params }: PageProps) {
     const allRecipientFields = documents.flatMap(d =>
       (d.fields || []).filter(f => f.recipientOrder === effectiveRecipientOrder)
     )
-    return areAllRequiredFieldsFilled(allRecipientFields, fieldValues, signatureDataUrl, autoFill)
+    const ok = areAllRequiredFieldsFilled(allRecipientFields, fieldValues, signatureDataUrl, autoFill)
+    // v2.9.56 — Diagnostic Terminer grisé : si bloqué, liste les champs bloquants
+    // avec leur doc + page + label, pour identifier au prochain test le coupable.
+    if (!ok) {
+      const blockers: Array<{ doc: string; page: number; type: string; label: string; id: string }> = []
+      documents.forEach((d) => {
+        for (const f of (d.fields || [])) {
+          if (f.recipientOrder !== effectiveRecipientOrder) continue
+          if (isFieldFilledExt(f, fieldValues[f.id], signatureDataUrl, autoFill)) continue
+          // Skip non-requis sauf signature/initial
+          const eff = effectiveFieldState(f, fieldValues)
+          if (!eff.visible) continue
+          if (!eff.required && f.type !== 'signature' && f.type !== 'initial') continue
+          blockers.push({
+            doc: d.name || '?',
+            page: f.page,
+            type: f.type,
+            label: (f.label || f.tooltip || '').slice(0, 40),
+            id: f.id.slice(0, 8),
+          })
+        }
+      })
+      // eslint-disable-next-line no-console
+      console.log(`[canFinalize] FALSE — ${blockers.length} bloqueur(s) :`, blockers)
+    }
+    return ok
   }, [documents, effectiveRecipientOrder, fieldValues, signatureDataUrl, autoFill, isCC])
 
   // v2.2.0 — Liste ordonnée des champs requis non-remplis (signature exclue ici, gérée à part)

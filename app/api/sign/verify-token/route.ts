@@ -140,13 +140,13 @@ export async function POST(req: NextRequest) {
       prenom?: string | null; nom?: string | null;
       email?: string | null; telephone?: string | null;
       date_naissance?: string | null; localisation?: string | null;
-      metier_recherche?: string | null;
+      pipeline_metier?: string | null;
     } | null = null
     if (envelope.candidate_id) {
       try {
         const { data: cand } = await supabase
           .from('candidats')
-          .select('prenom, nom, email, telephone, date_naissance, localisation, metier_recherche')
+          .select('prenom, nom, email, telephone, date_naissance, localisation, pipeline_metier')
           .eq('id', envelope.candidate_id)
           .maybeSingle()
         if (cand) candidatInfo = cand as unknown as typeof candidatInfo
@@ -225,13 +225,13 @@ export async function POST(req: NextRequest) {
     // correct (le stamper a le bon contexte) mais l'écran intermédiaire ne l'était
     // pas — d'où l'asymétrie vue par João.
     if (currentRecipientOrder > 1 && candidatInfo) {
-      const ci = candidatInfo as { prenom?: string | null; nom?: string | null; email?: string | null; telephone?: string | null; metier_recherche?: string | null }
+      const ci = candidatInfo as { prenom?: string | null; nom?: string | null; email?: string | null; telephone?: string | null; pipeline_metier?: string | null }
       const cFirst = (ci.prenom || '').trim()
       const cLast = (ci.nom || '').trim()
       const cFull = [cFirst, cLast].filter(Boolean).join(' ')
       const cEmail = (ci.email || '').trim()
       const cPhone = (ci.telephone || '').trim()
-      const cTitle = (ci.metier_recherche || '').trim()
+      const cTitle = (ci.pipeline_metier || '').trim()
       const resolveAutofill = (f: SignField): string | null => {
         switch (f.type) {
           case 'firstname': return cFirst || null

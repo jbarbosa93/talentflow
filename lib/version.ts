@@ -22,10 +22,12 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '2.9.56',
     date: '2026-05-26',
-    label: 'Sign : le pad de signature ne s\'ouvre plus tant qu\'un champ obligatoire est vide (toutes les voies bloquées)',
+    label: 'Sign : pad signature bloqué tant qu\'un champ obligatoire est vide + auto-fill candidat (métier, téléphone) restauré',
     features: [
-      'Avant : un wrapper unique sur le bouton « Signer » bloquait l\'ouverture du pad, mais d\'autres voies (auto-ouverture après remplissage, bouton Terminer du wizard) contournaient la garde. Maintenant : helper unique tryOpenSignaturePad utilisé partout, qui cherche le premier champ obligatoire non-signature non rempli sur l\'ensemble des documents. Si trouvé → toast d\'erreur + scroll vers le champ. Sinon → le pad s\'ouvre.',
-      'Bonus : goToNextField (navigation automatique du bouton Suivant) priorise désormais les champs non-signature avant la signature. Le candidat finit toujours de tout remplir avant d\'arriver à la signature.',
+      'CRITIQUE — Le métier et le téléphone du candidat lié n\'étaient JAMAIS chargés (la requête SQL pointait vers une colonne inexistante metier_recherche → erreur silencieuse → candidat retourné null). Conséquence : le champ « Tél. portable » de la fiche d\'inscription restait vide, et le titre/fonction n\'était pas pré-rempli. Fix : utiliser le nom correct pipeline_metier (cohérent avec la règle métier).',
+      'PAD SIGNATURE — Helper unique tryOpenSignaturePad utilisé partout (4 voies couvertes). Bloque l\'ouverture du pad tant qu\'un champ obligatoire non-signature est vide. Toast d\'erreur explicite + scroll automatique au premier champ manquant.',
+      'DIAGNOSTIC TERMINER GRISÉ — Si canFinalize=false, log explicite avec la liste des bloqueurs (doc, page, type, label, id). Au prochain test on saura immédiatement quel champ obligatoire empêche de terminer.',
+      'Bonus : goToNextField (navigation Suivant) priorise les champs non-signature avant la signature. Le candidat finit toujours de tout remplir avant d\'arriver à la signature.',
     ],
   },
   // ─────────────────────────────────────────────────────────────────────
