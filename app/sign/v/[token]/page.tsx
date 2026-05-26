@@ -635,6 +635,9 @@ export default function PublicSignPage({ params }: PageProps) {
   // de mission » à remplir → candidat signe → bouton Terminer grisé.
   // v2.9.57 — Ne ré-ouvre PAS le pad si on a DÉJÀ une signature (race condition
   // entre adoption + re-render React).
+  // v2.9.59 — Utilise finalizeBlockers (qui inclut fields + signatures + groupes
+  // checkbox) au lieu de nextFieldsQueue (qui rate les groupes). Évite le bug :
+  // pad ouvert alors qu'un groupe « Suisse OU Étranger » n'est pas coché.
   const tryOpenSignaturePad = useCallback(() => {
     // Garde anti-réouverture : si déjà signé, on n'ouvre pas le pad.
     if (signatureDataUrlRef.current) {
@@ -642,20 +645,20 @@ export default function PublicSignPage({ params }: PageProps) {
       console.log('[tryOpenSignaturePad] déjà signé, pas de réouverture')
       return
     }
-    // Cherche un champ obligatoire non rempli QUI N'EST PAS une signature/initial.
-    // Si trouvé → on y va, pas d'ouverture du pad.
-    const firstBlocker = nextFieldsQueue.find(q => {
-      const doc = documents[q.docIdx]
-      const f = doc?.fields?.find(ff => ff.id === q.fieldId)
-      return f && f.type !== 'signature' && f.type !== 'initial'
-    })
-    if (firstBlocker) {
-      toast.error('Tous les champs obligatoires doivent être remplis avant de signer.')
+    // Cherche un bloqueur non-signature (= champ obligatoire vide OU groupe
+    // checkbox incomplet). Si trouvé → toast + scroll au champ, pas d'ouverture.
+    const nonSigBlocker = finalizeBlockers.find(b => b.kind !== 'signature')
+    if (nonSigBlocker) {
+      toast.error(
+        nonSigBlocker.kind === 'group'
+          ? `${nonSigBlocker.label} : ${nonSigBlocker.detail || 'à compléter'}`
+          : `Champ obligatoire vide : ${nonSigBlocker.label}`,
+      )
       goToNextField()
       return
     }
     setSignaturePadOpen(true)
-  }, [nextFieldsQueue, documents, goToNextField])
+  }, [finalizeBlockers, goToNextField])
 
   // v2.2.4 — Sauvegarde localStorage immédiate (zéro latency) + DB en debounce.
   // Permet au candidat de reprendre où il était même si le réseau coupe pendant le
