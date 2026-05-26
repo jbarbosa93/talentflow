@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.61'
+export const APP_VERSION = '2.9.62'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.62 — Sign : cert fix renforcé (strip combinants orphelins après NFC)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.62',
+    date: '2026-05-26',
+    label: 'Sign : certificat fix renforcé — strip des accents combinants orphelins',
+    features: [
+      'Le fix v2.9.61 (normalize NFC) ne suffisait pas pour les combinaisons sans précomposé Unicode (ex : « d » + accent aigu n\'existe pas → l\'accent restait détaché → WinAnsi rejetait toujours). Désormais : tous les accents combinants restants après NFC sont strippés, et un filet de sécurité final remplace tout caractère hors Latin-1 par « ? ». Le certificat se génère désormais pour TOUS les cas.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.61 — Sign : certificat encore en panne (accents UTF-8 NFD) + badges recto/verso + canal WhatsApp retiré
   // ─────────────────────────────────────────────────────────────────────

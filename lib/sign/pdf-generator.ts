@@ -713,12 +713,19 @@ function safePdfText(s: string): string {
   if (!s) return ''
   return s
     .normalize('NFC')
+    // v2.9.62 — Strippe les accents combinants RESTANTS après NFC. Cas typique :
+    // d + U+0301 n'existe pas en précomposé Unicode → l'accent reste détaché
+    // → WinAnsi throw « cannot encode U+0301 ». Range : U+0300 à U+036F.
+    .replace(/[̀-ͯ]/g, '')
     // Smart quotes / dashes courants en typographie française moderne
     .replace(/[‘’‚‛]/g, "'")  // ' ' ‚ ‛ → '
     .replace(/[“”„‟]/g, '"')  // " " „ ‟ → "
     .replace(/[–—]/g, '-')              // – — → -
     .replace(/…/g, '...')                    // … → ...
     .replace(/ /g, ' ')                      // espace insécable → espace
+    // v2.9.62 — Filet de sécurité final : tout char hors Latin-1 (>U+00FF)
+    // → '?', sauf chars Windows usuels. Évite tout futur throw WinAnsi.
+    .replace(/[^\x00-\xFF€™©®]/g, '?')
 }
 
 function truncate(s: string, n: number): string {
