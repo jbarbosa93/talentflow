@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.55'
+export const APP_VERSION = '2.9.56'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.56 — Sign : impossible d'ouvrir la signature tant que les champs ne sont pas remplis
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.56',
+    date: '2026-05-26',
+    label: 'Sign : le pad de signature ne s\'ouvre plus tant qu\'un champ obligatoire est vide (toutes les voies bloquées)',
+    features: [
+      'Avant : un wrapper unique sur le bouton « Signer » bloquait l\'ouverture du pad, mais d\'autres voies (auto-ouverture après remplissage, bouton Terminer du wizard) contournaient la garde. Maintenant : helper unique tryOpenSignaturePad utilisé partout, qui cherche le premier champ obligatoire non-signature non rempli sur l\'ensemble des documents. Si trouvé → toast d\'erreur + scroll vers le champ. Sinon → le pad s\'ouvre.',
+      'Bonus : goToNextField (navigation automatique du bouton Suivant) priorise désormais les champs non-signature avant la signature. Le candidat finit toujours de tout remplir avant d\'arriver à la signature.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.55 — CRITIQUE Sign : PDF final était VIDE (pattern #71 pdf-generator)
   // ─────────────────────────────────────────────────────────────────────

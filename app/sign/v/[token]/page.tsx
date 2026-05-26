@@ -475,6 +475,24 @@ export default function PublicSignPage({ params }: PageProps) {
       const f = doc?.fields?.find(ff => ff.id === q.fieldId)
       return f && (f.type === 'signature' || f.type === 'initial') && !signatureDataUrl
     })
+    // v2.9.56 — Cherche le premier champ NON-signature non rempli (= un vrai
+    // champ obligatoire à remplir avant de signer). Si présent → on y va,
+    // jamais ouvrir le pad de signature avant d'avoir tout rempli.
+    const firstNonSig = nextFieldsQueue.find(q => {
+      const doc = documents[q.docIdx]
+      const f = doc?.fields?.find(ff => ff.id === q.fieldId)
+      return f && f.type !== 'signature' && f.type !== 'initial'
+    })
+    if (firstNonSig) {
+      if (firstNonSig.docIdx !== activeDocIdx) setActiveDocIdx(firstNonSig.docIdx)
+      setCurrentFieldId(firstNonSig.fieldId)
+      setScrollToPage(firstNonSig.page)
+      setTimeout(() => {
+        const el = fieldElsRef.current.get(firstNonSig.fieldId)
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 350)
+      return
+    }
     // Si la prochaine étape logique est de signer ET aucun autre champ non-rempli avant → SignaturePad
     if (firstSignature && nextFieldsQueue[0]?.fieldId === firstSignature.fieldId) {
       setSignaturePadOpen(true)
@@ -500,6 +518,26 @@ export default function PublicSignPage({ params }: PageProps) {
       }
     }, 350)
   }, [nextFieldsQueue, documents, signatureDataUrl, activeDocIdx])
+
+  // v2.9.56 — Wrapper UNIQUE pour ouvrir le SignaturePad. Bloque l'ouverture
+  // tant que des champs obligatoires NON-signature sont vides (sur l'ensemble
+  // des documents). Évite le bug : pad ouvert alors qu'il reste « Date début
+  // de mission » à remplir → candidat signe → bouton Terminer grisé.
+  const tryOpenSignaturePad = useCallback(() => {
+    // Cherche un champ obligatoire non rempli QUI N'EST PAS une signature/initial.
+    // Si trouvé → on y va, pas d'ouverture du pad.
+    const firstBlocker = nextFieldsQueue.find(q => {
+      const doc = documents[q.docIdx]
+      const f = doc?.fields?.find(ff => ff.id === q.fieldId)
+      return f && f.type !== 'signature' && f.type !== 'initial'
+    })
+    if (firstBlocker) {
+      toast.error('Tous les champs obligatoires doivent être remplis avant de signer.')
+      goToNextField()
+      return
+    }
+    setSignaturePadOpen(true)
+  }, [nextFieldsQueue, documents, goToNextField])
 
   // v2.2.4 — Sauvegarde localStorage immédiate (zéro latency) + DB en debounce.
   // Permet au candidat de reprendre où il était même si le réseau coupe pendant le
@@ -956,7 +994,8 @@ export default function PublicSignPage({ params }: PageProps) {
     const persistedSig = data?.recipient?.signature_data_url
     const hasSignature = signatureDataUrl || persistedSig
     if (!hasSignature) {
-      setSignaturePadOpen(true)
+      // v2.9.56 — Passe par tryOpenSignaturePad (garde champs obligatoires).
+      tryOpenSignaturePad()
       return
     }
     // Rehydrate state local si seule la version DB est connue
@@ -1289,17 +1328,7 @@ export default function PublicSignPage({ params }: PageProps) {
               fieldValues={fieldValues}
               onValueChange={handleFieldChange}
               signatureDataUrl={signatureDataUrl}
-              onRequestSignature={() => {
-                // v2.9.54 — Garde : si des champs obligatoires sont vides,
-                // on ne laisse pas signer (sinon le candidat se retrouve
-                // bloqué avec un bouton Terminer grisé).
-                if (!canFinalize) {
-                  toast.error('Tous les champs obligatoires doivent être remplis avant de signer.')
-                  goToNextField()
-                  return
-                }
-                setSignaturePadOpen(true)
-              }}
+              onRequestSignature={tryOpenSignaturePad}
               autoFill={autoFill}
               recipientName={recipientName}
               envelopeTitle={envelope?.title || ''}
@@ -1358,17 +1387,7 @@ export default function PublicSignPage({ params }: PageProps) {
                   values={fieldValues}
                   onValueChange={handleFieldChange}
                   signatureDataUrl={signatureDataUrl}
-                  onRequestSignature={() => {
-                    // v2.9.54 — Bloque la signature en mode Document si des
-                    // champs obligatoires sont vides (sinon le candidat se
-                    // retrouve avec bouton Terminer grisé après signature).
-                    if (!canFinalize) {
-                      toast.error('Tous les champs obligatoires doivent être remplis avant de signer.')
-                      goToNextField()
-                      return
-                    }
-                    setSignaturePadOpen(true)
-                  }}
+                  onRequestSignature={tryOpenSignaturePad}
                   recipientColor={recipientPalette}
                   autoFill={autoFill}
                   currentFieldId={currentFieldId}
