@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.64'
+export const APP_VERSION = '2.9.65'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.65 — Sidebar : Rapports vraiment distinct de Signatures (plus de chevauchement)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.65',
+    date: '2026-05-26',
+    label: 'Sidebar : Rapports et Signatures vraiment séparés (plus de double-highlight ni de bouton retour Signatures)',
+    features: [
+      'SIDEBAR FIX — Cliquer sur « Rapports » allumait aussi « Signatures » (la règle `startsWith /sign` matchait `/sign/rapports`). Désormais : `/sign` ne s\'allume PAS sur `/sign/rapports/*`, et la page `/sign/templates?kind=report` allume « Rapports », pas « Signatures ».',
+      'BOUTON RETOUR RETIRÉ — La page Rapports affichait un bouton « ← Signatures » en haut, suggérant qu\'elle était un sous-module. Retiré : Rapports est une section top-level distincte.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.64 — Sidebar : Rapports séparé de Signatures + Templates filtrés par kind
   // ─────────────────────────────────────────────────────────────────────

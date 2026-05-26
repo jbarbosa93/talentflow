@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, ChevronLeft, ClipboardList, Loader2, Search, FileText, X,
+  Plus, ClipboardList, Loader2, Search, FileText, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import ReportsSidebar, { type ReportSection } from '@/components/report/ReportsSidebar'
@@ -232,13 +232,7 @@ export default function ReportsListPage() {
 
   return (
     <div className="d-page" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
-      {/* Bouton retour */}
-      <div style={{ marginBottom: 8 }}>
-        <Link href="/sign" className="neo-btn-ghost neo-btn-sm" style={{ padding: '4px 10px' }}>
-          <ChevronLeft size={14} />
-          Signatures
-        </Link>
-      </div>
+      {/* v2.9.65 — Bouton retour « Signatures » retiré : Rapports est une section top-level distincte */}
 
       {/* Header — pattern aligné sur /sign */}
       <div className="d-page-header">
