@@ -137,7 +137,13 @@ function TemplateRow({
   // v2.8.6 — Modal léger pour éditer nom + description + message par défaut
   const [showSettings, setShowSettings] = useState(false)
   const tplKind: SignTemplateKind = (tpl.kind === 'report' ? 'report' : 'envelope')
-  const handleEdit = () => router.push(`/sign/templates/${tpl.id}/edit`)
+  // v2.9.70 — Édition d'un template rapport → route /sign/rapports/... pour
+  // que la sidebar allume « Rapports » et que le bouton retour pointe sur
+  // la bonne liste.
+  const editHref = tplKind === 'report'
+    ? `/sign/rapports/templates/${tpl.id}/edit`
+    : `/sign/templates/${tpl.id}/edit`
+  const handleEdit = () => router.push(editHref)
   const handleSettings = () => setShowSettings(true)
   const handleDuplicate = async () => {
     setBusy('dup')
@@ -221,7 +227,7 @@ function TemplateRow({
       </div>
       <div style={{ ...cellStyle, flex: 1, minWidth: 0 }}>
         <Link
-          href={`/sign/templates/${tpl.id}/edit`}
+          href={editHref}
           style={{
             fontSize: 13.5,
             fontWeight: 600,

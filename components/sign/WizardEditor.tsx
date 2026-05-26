@@ -614,6 +614,23 @@ export default function WizardEditor({
         canMoveUp = moveSectionBlock(ids, sectionOf, s.name, -1) !== ids
         canMoveDown = moveSectionBlock(ids, sectionOf, s.name, 1) !== ids
       }
+      // v2.9.70 — Liste des champs de la section, dans l'ordre du step (ou de
+      // collectSections si hors étape). Permet au modal d'afficher chaque champ
+      // avec ses contrôles individuels (réordonner / supprimer / obligatoire).
+      const sectionFieldIds = stepIdx >= 0
+        ? steps[stepIdx].fieldIds.filter(fid => sectionOf(fid) === s.name)
+        : s.fieldIds
+      const fields: { id: string; label: string; type: string; required?: boolean }[] = []
+      for (const fid of sectionFieldIds) {
+        const fr = fieldIndex.get(fid)?.field
+        if (!fr) continue
+        fields.push({
+          id: fr.id,
+          label: (fr.tooltip || fr.label || '').trim() || '(sans nom)',
+          type: String(fr.type),
+          required: !!fr.required,
+        })
+      }
       return {
         name: s.name,
         count: s.count,
@@ -622,6 +639,7 @@ export default function WizardEditor({
         contextLabel,
         canMoveUp,
         canMoveDown,
+        fields,
       }
     })
   }, [allRecipientFields, steps, visibleSteps, fieldIndex, collapsedSections])
@@ -1220,6 +1238,24 @@ export default function WizardEditor({
           onToggleCollapse={toggleSectionCollapse}
           onCollapseAll={collapseAllSections}
           onClose={() => setSectionManagerOpen(false)}
+          // v2.9.70 — Gestion des champs individuels depuis le modal
+          onDeleteField={(fid) => {
+            // Trouve le step contenant le field, retire-le de step.fieldIds
+            // ET supprime le field du document (cohérent avec onDeleteFields).
+            const ownerStepIdx = steps.findIndex(s => s.fieldIds.includes(fid))
+            if (ownerStepIdx >= 0) removeFieldFromStep(ownerStepIdx, fid)
+            deleteFieldsById([fid])
+          }}
+          onMoveField={(fid, dir) => {
+            const ownerStepIdx = steps.findIndex(s => s.fieldIds.includes(fid))
+            if (ownerStepIdx < 0) return
+            const ids = steps[ownerStepIdx].fieldIds
+            const fromIdx = ids.indexOf(fid)
+            const toIdx = fromIdx + dir
+            if (toIdx < 0 || toIdx >= ids.length) return
+            reorderFieldInStep(ownerStepIdx, fromIdx, toIdx)
+          }}
+          onToggleFieldRequired={(fid, required) => updateField(fid, { required })}
         />
       )}
     </div>

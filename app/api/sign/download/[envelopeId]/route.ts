@@ -65,13 +65,19 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     }
 
     // v2.2.5 — ?doc=N → télécharge UN seul doc (PDF inline) au lieu du ZIP
+    // v2.9.70 — ?preview=1 → disposition=inline pour rendre dans une iframe (œil)
+    const isPreview = req.nextUrl.searchParams.get('preview') === '1'
     const docIdxRaw = req.nextUrl.searchParams.get('doc')
     if (docIdxRaw !== null) {
       const idx = Number(docIdxRaw)
       if (!Number.isInteger(idx) || idx < 0 || idx >= paths.length) {
         return NextResponse.json({ error: 'Index document invalide' }, { status: 400 })
       }
-      return await streamSignedPaths([paths[idx]], envelope.title || 'document-signe')
+      return await streamSignedPaths(
+        [paths[idx]],
+        envelope.title || 'document-signe',
+        { disposition: isPreview ? 'inline' : 'attachment' },
+      )
     }
 
     return await streamSignedPaths(paths, envelope.title || 'document-signe')

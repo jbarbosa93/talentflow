@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth-guard'
 import { downloadSignDocument } from '@/lib/sign/storage'
+import { composeImagesToPdf, isComposableImage, type ComposableImage } from '@/lib/sign/compose-attachment-pdf'
 import type {
   SignDocument,
   SignField,
@@ -47,8 +48,52 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const { id } = await ctx.params
   const supabase = createAdminClient()
 
-  // Mode 2 — download via ?path=
+  // v2.9.70 — Mode 3 — composer recto+verso (ou multi-images) en 1 PDF via ?composed=fieldId
   const url = new URL(req.url)
+  const composedFieldId = url.searchParams.get('composed')
+  if (composedFieldId) {
+    try {
+      const { data: tokRows } = await (supabase as any)
+        .from('sign_tokens')
+        .select('field_values')
+        .eq('envelope_id', id)
+      const tokens = (tokRows || []) as Array<{ field_values: Record<string, unknown> | null }>
+      const seenPaths = new Set<string>()
+      const images: ComposableImage[] = []
+      for (const tok of tokens) {
+        const v = (tok.field_values || {})[composedFieldId] as SignAttachmentValue | undefined
+        for (const f of (v?.files || []) as SignAttachmentFile[]) {
+          if (!f || typeof f.path !== 'string' || seenPaths.has(f.path)) continue
+          seenPaths.add(f.path)
+          if (!isComposableImage(f.mimeType, f.name)) continue
+          try {
+            const blob = await downloadSignDocument(f.path)
+            const buffer = Buffer.from(await blob.arrayBuffer())
+            images.push({ buffer, mimeType: f.mimeType || blob.type || '', name: f.name || 'image' })
+          } catch (e) {
+            console.warn('[sign/uploads/composed] download échoué pour', f.path, e)
+          }
+        }
+      }
+      if (images.length === 0) {
+        return NextResponse.json({ error: 'Aucune image à composer' }, { status: 404 })
+      }
+      const pdfBuf = await composeImagesToPdf(images)
+      if (!pdfBuf) {
+        return NextResponse.json({ error: 'Composition PDF échouée' }, { status: 500 })
+      }
+      const headers = new Headers()
+      headers.set('Content-Type', 'application/pdf')
+      headers.set('Content-Disposition', `inline; filename="recto-verso.pdf"`)
+      headers.set('Cache-Control', 'private, no-store')
+      return new NextResponse(pdfBuf as unknown as BodyInit, { status: 200, headers })
+    } catch (e) {
+      console.error('[sign/uploads/composed] erreur', e)
+      return NextResponse.json({ error: 'Erreur composition PDF' }, { status: 500 })
+    }
+  }
+
+  // Mode 2 — download via ?path=
   const downloadPath = url.searchParams.get('path')
   if (downloadPath) {
     // Anti-traversal : le path DOIT être préfixé par uploads/{envelopeId}/

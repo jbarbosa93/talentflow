@@ -5,7 +5,7 @@
 import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Send, Trash2, Loader2, Mail, Copy, Check, Bell, MessageCircle, Download, RotateCw, Ban, Edit3, FileText, Paperclip, Image as ImageIcon, FileWarning } from 'lucide-react'
+import { ChevronLeft, Send, Trash2, Loader2, Mail, Copy, Check, Bell, MessageCircle, Download, RotateCw, Ban, Edit3, FileText, Paperclip, Image as ImageIcon, FileWarning, Eye, FileStack, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import EnvelopeStatusBadge from '@/components/sign/EnvelopeStatusBadge'
 import EnvelopeCategoryIcon from '@/components/sign/EnvelopeCategoryIcon'
@@ -43,6 +43,8 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
   }
   const [uploadGroups, setUploadGroups] = useState<UploadGroup[]>([])
   const [downloadingUpload, setDownloadingUpload] = useState<string | null>(null)
+  // v2.9.70 — Modal preview (oeil) : url + name + mimeType pour iframe/img
+  const [previewFile, setPreviewFile] = useState<{ url: string; name: string; mimeType: string } | null>(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -567,7 +569,30 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                           {r.roleName}
                         </span>
                       )}
-                      <span>{r.name}</span>
+                      {/* v2.9.70 — Nom cliquable vers fiche candidat si enveloppe liée
+                          ET destinataire = candidat (1er signataire non-créateur).
+                          Le créateur (consultant L-Agence) reste non-cliquable. */}
+                      {envelope.candidate_id
+                        && r.role !== 'cc'
+                        && (r.order ?? 0) === 0
+                        && (
+                          <Link
+                            href={`/candidats/${envelope.candidate_id}`}
+                            title="Ouvrir la fiche candidat"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              color: 'var(--primary)', fontWeight: 700,
+                              textDecoration: 'underline', textUnderlineOffset: 2,
+                            }}
+                          >
+                            {r.name}
+                            <ExternalLink size={11} />
+                          </Link>
+                        )
+                      }
+                      {!(envelope.candidate_id && r.role !== 'cc' && (r.order ?? 0) === 0) && (
+                        <span>{r.name}</span>
+                      )}
                     </div>
                     <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                       {r.email}
@@ -800,6 +825,28 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                                 )}
                               </div>
                             </div>
+                            {/* v2.9.70 — Bouton œil : ouvre le modal preview inline */}
+                            <button
+                              type="button"
+                              onClick={() => setPreviewFile({
+                                url: `/api/sign/envelopes/${envelopeId}/uploads?path=${encodeURIComponent(f.path)}`,
+                                name: f.name,
+                                mimeType: f.mimeType,
+                              })}
+                              title="Aperçu"
+                              style={{
+                                width: 34, height: 34, borderRadius: 8,
+                                border: '1px solid var(--border)',
+                                background: 'var(--card)',
+                                color: 'var(--foreground)',
+                                cursor: 'pointer',
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0,
+                                fontFamily: 'inherit',
+                              }}
+                            >
+                              <Eye size={13} />
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleDownloadUpload(f.path, f.name)}
@@ -824,6 +871,50 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                           </div>
                         )
                       })}
+                      {/* v2.9.70 — Bouton « 1 PDF (recto+verso) » si plusieurs images
+                          composables dans le groupe. Utilise la route /uploads?composed=fieldId
+                          qui retourne le PDF A4 assemblé via composeImagesToPdf. */}
+                      {(() => {
+                        const composableCount = group.files.filter(f =>
+                          f.mimeType.startsWith('image/jpeg')
+                          || f.mimeType.startsWith('image/png')
+                        ).length
+                        if (composableCount < 2) return null
+                        const composedUrl = `/api/sign/envelopes/${envelopeId}/uploads?composed=${group.fieldId}`
+                        const composedName = `${group.label.replace(/[/\\:*?"<>|]+/g, ' ').trim() || 'document'}.pdf`
+                        return (
+                          <div style={{
+                            display: 'flex', gap: 6, marginTop: 4,
+                            paddingTop: 8, borderTop: '1px dashed var(--border)',
+                          }}>
+                            <span style={{ flex: 1 }} />
+                            <button
+                              type="button"
+                              onClick={() => setPreviewFile({
+                                url: composedUrl,
+                                name: composedName,
+                                mimeType: 'application/pdf',
+                              })}
+                              title="Aperçu du PDF assemblé (recto + verso)"
+                              className="neo-btn-ghost neo-btn-sm"
+                              style={{ fontSize: 11.5 }}
+                            >
+                              <FileStack size={12} />
+                              Aperçu 1 PDF (recto + verso)
+                            </button>
+                            <a
+                              href={composedUrl}
+                              download={composedName}
+                              className="neo-btn-ghost neo-btn-sm"
+                              style={{ fontSize: 11.5, textDecoration: 'none' }}
+                              title="Télécharger le PDF assemblé"
+                            >
+                              <Download size={12} />
+                              Télécharger 1 PDF
+                            </a>
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -914,6 +1005,28 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                           SHA-256 · {doc.sha256.slice(0, 16)}…
                         </div>
                       </div>
+                      {/* v2.9.70 — Aperçu PDF signé inline (œil) */}
+                      <button
+                        type="button"
+                        onClick={() => setPreviewFile({
+                          url: `/api/sign/download/${envelope.id}?doc=${idx}&preview=1`,
+                          name: doc.name,
+                          mimeType: 'application/pdf',
+                        })}
+                        title="Aperçu"
+                        style={{
+                          width: 36, height: 36, borderRadius: 8,
+                          border: '1px solid var(--border)',
+                          background: 'var(--card)',
+                          color: 'var(--foreground)',
+                          cursor: 'pointer',
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0,
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        <Eye size={14} />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleDownloadDoc(idx, doc.name)}
@@ -948,6 +1061,116 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
           <Card title="Audit log">
             <AuditTimeline entries={audit} />
           </Card>
+        </div>
+      </div>
+
+      {/* v2.9.70 — Modal preview inline (œil) pour fichiers PJ + docs signés */}
+      {previewFile && (
+        <FilePreviewModal
+          url={previewFile.url}
+          name={previewFile.name}
+          mimeType={previewFile.mimeType}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// v2.9.70 — Modal preview inline (cohérent avec DocumentViewerModal Conformité)
+// PDF → iframe. Image → <img> avec zoom 1×-5×. Boutons Imprimer + Télécharger.
+// ─────────────────────────────────────────────────────────────────────
+function FilePreviewModal({
+  url, name, mimeType, onClose,
+}: {
+  url: string; name: string; mimeType: string; onClose: () => void
+}) {
+  const [zoom, setZoom] = useState(1)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [onClose])
+  const isImg = mimeType.startsWith('image/')
+  const isPdf = mimeType === 'application/pdf'
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 10000,
+        background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 'min(960px, 96vw)', height: 'min(92vh, 1100px)',
+          background: 'var(--card)', borderRadius: 14,
+          border: '1px solid var(--border)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          padding: '12px 16px', borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
+        }}>
+          <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 700, color: 'var(--foreground)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {name}
+          </div>
+          {isImg && (
+            <div style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+              <button type="button" onClick={() => setZoom(z => Math.max(1, z - 0.5))}
+                className="neo-btn-ghost neo-btn-sm" style={{ fontSize: 12, minWidth: 28 }} disabled={zoom <= 1}>−</button>
+              <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 36, textAlign: 'center' }}>{zoom}×</span>
+              <button type="button" onClick={() => setZoom(z => Math.min(5, z + 0.5))}
+                className="neo-btn-ghost neo-btn-sm" style={{ fontSize: 12, minWidth: 28 }} disabled={zoom >= 5}>+</button>
+            </div>
+          )}
+          <a href={url} target="_blank" rel="noopener noreferrer"
+            className="neo-btn-ghost neo-btn-sm" style={{ fontSize: 12, textDecoration: 'none' }}
+            title="Ouvrir dans un nouvel onglet (pour imprimer)">
+            🖨 Imprimer
+          </a>
+          <a href={url} download={name}
+            className="neo-btn-ghost neo-btn-sm" style={{ fontSize: 12, textDecoration: 'none' }}>
+            <Download size={12} /> Télécharger
+          </a>
+          <button type="button" onClick={onClose}
+            className="neo-btn-ghost neo-btn-sm" style={{ fontSize: 12 }}>
+            ✕
+          </button>
+        </div>
+        {/* Body */}
+        <div style={{ flex: 1, minHeight: 0, overflow: 'auto', background: '#f5f5f5',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}>
+          {isPdf ? (
+            <iframe src={url} title={name}
+              style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }} />
+          ) : isImg ? (
+            <img src={url} alt={name}
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain',
+                transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 120ms' }} />
+          ) : (
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)' }}>
+              <FileText size={48} style={{ marginBottom: 12 }} />
+              <div style={{ fontSize: 13 }}>Prévisualisation non disponible pour ce type de fichier.</div>
+              <a href={url} download={name} className="neo-btn-yellow neo-btn-sm"
+                style={{ marginTop: 16, display: 'inline-flex', textDecoration: 'none' }}>
+                <Download size={12} /> Télécharger
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </div>

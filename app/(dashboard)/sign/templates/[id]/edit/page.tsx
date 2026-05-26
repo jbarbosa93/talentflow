@@ -5,7 +5,7 @@
 
 import { use, useCallback, useEffect, useRef, useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, usePathname } from 'next/navigation'
 import { ChevronLeft, Loader2, Sparkles, FileText, ListChecks, ArrowLeftCircle, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import TemplateEditor from '@/components/sign/TemplateEditor'
@@ -34,6 +34,10 @@ function TemplateEditPage({ params }: PageProps) {
   // (template ad-hoc cloné depuis le parent au moment du brouillon).
   const searchParams = useSearchParams()
   const envelopeDraft = searchParams.get('envelopeDraft') || ''
+  // v2.9.70 — Détecte si on est sur la route /sign/rapports/* pour pointer
+  // le bouton retour vers la bonne liste (rapports vs signatures).
+  const pathname = usePathname() || ''
+  const isReportRoute = pathname.startsWith('/sign/rapports/')
   const [template, setTemplate] = useState<SignTemplate | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -186,12 +190,12 @@ function TemplateEditPage({ params }: PageProps) {
           </>
         ) : (
           <Link
-            href="/sign/templates"
+            href={isReportRoute ? '/sign/rapports/templates' : '/sign/templates'}
             className="neo-btn-ghost neo-btn-sm"
             style={{ padding: '4px 10px' }}
           >
             <ChevronLeft size={14} />
-            Templates
+            {isReportRoute ? 'Templates Rapports' : 'Templates'}
           </Link>
         )}
       </div>

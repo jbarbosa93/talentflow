@@ -22,10 +22,13 @@ export interface SignedPath {
 export async function streamSignedPaths(
   paths: SignedPath[],
   baseFilename: string,
+  options: { disposition?: 'attachment' | 'inline' } = {},
 ): Promise<NextResponse> {
   const safeBase = baseFilename
     .replace(/[^\p{L}\p{N}\-_. ]/gu, '_')
     .slice(0, 80) || 'document-signe'
+  // v2.9.70 — Mode preview (?preview=1) : disposition=inline pour rendre dans iframe
+  const disp = options.disposition === 'inline' ? 'inline' : 'attachment'
 
   // Single doc : renvoyer le PDF directement (UX plus simple qu'un ZIP à 1 fichier)
   if (paths.length === 1) {
@@ -37,7 +40,7 @@ export async function streamSignedPaths(
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${asciiSafe(filename)}"; filename*=UTF-8''${encodeRFC5987(filename)}`,
+        'Content-Disposition': `${disp}; filename="${asciiSafe(filename)}"; filename*=UTF-8''${encodeRFC5987(filename)}`,
         'Content-Length': String(buffer.length),
         'Cache-Control': 'private, no-cache, no-store',
       },

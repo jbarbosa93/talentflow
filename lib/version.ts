@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.69'
+export const APP_VERSION = '2.9.70'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.70 — Sign : route /sign/rapports/templates/[id]/edit + modal sections + œil preview + recto-verso 1 PDF + lien fiche candidat
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.70',
+    date: '2026-05-26',
+    label: 'Sign : édition template Rapport vraiment isolée + modal Sections gère les champs + bouton « 👁 Aperçu » + recto+verso en 1 PDF dans l\'enveloppe + lien fiche candidat',
+    features: [
+      'ROUTE /sign/rapports/templates/[id]/edit — Avant : éditer un template Rapport ouvrait /sign/templates/[id]/edit → sidebar allumait « Signatures », retour pointait vers Templates Signatures. Désormais : édition d\'un template Rapport route dédiée, sidebar allume « Rapports », bouton retour pointe vers « Templates Rapports ». Detection auto via usePathname.',
+      'MODAL « GÉRER LES SECTIONS » DÉPLIABLE — Quand une section est dépliée dans le modal, sa liste de champs apparaît avec : badge type, label, case « Obligatoire », flèches monter/descendre, bouton supprimer. Gestion complète sans fermer le modal.',
+      'BOUTON « 👁 APERÇU » — Sur chaque pièce jointe candidat ET chaque document signé de la page enveloppe : nouveau bouton œil qui ouvre un modal de preview portalisé (PDF iframe / image avec zoom 1×-5× / texte fallback). Boutons Imprimer (ouvre nouvel onglet) + Télécharger + Échap pour fermer.',
+      'RECTO + VERSO ASSEMBLÉS EN 1 PDF DANS L\'ENVELOPPE — Quand un champ pièce jointe contient ≥ 2 images, nouveaux boutons « Aperçu 1 PDF (recto + verso) » + « Télécharger 1 PDF » sous le groupe. Utilise la même composition que l\'email récap final (lib/sign/compose-attachment-pdf.ts), nouvelle route /api/sign/envelopes/[id]/uploads?composed=fieldId.',
+      'LIEN FICHE CANDIDAT — Quand l\'enveloppe est liée à un candidat (envelope.candidate_id), le nom du destinataire candidat (1er signataire non-créateur) devient cliquable et ouvre directement /candidats/[id]. Le créateur (consultant) reste non-cliquable.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.69 — Sign : bouton « Regrouper par section » + fix badge AUTO + uploads null guard
   // ─────────────────────────────────────────────────────────────────────

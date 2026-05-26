@@ -31,6 +31,17 @@ export interface SectionManagerRow {
   contextLabel: string
   canMoveUp: boolean
   canMoveDown: boolean
+  /**
+   * v2.9.70 — Liste des champs de la section (affichée quand section dépliée
+   * dans le modal). Permet de supprimer un champ individuel ou de le réordonner
+   * sans fermer le modal.
+   */
+  fields?: Array<{
+    id: string
+    label: string
+    type: string
+    required?: boolean
+  }>
 }
 
 interface SectionManagerProps {
@@ -44,12 +55,21 @@ interface SectionManagerProps {
   onToggleCollapse: (name: string) => void
   onCollapseAll: (collapsed: boolean) => void
   onClose: () => void
+  /**
+   * v2.9.70 — Callbacks pour gérer les champs individuels depuis le modal
+   * (visible quand une section est dépliée). Si absents, la liste des champs
+   * n'est qu'informative (lecture seule).
+   */
+  onDeleteField?: (fieldId: string) => void
+  onMoveField?: (fieldId: string, dir: -1 | 1) => void
+  onToggleFieldRequired?: (fieldId: string, required: boolean) => void
 }
 
 export default function SectionManager({
   mode, rows, unsectionedCount,
   onRename, onDelete, onToggleRequired, onMove, onToggleCollapse, onCollapseAll,
   onClose,
+  onDeleteField, onMoveField, onToggleFieldRequired,
 }: SectionManagerProps) {
   // Fermeture sur Echap
   useEffect(() => {
@@ -158,6 +178,9 @@ export default function SectionManager({
                   onToggleRequired={onToggleRequired}
                   onMove={onMove}
                   onToggleCollapse={onToggleCollapse}
+                  onDeleteField={onDeleteField}
+                  onMoveField={onMoveField}
+                  onToggleFieldRequired={onToggleFieldRequired}
                 />
               ))}
             </div>
@@ -172,6 +195,7 @@ export default function SectionManager({
 // ─── Une ligne de section ──────────────────────────────────────────────────
 function SectionRow({
   mode, row, onRename, onDelete, onToggleRequired, onMove, onToggleCollapse,
+  onDeleteField, onMoveField, onToggleFieldRequired,
 }: {
   mode: 'wizard' | 'document'
   row: SectionManagerRow
@@ -180,6 +204,9 @@ function SectionRow({
   onToggleRequired: (name: string, required: boolean) => void
   onMove: (name: string, dir: -1 | 1) => void
   onToggleCollapse: (name: string) => void
+  onDeleteField?: (fieldId: string) => void
+  onMoveField?: (fieldId: string, dir: -1 | 1) => void
+  onToggleFieldRequired?: (fieldId: string, required: boolean) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(row.name)
@@ -314,6 +341,103 @@ function SectionRow({
           <Trash2 size={14} />
         </button>
       </div>
+
+      {/* v2.9.70 — Liste des champs (visible quand la section est dépliée).
+          Permet de réordonner / supprimer / rendre obligatoire chaque champ
+          depuis le modal sans devoir fermer pour aller dans l'éditeur. */}
+      {!row.collapsed && row.fields && row.fields.length > 0 && (
+        <div style={{
+          padding: '4px 12px 12px 38px',
+          borderTop: '1px dashed var(--border)',
+          background: 'var(--card)',
+          display: 'flex', flexDirection: 'column', gap: 4,
+        }}>
+          {row.fields.map((f, idx) => {
+            const canUp = idx > 0
+            const canDown = idx < (row.fields?.length || 0) - 1
+            return (
+              <div
+                key={f.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '6px 10px', borderRadius: 6,
+                  background: 'var(--surface, transparent)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <span style={{
+                  fontSize: 10, fontWeight: 700, color: 'var(--muted)',
+                  textTransform: 'uppercase', letterSpacing: '0.04em',
+                  flexShrink: 0, minWidth: 56,
+                  background: 'var(--card)', padding: '2px 6px', borderRadius: 4,
+                  border: '1px solid var(--border)',
+                }}>
+                  {f.type}
+                </span>
+                <span style={{
+                  flex: 1, minWidth: 0, fontSize: 12, color: 'var(--foreground)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {f.label || '—'}
+                </span>
+                {onToggleFieldRequired && (
+                  <label
+                    title="Rend ce champ obligatoire"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0,
+                      fontSize: 10, fontWeight: 600, color: 'var(--muted)', cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!f.required}
+                      onChange={(e) => onToggleFieldRequired(f.id, e.target.checked)}
+                      style={{ accentColor: 'var(--primary, #EAB308)', cursor: 'pointer' }}
+                    />
+                    Oblig.
+                  </label>
+                )}
+                {onMoveField && mode === 'wizard' && (
+                  <div style={{ display: 'inline-flex', gap: 1, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => canUp && onMoveField(f.id, -1)}
+                      disabled={!canUp}
+                      title="Monter"
+                      style={iconBtn}
+                    >
+                      <ArrowUp size={12} style={{ opacity: canUp ? 1 : 0.3 }} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => canDown && onMoveField(f.id, 1)}
+                      disabled={!canDown}
+                      title="Descendre"
+                      style={iconBtn}
+                    >
+                      <ArrowDown size={12} style={{ opacity: canDown ? 1 : 0.3 }} />
+                    </button>
+                  </div>
+                )}
+                {onDeleteField && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`Supprimer définitivement le champ « ${f.label} » ?`)) {
+                        onDeleteField(f.id)
+                      }
+                    }}
+                    title="Supprimer ce champ"
+                    style={{ ...iconBtn, color: '#DC2626' }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Confirmation suppression (inline) */}
       {confirmingDelete && (
