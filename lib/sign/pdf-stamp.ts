@@ -380,8 +380,14 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
           let toDraw = ''
           if (v !== undefined && v !== null && String(v).trim()) {
             toDraw = String(v)
-          } else if (f.type === 'number' && f.autoFillSource === 'phone' && opts.autoFill.telephone) {
-            // v2.7.6 — Fallback téléphone candidat si le champ n'a pas été modifié
+          } else if (f.type === 'number'
+            && (f.autoFillCandidatePhone === true)
+            && opts.autoFill.telephone) {
+            // v2.7.6 — Fallback téléphone candidat si le champ n'a pas été modifié.
+            // v2.9.58 — UNIQUEMENT si flag autoFillCandidatePhone explicitement true.
+            // Avant : tous les champs autoFillSource='phone' recevaient le tél candidat
+            // (urgence, conjoint, etc.). Maintenant : seuls les champs cochés par
+            // l'admin sont remplis automatiquement.
             toDraw = opts.autoFill.telephone
           } else if (f.defaultValue && typeof f.defaultValue === 'string' && f.defaultValue.trim()) {
             // v2.9.58 — Filet de sécurité serveur : si le candidat n'a rien saisi

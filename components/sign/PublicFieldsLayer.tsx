@@ -21,7 +21,7 @@ import { createPortal } from 'react-dom'
 import { PenLine, Check, Paperclip, X } from 'lucide-react'
 import type { SignField, SignFieldType, SignAttachmentValue } from '@/lib/sign/types'
 import { formatDate } from '@/lib/sign/pdf-stamp'
-import { effectiveCheckedState, effectiveFieldState, computeFormulaValue, formatFormulaValue, looksLikePhoneField } from '@/lib/sign/field-helpers'
+import { effectiveCheckedState, effectiveFieldState, computeFormulaValue, formatFormulaValue, looksLikePhoneField, isCandidatePhoneField } from '@/lib/sign/field-helpers'
 import AttachmentField from './AttachmentField'
 
 interface Props {
@@ -709,9 +709,14 @@ function FieldInput({
   // ─── TEXT / NUMBER (par défaut) ───
   const isNumber = t === 'number'
   // v2.9.28 — Détection téléphone élargie : autoFillSource='phone' OU libellé
-  // (« Tél. portable », « Natel »…) → input tel + pré-remplissage candidat.
+  // (« Tél. portable », « Natel »…) → input tel (format + espaces accepté).
   const isPhoneNumber = looksLikePhoneField(field)
-  const phoneAutoValue = isPhoneNumber ? (autoFill.telephone || '') : ''
+  // v2.9.58 — Pré-remplissage tél candidat UNIQUEMENT si le flag explicite
+  // `autoFillCandidatePhone` est coché (ou matche heuristique en rétrocompat).
+  // Avant : tous les champs téléphone étaient pré-remplis → Tél urgence /
+  // conjoint recevaient aussi le tél du candidat.
+  const usesCandidatePhone = isCandidatePhoneField(field)
+  const phoneAutoValue = usesCandidatePhone ? (autoFill.telephone || '') : ''
   const stringValue = value !== undefined && value !== null
     ? String(value)
     : phoneAutoValue
@@ -905,7 +910,10 @@ function isFieldFilled(
   }
   if (t === 'date' && f.metadata?.tabType === 'datesigned') return !!autoFill.today
   // v2.7.6 — Numéro avec source phone : rempli si autoFill.telephone existe
-  if (t === 'number' && f.autoFillSource === 'phone' && autoFill.telephone) return true
+  // v2.9.58 — UNIQUEMENT pour les vrais champs candidat (flag explicite ou
+  // heuristique). Évite que Tél urgence / conjoint soient considérés comme
+  // remplis automatiquement par le tél du candidat.
+  if (t === 'number' && isCandidatePhoneField(f) && autoFill.telephone) return true
   return value !== undefined && value !== null && String(value).trim() !== ''
 }
 

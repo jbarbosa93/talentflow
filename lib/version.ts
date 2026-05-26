@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.58'
+export const APP_VERSION = '2.9.59'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.59 — Sign : suite v2.9.58 — tél candidat ne déborde plus sur tél urgence/conjoint
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.59',
+    date: '2026-05-26',
+    label: 'Sign : fix complet — le téléphone du candidat ne s\'affiche QUE sur les champs explicitement cochés (pas sur urgence / conjoint / parent)',
+    features: [
+      'Le fix v2.9.58 ne couvrait que le useEffect côté client + un endroit serveur. Mais l\'input du champ utilisait encore l\'ancienne logique : tous les champs téléphone affichaient le tél candidat comme valeur par défaut, peu importe le flag « Pré-remplir avec le téléphone du candidat lié ». Désormais : la case à cocher de l\'éditeur contrôle vraiment partout (affichage input, stamping PDF, validation Terminer).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.58 — Sign : « Texte par défaut » du template stampé sur le PDF final
   // ─────────────────────────────────────────────────────────────────────
