@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.54'
+export const APP_VERSION = '2.9.55'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.55 — CRITIQUE Sign : PDF final était VIDE (pattern #71 pdf-generator)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.55',
+    date: '2026-05-26',
+    label: 'CRITIQUE Sign : les documents PDF finaux ne contenaient AUCUN champ rempli (uniquement la signature)',
+    features: [
+      'CRITIQUE — Les documents finaux reçus par email étaient quasi-vides : seuls la signature et les champs sans recipientOrder explicite étaient stampés. Tous les champs remplis par le candidat (adresse, NPA, ville, nationalité, état civil, téléphone, paiement, allocations, etc.) — pourtant bien sauvegardés en base — étaient absents du PDF. La signature consultant pré-remplie aussi. Cause : mismatch d\'ordre destinataire (envelope 0-based) vs ordre champ (template 1-based) dans le générateur PDF. Cohérent avec le fix v2.9.53 côté envoi mais le générateur PDF n\'avait pas reçu le même fix.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.54 — Sign : bloque signer si champs obligatoires vides + logs diag téléphone
   // ─────────────────────────────────────────────────────────────────────

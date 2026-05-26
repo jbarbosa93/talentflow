@@ -145,6 +145,35 @@ export async function generateAndPersistSignedPdfs(
     + ` recipients=${JSON.stringify(recipients.map(r => ({ email: r.email, order: r.order, role: r.role })))}`,
   )
 
+  // v2.9.55 — Pattern #71 : mapping envelope.recipient.order → template.recipientOrder
+  // par INDEX des orders distincts. Le Nème destinataire (trié par order) ↔ le Nème
+  // order distinct du template. Cohérent avec verify-token, SignWizard, send/route.
+  //
+  // Bug observé : envelope.recipients en 0-based (order 0, 1) mais template
+  // 1-based (recipientOrder 1, 2). Sans mapping, le filter `f.recipientOrder
+  // === rec.order` ratait tous les fields → PDF final VIDE.
+  const tplOrdersSet = new Set<number>()
+  for (const d of documents) {
+    for (const f of (d.fields || [])) {
+      if (typeof f.recipientOrder === 'number') tplOrdersSet.add(f.recipientOrder)
+    }
+  }
+  const tplOrdersSorted = Array.from(tplOrdersSet).sort((a, b) => a - b)
+  const sortedRecipientOrders = Array.from(new Set(
+    recipients.filter(r => r.role !== 'cc').map(r => typeof r.order === 'number' ? r.order : 0),
+  )).sort((a, b) => a - b)
+  const envOrderToTplOrder = new Map<number, number>()
+  for (let i = 0; i < sortedRecipientOrders.length; i++) {
+    const envOrd = sortedRecipientOrders[i]
+    const tplOrd = tplOrdersSorted[i] ?? envOrd
+    envOrderToTplOrder.set(envOrd, tplOrd)
+  }
+  console.log(
+    `[pdf-generator] pattern #71 mapping envOrders=${JSON.stringify(sortedRecipientOrders)}`
+    + ` → tplOrders=${JSON.stringify(tplOrdersSorted)}`
+    + ` map=${JSON.stringify(Array.from(envOrderToTplOrder.entries()))}`,
+  )
+
   // 4. Stamp + upload chaque doc
   // v2.9.49 — On collecte au passage les documents qui contiennent au moins une
   // signature (signature/initial) → ils alimenteront LE certificat global (1 seul
@@ -195,27 +224,30 @@ export async function generateAndPersistSignedPdfs(
 
       for (let recIdx = 0; recIdx < recipients.length; recIdx++) {
         const rec = recipients[recIdx]
-        // v2.8.5 — Avant : `recIdx + 1` forçait 1-based → les fields des rôles
-        // 0-based (éditeur TF Sign) n'étaient JAMAIS stampés. Maintenant on
-        // utilise le `rec.order` réel (cohérent avec PublicFieldsLayer `?? 1`
-        // et verify-token `recipient.order`).
-        const recipientOrder = typeof rec.order === 'number' ? rec.order : (recIdx + 1)
+        const envOrder = typeof rec.order === 'number' ? rec.order : (recIdx + 1)
+        // v2.9.55 — Pattern #71 : on cherche les fields par leur recipientOrder
+        // template, pas par l'envOrder brut. Mapping envOrder → tplOrder déjà
+        // calculé plus haut. Fallback : envOrder (cas template sans recipientOrder).
+        const recipientOrder = envOrderToTplOrder.get(envOrder) ?? envOrder
         const tok = allTokens.find(t =>
           t.recipient_email.toLowerCase().trim() === rec.email.toLowerCase().trim(),
         )
         if (!tok) {
-          console.warn(`[pdf-generator] doc="${doc.name}" recipient=${rec.email} order=${recipientOrder} — TOKEN MANQUANT, skip stamp`)
+          console.warn(`[pdf-generator] doc="${doc.name}" recipient=${rec.email} envOrder=${envOrder} → tplOrder=${recipientOrder} — TOKEN MANQUANT, skip stamp`)
           continue
         }
         // v2.9.24 — Fallback = ordre minimum (les champs sans recipientOrder
         // appartiennent au 1er destinataire, qu'il soit 0-based ou 1-based).
+        // v2.9.55 — minRecipientOrder désormais aligné sur tpl (= tplOrdersSorted[0]).
+        const tplMinOrder = tplOrdersSorted[0] ?? minRecipientOrder
         const recFields = (doc.fields || []).filter(f =>
-          (f.recipientOrder ?? minRecipientOrder) === recipientOrder)
+          (f.recipientOrder ?? tplMinOrder) === recipientOrder)
         const recSigCount = recFields.filter(f => f.type === 'signature' || f.type === 'initial').length
         console.log(
-          `[pdf-generator] doc="${doc.name}" recipient=${rec.email} order=${recipientOrder}`
+          `[pdf-generator] doc="${doc.name}" recipient=${rec.email} envOrder=${envOrder} → tplOrder=${recipientOrder}`
           + ` matched_fields=${recFields.length} signatures=${recSigCount}`
-          + ` has_signature_data=${!!tok.signature_data_url}`,
+          + ` has_signature_data=${!!tok.signature_data_url}`
+          + ` field_values_count=${Object.keys(tok.field_values || {}).length}`,
         )
         if (recFields.length === 0) continue
 
