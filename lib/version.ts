@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.68'
+export const APP_VERSION = '2.9.69'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.69 — Sign : bouton « Regrouper par section » + fix badge AUTO + uploads null guard
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.69',
+    date: '2026-05-26',
+    label: 'Sign : bouton « Regrouper par section » dans l\'éditeur Wizard + fix badge AUTO-SIGNÉ + uploads route robuste',
+    features: [
+      'BOUTON « 🔀 REGROUPER PAR SECTION » — Dans l\'éditeur Wizard d\'un step contenant des sections (template rapport d\'heures), nouveau bouton qui réordonne step.fieldIds pour rendre tous les champs d\'une même section contigus. Évite la lecture chaotique « Lundi-Heures, Lundi-Repas, Jeudi-Repas, Mardi-Repas, Mercredi-Repas, … » héritée d\'imports DocuSign ou éditions désordonnées. Sections triées par 1ère apparition, fields stables au sein de chaque section, sans-section en queue.',
+      'BADGE « AUTO-SIGNÉ » FIX — Le badge orange ajouté en v2.9.67 ne s\'affichait jamais car la route GET /tokens ne sélectionnait pas signature_method dans son SELECT SQL → côté client t.signature_method était toujours undefined. Désormais : colonne ajoutée au SELECT.',
+      'UPLOADS ROUTE ROBUSTE — Route /api/sign/envelopes/[id]/uploads renvoyait 500 « Cannot read properties of null » quand documents JSONB contenait des entrées NULL (debris d\'édition). Filtre .filter(d => d != null) + Array.isArray(d.fields) ajoutés pour immuniser contre futurs nulls.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.68 — Sign : fix 500 /uploads (docs null) + badge Auto-signé visible
   // ─────────────────────────────────────────────────────────────────────

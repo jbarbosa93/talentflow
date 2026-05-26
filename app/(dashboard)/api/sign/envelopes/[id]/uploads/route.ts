@@ -95,11 +95,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     .select('documents')
     .eq('id', envRow.template_id)
     .maybeSingle()
-  const tplDocs = ((tpl as { documents?: SignDocument[] } | null)?.documents || []) as SignDocument[]
+  // v2.9.68 — Robustifié : filtre les entrées null dans documents (déjà rencontrées
+  // sur le template cb083ae0 — debris d'édition) qui faisaient crash 500 sur
+  // `d.fields` (TypeError: Cannot read properties of null).
+  const tplDocsRaw = ((tpl as { documents?: (SignDocument | null)[] } | null)?.documents || []) as (SignDocument | null)[]
+  const tplDocs: SignDocument[] = tplDocsRaw.filter((d): d is SignDocument => d != null && typeof d === 'object')
   const attachmentFields: SignField[] = []
   for (const d of tplDocs) {
-    for (const f of d.fields || []) {
-      if (f.type === 'attachment') attachmentFields.push(f)
+    const fields = Array.isArray(d.fields) ? d.fields : []
+    for (const f of fields) {
+      if (f && f.type === 'attachment') attachmentFields.push(f)
     }
   }
   if (attachmentFields.length === 0) {

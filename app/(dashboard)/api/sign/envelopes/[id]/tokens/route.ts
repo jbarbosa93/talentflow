@@ -19,7 +19,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
   const { data, error } = await supabase
     .from('sign_tokens' as any)
-    .select('id, token, recipient_email, recipient_name, expires_at, used_at, signed_at, created_at')
+    // v2.9.67 — signature_method exposé pour afficher le badge « Auto-signé »
+    // (= signature apposée auto via preset template, pas dessinée par le signataire)
+    .select('id, token, recipient_email, recipient_name, expires_at, used_at, signed_at, signature_method, created_at')
     .eq('envelope_id', id)
     .order('created_at', { ascending: true })
 

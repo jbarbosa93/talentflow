@@ -473,6 +473,40 @@ export default function WizardEditor({
     next.splice(to, 0, it)
     updateStep(stepIdx, { fieldIds: next })
   }
+  // v2.9.69 — Regroupe les champs par section : tous les champs d'une même
+  // wizardSection deviennent contigus, dans l'ordre d'apparition de la section.
+  // Les fields sans section sont placés à la fin. Stable au sein de chaque
+  // section (ordre original préservé). Évite « Mardi → Lundi → Mardi → … »
+  // quand un import DocuSign ou des éditions ont mélangé les fields.
+  const regroupStepFieldsBySection = (stepIdx: number) => {
+    const step = steps[stepIdx]
+    if (!step) return
+    const fieldIds = step.fieldIds.slice()
+    if (fieldIds.length < 2) return
+    const sectionOrder: string[] = []
+    const buckets = new Map<string, string[]>()
+    for (const fid of fieldIds) {
+      const f = fieldIndex.get(fid)?.field
+      const sec = (f?.wizardSection || '').trim() || '__none__'
+      if (!buckets.has(sec)) {
+        buckets.set(sec, [])
+        sectionOrder.push(sec)
+      }
+      buckets.get(sec)!.push(fid)
+    }
+    // Place les fields « sans section » à la fin (UX plus logique).
+    const sortedSections = sectionOrder.filter(s => s !== '__none__')
+    if (sectionOrder.includes('__none__')) sortedSections.push('__none__')
+    const reordered: string[] = []
+    for (const sec of sortedSections) reordered.push(...(buckets.get(sec) || []))
+    // Si déjà groupé → no-op (évite markDirty inutile)
+    if (reordered.length === fieldIds.length && reordered.every((id, i) => id === fieldIds[i])) {
+      toast.info('Les champs sont déjà regroupés par section')
+      return
+    }
+    updateStep(stepIdx, { fieldIds: reordered })
+    toast.success(`Champs regroupés par section (${sortedSections.length - (sectionOrder.includes('__none__') ? 1 : 0)} sections)`)
+  }
   const removeFieldFromStep = (stepIdx: number, fieldId: string) => {
     const step = steps[stepIdx]
     updateStep(stepIdx, { fieldIds: step.fieldIds.filter(id => id !== fieldId) })
@@ -1113,6 +1147,7 @@ export default function WizardEditor({
               onDeleteFields={deleteFieldsById}
               collapsedSections={collapsedSections}
               onToggleSectionCollapse={toggleSectionCollapse}
+              onRegroupBySection={() => regroupStepFieldsBySection(selectedStepIdx)}
             />
           )}
         </div>
@@ -1226,6 +1261,8 @@ interface StepDetailProps {
   /** v2.9.21 — Sections repliées (convenance d'édition) */
   collapsedSections: Set<string>
   onToggleSectionCollapse: (name: string) => void
+  /** v2.9.69 — Regroupe les champs par section (fields contigus, ordre des sections préservé) */
+  onRegroupBySection?: () => void
 }
 
 function StepDetail({
@@ -1234,7 +1271,7 @@ function StepDetail({
   onUpdateStep, onPatchIntroContent, onMoveStep, onDeleteStep, onMergeNext, onSplitAt,
   onUpdateField, onMoveFieldInStep, onReorderFieldInStep, onRemoveFieldFromStep, onAddFieldToStep,
   onDuplicateField, onMoveFieldToStep, onDeleteFields,
-  collapsedSections, onToggleSectionCollapse,
+  collapsedSections, onToggleSectionCollapse, onRegroupBySection,
 }: StepDetailProps) {
   const [showAddPicker, setShowAddPicker] = useState(false)
   // v2.2.4 fix v4 — DnD via dnd-kit (Pointer Events, fiable, pas de race condition).
@@ -1387,6 +1424,19 @@ function StepDetail({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <label style={{ ...editLabelStyle, marginBottom: 0 }}>Champs ({stepFields.length})</label>
           <span style={{ flex: 1 }} />
+          {/* v2.9.69 — Regroupe les champs par section pour rendre l'ordre logique
+              (évite « Mardi → Lundi → Mardi » quand un import DocuSign a mélangé). */}
+          {onRegroupBySection && stepFields.some(f => (f.wizardSection || '').trim()) && (
+            <button
+              type="button"
+              onClick={onRegroupBySection}
+              className="neo-btn-ghost neo-btn-sm"
+              title="Réordonne les champs pour qu'une même section soit affichée d'un bloc"
+              style={{ fontSize: 11 }}
+            >
+              🔀 Regrouper par section
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowAddPicker(s => !s)}
