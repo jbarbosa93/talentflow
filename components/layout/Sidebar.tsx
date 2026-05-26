@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { href: '/pipeline',     label: 'Pipeline',         icon: KanbanSquare,    hideForSecretaire: true },
   { href: '/messages',     label: 'Envois',           icon: Mail,            hideForSecretaire: true },
   { href: '/sign',         label: 'Signatures',       icon: FileSignature,   hideForSecretaire: true },
+  { href: '/sign/rapports', label: 'Rapports',        icon: ClipboardList,   hideForSecretaire: true },
   { href: '/matching',     label: 'Matching IA',      icon: Sparkles,        hideForSecretaire: true, beta: true },
   { href: '/secretariat',  label: 'Administration',   icon: ClipboardList,   secretaireVisible: true },
 ]

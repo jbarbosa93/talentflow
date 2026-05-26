@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.63'
+export const APP_VERSION = '2.9.64'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.64 — Sidebar : Rapports séparé de Signatures + Templates filtrés par kind
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.64',
+    date: '2026-05-26',
+    label: 'Sidebar : onglet Rapports distinct de Signatures + page Templates filtrée par kind (signatures vs rapports)',
+    features: [
+      'NOUVEL ONGLET « RAPPORTS » dans la sidebar (icône ClipboardList), distinct de « Signatures ». Les 2 modules sont désormais clairement séparés visuellement.',
+      'TEMPLATES FILTRÉS — La page /sign/templates accepte un paramètre `?kind=report` qui filtre la liste pour n\'afficher QUE les templates de rapports (et inversement, sans param = templates de signatures, les rapports exclus). Le titre, le compteur et le bouton retour s\'adaptent.',
+      'Le bouton « Templates » de /sign/rapports pointe désormais vers /sign/templates?kind=report → vue dédiée. Bouton « Templates » de /sign reste sur la vue signatures.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.63 — Sign : safePdfText étendu au stamp + bouton « Modifier signature » + labels checkbox propres + logs Bug B
   // ─────────────────────────────────────────────────────────────────────

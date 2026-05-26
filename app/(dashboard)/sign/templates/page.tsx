@@ -1,8 +1,9 @@
 // TalentFlow Sign — Page templates (refonte v2.2.1 inspirée DocuSign)
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Plus, Search, X, FolderCog, ChevronLeft, Loader2, FileJson, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import CreateTemplateModal from '@/components/sign/CreateTemplateModal'
@@ -10,7 +11,22 @@ import DocusignImportModal from '@/components/sign/DocusignImportModal'
 import TemplatesTable from '@/components/sign/TemplatesTable'
 import type { SignTemplate } from '@/lib/sign/types'
 
+// v2.9.64 — Wrapper Suspense obligatoire pour useSearchParams en Next.js 16
+// (prerender error sinon).
 export default function SignTemplatesPage() {
+  return (
+    <Suspense fallback={<div className="d-page"><Loader2 className="animate-spin" /></div>}>
+      <SignTemplatesPageInner />
+    </Suspense>
+  )
+}
+
+function SignTemplatesPageInner() {
+  // v2.9.64 — Filtre `?kind=report` pour n'afficher que les templates rapports
+  // (utilisé par le bouton « Templates » de /sign/rapports). Sans param ou
+  // ?kind=envelope → templates signatures (exclut les rapports).
+  const searchParams = useSearchParams()
+  const kindFilter = searchParams.get('kind') === 'report' ? 'report' : 'envelope'
   const [templates, setTemplates] = useState<SignTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -26,7 +42,14 @@ export default function SignTemplatesPage() {
       // v2.8.0 — Exclure les templates ad-hoc (parent_template_id défini) de la
       // liste UI : ce sont des containers techniques créés à chaque envoi.
       const all: SignTemplate[] = d.templates || []
-      setTemplates(all.filter(t => !(t as { parent_template_id?: string | null }).parent_template_id))
+      // v2.9.64 — Filtre par kind : 'report' n'affiche que les rapports,
+      // 'envelope' (défaut) affiche les signatures (exclut les rapports).
+      const visible = all.filter(t => {
+        if ((t as { parent_template_id?: string | null }).parent_template_id) return false
+        const tKind = (t as { kind?: string }).kind || 'envelope'
+        return kindFilter === 'report' ? tKind === 'report' : tKind !== 'report'
+      })
+      setTemplates(visible)
     } catch {
       setTemplates([])
     } finally {
@@ -34,7 +57,7 @@ export default function SignTemplatesPage() {
     }
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchData() }, [kindFilter])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return templates
@@ -83,9 +106,13 @@ export default function SignTemplatesPage() {
     <div className="d-page" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
       {/* Bouton retour */}
       <div style={{ marginBottom: 8 }}>
-        <Link href="/sign" className="neo-btn-ghost neo-btn-sm" style={{ padding: '4px 10px' }}>
+        <Link
+          href={kindFilter === 'report' ? '/sign/rapports' : '/sign'}
+          className="neo-btn-ghost neo-btn-sm"
+          style={{ padding: '4px 10px' }}
+        >
           <ChevronLeft size={14} />
-          Signatures
+          {kindFilter === 'report' ? 'Rapports' : 'Signatures'}
         </Link>
       </div>
 
@@ -94,7 +121,7 @@ export default function SignTemplatesPage() {
         <div>
           <h1 className="d-page-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
             <FolderCog size={22} color="var(--primary)" />
-            <span>Templates</span>
+            <span>{kindFilter === 'report' ? 'Templates Rapports' : 'Templates Signatures'}</span>
             {!loading && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center',
