@@ -605,6 +605,15 @@ export default function PublicSignPage({ params }: PageProps) {
     }
     // Si la prochaine étape logique est de signer ET aucun autre champ non-rempli avant → SignaturePad
     if (firstSignature && nextFieldsQueue[0]?.fieldId === firstSignature.fieldId) {
+      // v2.9.63 — Garde anti-réouverture si déjà signé (race condition possible)
+      if (signatureDataUrlRef.current) {
+        // eslint-disable-next-line no-console
+        console.log('[goToNextField] firstSignature en tête mais déjà signé → skip pad ouverture')
+        setCurrentFieldId(null)
+        return
+      }
+      // eslint-disable-next-line no-console
+      console.log('[goToNextField] OUVERTURE pad via firstSignature')
       setSignaturePadOpen(true)
       setCurrentFieldId(firstSignature.fieldId)
       return
@@ -638,25 +647,35 @@ export default function PublicSignPage({ params }: PageProps) {
   // v2.9.59 — Utilise finalizeBlockers (qui inclut fields + signatures + groupes
   // checkbox) au lieu de nextFieldsQueue (qui rate les groupes). Évite le bug :
   // pad ouvert alors qu'un groupe « Suisse OU Étranger » n'est pas coché.
-  const tryOpenSignaturePad = useCallback(() => {
-    // Garde anti-réouverture : si déjà signé, on n'ouvre pas le pad.
-    if (signatureDataUrlRef.current) {
+  // v2.9.63 — `force=true` autorise la réouverture du pad même si déjà signé
+  // (cas : bouton « Modifier ma signature » du wizard step Signature). Sans
+  // force, la garde signatureDataUrlRef bloque (évite les réouvertures
+  // accidentelles dues à la race condition après adoption).
+  const tryOpenSignaturePad = useCallback((force: boolean = false) => {
+    // Garde anti-réouverture AUTO : si déjà signé ET pas force, on n'ouvre pas.
+    if (signatureDataUrlRef.current && !force) {
       // eslint-disable-next-line no-console
-      console.log('[tryOpenSignaturePad] déjà signé, pas de réouverture')
+      console.log('[tryOpenSignaturePad] déjà signé (force=false), pas de réouverture')
       return
     }
     // Cherche un bloqueur non-signature (= champ obligatoire vide OU groupe
     // checkbox incomplet). Si trouvé → toast + scroll au champ, pas d'ouverture.
-    const nonSigBlocker = finalizeBlockers.find(b => b.kind !== 'signature')
-    if (nonSigBlocker) {
-      toast.error(
-        nonSigBlocker.kind === 'group'
-          ? `${nonSigBlocker.label} : ${nonSigBlocker.detail || 'à compléter'}`
-          : `Champ obligatoire vide : ${nonSigBlocker.label}`,
-      )
-      goToNextField()
-      return
+    // En mode force (modifier signature), on bypass aussi cette vérif — l'admin
+    // a forcément cliqué un bouton explicite « Modifier ».
+    if (!force) {
+      const nonSigBlocker = finalizeBlockers.find(b => b.kind !== 'signature')
+      if (nonSigBlocker) {
+        toast.error(
+          nonSigBlocker.kind === 'group'
+            ? `${nonSigBlocker.label} : ${nonSigBlocker.detail || 'à compléter'}`
+            : `Champ obligatoire vide : ${nonSigBlocker.label}`,
+        )
+        goToNextField()
+        return
+      }
     }
+    // eslint-disable-next-line no-console
+    console.log(`[tryOpenSignaturePad] OUVERTURE pad (force=${force}, hasSig=${!!signatureDataUrlRef.current})`)
     setSignaturePadOpen(true)
   }, [finalizeBlockers, goToNextField])
 
@@ -1090,6 +1109,8 @@ export default function PublicSignPage({ params }: PageProps) {
 
   // ─── Phase 4a — Handlers signature ───
   const handleSignatureAdopted = async (dataUrl: string, method: 'drawn' | 'typed') => {
+    // eslint-disable-next-line no-console
+    console.log(`[handleSignatureAdopted] adoption signature method=${method} size=${dataUrl.length}B`)
     // v2.9.57 — Ref SYNCHRONE en premier pour empêcher tryOpenSignaturePad
     // de ré-ouvrir le pad pendant le re-render React (race condition).
     signatureDataUrlRef.current = dataUrl

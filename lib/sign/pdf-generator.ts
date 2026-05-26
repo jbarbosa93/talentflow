@@ -18,6 +18,7 @@ import path from 'path'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { stampPdf, stampTalentflowEnvelopeId } from './pdf-stamp'
+import { safePdfText } from './safe-text'
 import { uploadSignDocument, SIGN_BUCKET } from './storage'
 import type {
   SignEnvelope, SignRecipient, SignTemplate, SignDocument,
@@ -695,37 +696,6 @@ function drawKeyValue(
     x: x + 75, y, size: 9.5, font: fontReg,
     color: rgb(0.11, 0.10, 0.08),
   })
-}
-
-/**
- * v2.9.61 — Normalise une chaîne pour qu'elle soit encodable par pdf-lib
- * StandardFonts (WinAnsi/Helvetica). Sans ce fix, un nom de doc en UTF-8
- * NFD (« Sécurité » = e + U+0301 décomposé) plante l'encodage WinAnsi
- * qui ne supporte que les caractères précomposés.
- *
- * Étapes :
- *  1. NFC : recompose les caractères combinants (é, à, ç, etc.)
- *  2. Strip des caractères restants non-WinAnsi (emojis, U+2019 guillemet
- *     typographique smart quote, etc.) → remplacés par leur équivalent ASCII
- *     basique ou un point d'interrogation.
- */
-function safePdfText(s: string): string {
-  if (!s) return ''
-  return s
-    .normalize('NFC')
-    // v2.9.62 — Strippe les accents combinants RESTANTS après NFC. Cas typique :
-    // d + U+0301 n'existe pas en précomposé Unicode → l'accent reste détaché
-    // → WinAnsi throw « cannot encode U+0301 ». Range : U+0300 à U+036F.
-    .replace(/[̀-ͯ]/g, '')
-    // Smart quotes / dashes courants en typographie française moderne
-    .replace(/[‘’‚‛]/g, "'")  // ' ' ‚ ‛ → '
-    .replace(/[“”„‟]/g, '"')  // " " „ ‟ → "
-    .replace(/[–—]/g, '-')              // – — → -
-    .replace(/…/g, '...')                    // … → ...
-    .replace(/ /g, ' ')                      // espace insécable → espace
-    // v2.9.62 — Filet de sécurité final : tout char hors Latin-1 (>U+00FF)
-    // → '?', sauf chars Windows usuels. Évite tout futur throw WinAnsi.
-    .replace(/[^\x00-\xFF€™©®]/g, '?')
 }
 
 function truncate(s: string, n: number): string {

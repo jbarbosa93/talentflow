@@ -13,6 +13,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib'
 import type { SignField } from './types'
 import { computeFormulaValue, formatFormulaValue, effectiveCheckedState } from './field-helpers'
+import { safePdfText } from './safe-text'
 
 // ─── Stamp envelopeId (Phase 3) ─────────────────────────────────────────
 
@@ -461,13 +462,18 @@ function drawTextInBox(
   page: any, text: string, x: number, y: number, w: number, h: number, font: PDFFont,
   field?: SignField,
 ) {
+  // v2.9.63 — Normalise le texte AVANT toute mesure ou rendu pour éviter
+  // « WinAnsi cannot encode U+XXXX » quand un user input contient des accents
+  // NFD (e + U+0301 séparé), smart quotes, ou caractères exotiques. Sans ça,
+  // tout le stamp d'un doc plante → champ vide sur le PDF final.
+  const safe = safePdfText(text)
   // v2.2.4 — Si l'admin a configuré field.fontSize via panneau Formatage,
   // on l'utilise comme taille INITIALE. Sinon fallback auto-fit selon hauteur.
   let size = field?.fontSize
     ? Math.min(field.fontSize, h - 1)  // borné à la hauteur du field
     : Math.min(h * 0.65, TEXT_FONT_SIZE_DEFAULT)
   // Réduit si le texte dépasse la largeur (priorité fit > taille demandée)
-  while (size > 6 && font.widthOfTextAtSize(text, size) > w - 4) size -= 0.5
+  while (size > 6 && font.widthOfTextAtSize(safe, size) > w - 4) size -= 0.5
   // v2.3.15 — Centrage WYSIWYG calé sur Konva verticalAlign="middle".
   // Baseline pdf-lib (BL coords) tel que le texte apparaisse au même endroit
   // visuel que dans l'éditeur Konva. Formule : (h - size × 0.7) / 2
@@ -479,7 +485,7 @@ function drawTextInBox(
     Red: [0.86, 0.15, 0.15], Green: [0.08, 0.5, 0.24], Orange: [0.92, 0.35, 0.05],
   }
   const c = field?.fontColor && colorMap[field.fontColor] ? colorMap[field.fontColor] : [0, 0, 0]
-  page.drawText(text, {
+  page.drawText(safe, {
     x: x + 2, y: textY,
     size, font, color: rgb(c[0], c[1], c[2]),
   })

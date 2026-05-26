@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.62'
+export const APP_VERSION = '2.9.63'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.63 — Sign : safePdfText étendu au stamp + bouton « Modifier signature » + labels checkbox propres + logs Bug B
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.63',
+    date: '2026-05-26',
+    label: 'Sign : normalisation texte étendue au stamp des champs + bouton « Modifier ma signature » réparé + labels checkbox propres',
+    features: [
+      'NORMALISATION ÉTENDUE — La normalisation des accents UTF-8 NFD (v2.9.62) couvrait le certificat mais pas le stamping des champs eux-mêmes. Désormais étendue à tout le pipeline (cert + stamp des valeurs saisies par le candidat). Garantie : aucune saisie utilisateur (accent, smart quote, emoji, char exotique copié-collé) ne peut faire planter le PDF final.',
+      'MODIFIER MA SIGNATURE RÉPARÉ — Le bouton « Modifier ma signature » du wizard (et le clic sur une zone signature déjà signée en mode Document) ne faisait rien depuis v2.9.57 (garde anti-réouverture trop stricte). Maintenant : un paramètre `force=true` bypass la garde quand l\'utilisateur clique explicitement.',
+      'LABELS CHECKBOX PROPRES — Le groupe « Groupe 1 » est renommé en « Permis de conduire » avec ses 2 cases « Oui » / « Non » (au lieu de « Permis de conduire » / « Case à cocher 1500188d-... »). Le banner d\'erreur est désormais lisible : « Permis de conduire : sélectionne exactement 1 case ».',
+      'LOGS DIAG BUG B — Logs ajoutés sur tous les points d\'ouverture du SignaturePad (handleSignatureAdopted, tryOpenSignaturePad, goToNextField). Au prochain test où le pad s\'ouvre 2 fois, la console DevTools du candidat dira exactement quelle voie est responsable.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.62 — Sign : cert fix renforcé (strip combinants orphelins après NFC)
   // ─────────────────────────────────────────────────────────────────────

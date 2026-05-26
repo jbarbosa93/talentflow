@@ -33,7 +33,7 @@ interface Props {
   values: Record<string, unknown>    // fieldId → value (inclut les valeurs des signers précédents)
   onValueChange: (fieldId: string, value: unknown) => void
   signatureDataUrl: string | null
-  onRequestSignature: () => void     // ouvre le SignaturePad
+  onRequestSignature: (force?: boolean) => void     // ouvre le SignaturePad
   recipientColor: { stroke: string; fill: string; text: string }  // pour le rendu
   /** v2.2.3 — Order du destinataire courant (pour distinguer fields éditables vs read-only). */
   currentRecipientOrder?: number
@@ -217,7 +217,7 @@ interface FieldInputProps {
   value: unknown
   onChange: (value: unknown) => void
   signatureDataUrl: string | null
-  onRequestSignature: () => void
+  onRequestSignature: (force?: boolean) => void
   recipientColor: { stroke: string; fill: string; text: string }
   autoFill: Props['autoFill']
   widthPx: number
@@ -348,7 +348,7 @@ function FieldInput({
             overflow: 'hidden',
             position: 'relative',
           }}
-          onClick={onRequestSignature}
+          onClick={() => onRequestSignature(true)}
           title="Cliquer pour modifier la signature"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -370,7 +370,7 @@ function FieldInput({
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
         <button
           type="button"
-          onClick={onRequestSignature}
+          onClick={() => onRequestSignature()}
           onMouseEnter={showOnFocus}
           onMouseLeave={hideOnBlur}
           onFocus={showOnFocus}

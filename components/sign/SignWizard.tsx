@@ -79,7 +79,7 @@ interface Props {
   fieldValues: Record<string, unknown>
   onValueChange: (fieldId: string, value: unknown) => void
   signatureDataUrl: string | null
-  onRequestSignature: () => void
+  onRequestSignature: (force?: boolean) => void
   autoFill: AutoFill
   recipientName: string
   envelopeTitle: string
@@ -563,7 +563,7 @@ interface StepContentProps {
   values: Record<string, unknown>
   onChange: (fieldId: string, value: unknown) => void
   signatureDataUrl: string | null
-  onRequestSignature: () => void
+  onRequestSignature: (force?: boolean) => void
   autoFill: AutoFill
   documents: SignDocument[]
   token?: string
@@ -659,7 +659,7 @@ function StepContent({
               </div>
               <button
                 type="button"
-                onClick={onRequestSignature}
+                onClick={() => onRequestSignature(true)}
                 style={{
                   marginTop: 14,
                   background: 'transparent',
@@ -687,7 +687,7 @@ function StepContent({
               </div>
               <button
                 type="button"
-                onClick={onRequestSignature}
+                onClick={() => onRequestSignature()}
                 style={{
                   background: '#1C1A14',
                   color: '#EAB308',
@@ -757,7 +757,7 @@ function GroupedFields({
   autoFill: AutoFill
   weekStartDate?: string | null
   signatureDataUrl: string | null
-  onRequestSignature: () => void
+  onRequestSignature: (force?: boolean) => void
   token?: string
 }) {
   if (fields.length === 0) {
