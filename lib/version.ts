@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.66'
+export const APP_VERSION = '2.9.67'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,23 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.67 — Sign : 4 bugs + 4 features (tél, erreurs lisibles, titre email, filename, Auto-signé, rôles)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.67',
+    date: '2026-05-26',
+    label: 'Sign : tél candidat ne déborde plus + erreurs lisibles + titre email avec nom candidat + filename UTF-8 préservé + badge Auto-signé + rôles destinataires',
+    features: [
+      'TÉL CANDIDAT — Les 2 champs téléphone du template « Documents à signer » avec flag NULL ont été migrés en DB (urgence → false, portable → true). La case dans l\'éditeur écrit désormais explicitement true OU false (plus de NULL). Plus de débordement sur les champs tiers (urgence, conjoint, parent).',
+      'MESSAGES D\'ERREUR LISIBLES — « Groupe 11 » devient « Méthodes de paiement du salaire » (groupName auto-généré remplacé par wizardSection en DB + fallback intelligent côté code). Les fields obligatoires affichent « Section — Tooltip : à remplir pour continuer » au lieu d\'un message tronqué. Plus de jargon technique pour le candidat.',
+      'BOUTON « RAPPORTS » RETIRÉ de la page Signatures (redondant : Rapports est maintenant un onglet sidebar distinct).',
+      'TITRE EMAIL RÉCAP — Au lieu de « Documents à signer — Documents signés », le sujet devient « Flavian Casaubon — Documents signés + pièces jointes ». Lookup candidat lié en DB (fallback : 1er destinataire non-créateur).',
+      'FILENAME PJ — « Carte d\'identité ou passport » s\'affichait « Carte d identit ou p... » dans Outlook (l\'apostrophe et l\'accent strippés par une regex \\w trop stricte). Désormais : normalisation NFC + strip uniquement des caractères vraiment interdits (/ \\ : * ? " < > |). UTF-8 préservé partout.',
+      'BADGE « AUTO-SIGNÉ » à côté de « Signé » sur la liste destinataires de l\'enveloppe : indique visuellement que la signature a été apposée automatiquement depuis la signature pré-enregistrée du template (signature_method = \'auto\').',
+      'RÔLES DESTINATAIRES — La liste /sign affiche désormais « À : João Barbosa (Consultant), Flavian Casaubon (Candidat) » au lieu de juste les noms. Permet d\'identifier les rôles d\'un coup d\'œil.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.66 — Templates Rapports : route dédiée /sign/rapports/templates
   // ─────────────────────────────────────────────────────────────────────

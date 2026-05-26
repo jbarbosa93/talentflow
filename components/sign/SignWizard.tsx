@@ -57,6 +57,7 @@ function enrichSection(section: string, weekStartDate?: string | null): string {
 import {
   looksLikeDateField, looksLikeCountrySelect, looksLikeCompanyField, looksLikePhoneField, EUROPEAN_COUNTRIES,
   effectiveFieldState, effectiveCheckedState, computeFormulaValue, formatFormulaValue,
+  getGroupDisplayLabel, getFieldErrorLabel,
 } from '@/lib/sign/field-helpers'
 
 interface AutoFill {
@@ -270,7 +271,8 @@ export default function SignWizard({
       // être cochés" → impossible. La règle du groupe est la source de vérité.
       if (f.type === 'checkbox' && f.groupId && f.groupRule) continue
       if (isFieldFilled(f, fieldValues[f.id], signatureDataUrl, autoFill, fieldValues)) continue
-      setValidationError(`"${f.tooltip || f.label || 'Champ'}" est requis`)
+      // v2.9.67 — Message lisible avec section + tooltip (« Méthodes de paiement — N. Portable : à remplir »)
+      setValidationError(`« ${getFieldErrorLabel(f)} » : à remplir pour continuer`)
       return false
     }
     // v2.8.10 — Validation des règles de groupe (checkboxes) : on vérifie que chaque
@@ -288,17 +290,21 @@ export default function SignWizard({
     for (const g of groupsToCheck.values()) {
       if (!g.rule) continue
       const checkedCount = g.members.filter(m => fieldValues[m.id] === true).length
-      const label = g.name || 'Groupe'
+      // v2.9.67 — Label intelligent : groupName si parlant, sinon wizardSection 1er membre, sinon tooltips joints
+      const label = getGroupDisplayLabel(g.name, g.members as SignField[])
       if (g.rule === 'SelectExactly' && checkedCount !== (g.min ?? 1)) {
-        setValidationError(`« ${label} » : sélectionne exactement ${g.min ?? 1} case${(g.min ?? 1) > 1 ? 's' : ''} (actuellement ${checkedCount})`)
+        const want = g.min ?? 1
+        setValidationError(`« ${label} » : choisis ${want === 1 ? 'une option' : `${want} options`} pour continuer`)
         return false
       }
       if (g.rule === 'SelectAtLeast' && checkedCount < (g.min ?? 1)) {
-        setValidationError(`« ${label} » : sélectionne au moins ${g.min ?? 1} case${(g.min ?? 1) > 1 ? 's' : ''} (actuellement ${checkedCount})`)
+        const want = g.min ?? 1
+        setValidationError(`« ${label} » : choisis au moins ${want === 1 ? 'une option' : `${want} options`} pour continuer`)
         return false
       }
       if (g.rule === 'SelectAtMost' && checkedCount > (g.max ?? 1)) {
-        setValidationError(`« ${label} » : sélectionne au plus ${g.max ?? 1} case${(g.max ?? 1) > 1 ? 's' : ''} (actuellement ${checkedCount})`)
+        const want = g.max ?? 1
+        setValidationError(`« ${label} » : choisis au plus ${want === 1 ? 'une option' : `${want} options`}`)
         return false
       }
     }

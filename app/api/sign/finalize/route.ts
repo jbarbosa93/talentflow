@@ -249,6 +249,30 @@ export async function POST(req: NextRequest) {
         console.error('[sign/finalize] processCandidateUploads échoué', e)
       }
 
+      // v2.9.67 — Calcule le nom complet du candidat pour le sujet de l'email récap.
+      // Priorité : (1) candidat lié en DB (envelopes.candidate_id) — vrai prénom/nom,
+      // (2) 1er destinataire non-créateur, (3) fallback envelopeTitle.
+      let candidateName = ''
+      try {
+        if (envelope.candidate_id) {
+          const { data: candRow } = await supabase
+            .from('candidats')
+            .select('prenom, nom')
+            .eq('id', envelope.candidate_id)
+            .maybeSingle()
+          if (candRow?.prenom || candRow?.nom) {
+            candidateName = `${candRow.prenom || ''} ${candRow.nom || ''}`.trim()
+          }
+        }
+        if (!candidateName && creatorEmail) {
+          const nonCreator = (updatedRecipients as Array<{ email?: string; name?: string }>)
+            .find(r => r.email && r.email.toLowerCase() !== creatorEmail.toLowerCase() && (r.name || '').trim())
+          if (nonCreator) candidateName = (nonCreator.name || '').trim()
+        }
+      } catch (err) {
+        console.warn('[sign/finalize] candidateName lookup échoué', err)
+      }
+
       // v2.9.31 — UN SEUL email fusionné au créateur : documents signés +
       // pièces jointes chargées par le candidat. Remplace les 2 emails séparés
       // ("Documents signés" + "X documents chargés"). Le candidat, lui, ne
@@ -299,6 +323,7 @@ export async function POST(req: NextRequest) {
         try {
           recapResult = await sendSignFinalRecapEmail(creatorEmail, {
             envelopeTitle: envelope.title,
+            candidateName,
             uploaderName: uploadResult.uploaderName,
             signedCount: stampResult.signedOnlyAttachments.length,
             uploadCount: uploadResult.attachments.length,
@@ -320,6 +345,7 @@ export async function POST(req: NextRequest) {
           try {
             const fallback = await sendSignFinalRecapEmail(creatorEmail, {
               envelopeTitle: envelope.title,
+              candidateName,
               uploaderName: uploadResult.uploaderName,
               signedCount: stampResult.signedOnlyAttachments.length,
               uploadCount: uploadResult.attachments.length,
@@ -405,7 +431,15 @@ export async function POST(req: NextRequest) {
  * comme un fichier texte (.txt) → le PDF signé s'ouvrait dans TextEdit.
  */
 function ensurePdfFilename(name: string): string {
-  const n = (name || 'document').trim()
+  // v2.9.67 — Normalise NFC (recompose accents combinants en précomposés)
+  // + strip caractères interdits dans un nom de fichier. Avant : les docs en
+  // UTF-8 NFD (« Sécurité » = e + U+0301) passaient tels quels → certains
+  // clients mail strippaient les accents combinants → texte tronqué.
+  const n = (name || 'document')
+    .normalize('NFC')
+    .replace(/[/\\:*?"<>|\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim() || 'document'
   return /\.pdf$/i.test(n) ? n : `${n}.pdf`
 }
 
@@ -746,8 +780,16 @@ async function processCandidateUploads(args: {
     for (const c of collected) {
       const imgFiles = c.files.filter(f => isComposableImage(f.mimeType, f.name))
       const otherFiles = c.files.filter(f => !isComposableImage(f.mimeType, f.name))
+      // v2.9.67 — Filename safe pour email PJ. Avant : `[^\w\s.-]+` strippait
+      // accents (é, à…) et apostrophes → « Carte d'identité » devenait
+      // « Carte d identit ». Désormais on enlève UNIQUEMENT les caractères
+      // vraiment interdits dans un nom de fichier (slash, deux-points, etc.).
+      // Resend + clients mail supportent UTF-8 pour les filenames.
       const baseName = ((c.field.tooltip || c.field.label || 'Document')
-        .replace(/[^\w\s.-]+/g, ' ').trim() || 'Document').slice(0, 80)
+        .normalize('NFC')
+        .replace(/[/\\:*?"<>|\r\n\t]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim() || 'Document').slice(0, 80)
 
       // ≥ 1 image → 1 PDF A4 nommé d'après le champ. Sinon → fichiers bruts.
       if (imgFiles.length >= 1) {

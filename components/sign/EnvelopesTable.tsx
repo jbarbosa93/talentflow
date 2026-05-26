@@ -85,7 +85,14 @@ function EnvelopeRow({
 }) {
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
-  const recipientNames = (env.recipients || []).map(r => r.name).join(', ')
+  // v2.9.67 — Affiche le rôle (« Candidat », « Consultant »…) à côté du nom
+  // pour distinguer les destinataires de l'enveloppe d'un coup d'œil.
+  const recipientNames = (env.recipients || [])
+    .map(r => {
+      const role = (r as { roleName?: string }).roleName
+      return role ? `${r.name} (${role})` : r.name
+    })
+    .join(', ')
   const signedCount = (env.recipients || []).filter(r => r.status === 'signed').length
   const totalSigners = (env.recipients || []).filter(r => r.role !== 'cc').length
   const progressPct = totalSigners > 0 ? Math.round((signedCount / totalSigners) * 100) : 0

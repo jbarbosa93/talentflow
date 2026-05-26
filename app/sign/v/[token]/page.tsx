@@ -30,7 +30,7 @@ const SignWizard = dynamic(() => import('@/components/sign/SignWizard'), { ssr: 
 import PublicFieldsLayer, { areAllRequiredFieldsFilled, isFieldFilledExt } from '@/components/sign/PublicFieldsLayer'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
-import { getDayOffsetFromSection, dateForDayOfWeek, effectiveFieldState, looksLikePhoneField, isCandidatePhoneField } from '@/lib/sign/field-helpers'
+import { getDayOffsetFromSection, dateForDayOfWeek, effectiveFieldState, looksLikePhoneField, isCandidatePhoneField, getGroupDisplayLabel, getFieldErrorLabel } from '@/lib/sign/field-helpers'
 import LogoLAgence from '@/components/report/LogoLAgence'
 
 interface PageProps {
@@ -467,11 +467,12 @@ export default function PublicSignPage({ params }: PageProps) {
         const eff = effectiveFieldState(f, fieldValues)
         if (!eff.visible || !eff.required) continue
         if (isFieldFilledExt(f, fieldValues[f.id], signatureDataUrl, autoFill)) continue
+        // v2.9.67 — Label intelligent avec section pour distinguer les homonymes
         blockers.push({
           kind: 'field',
           doc: d.name || '?',
           page: f.page,
-          label: (f.label || f.tooltip || 'Champ').slice(0, 50),
+          label: getFieldErrorLabel(f).slice(0, 80),
         })
       }
       // 2. Signatures requises non signées
@@ -517,22 +518,23 @@ export default function PublicSignPage({ params }: PageProps) {
         if (g.rule === 'SelectExactly') {
           const want = g.min ?? 1
           isBad = checked !== want
-          detail = `sélectionne exactement ${want} (actuellement ${checked})`
+          detail = `choisis ${want === 1 ? 'une option' : `${want} options`}`
         } else if (g.rule === 'SelectAtLeast') {
           const want = g.min ?? 1
           isBad = checked < want
-          detail = `sélectionne au moins ${want} (actuellement ${checked})`
+          detail = `choisis au moins ${want === 1 ? 'une option' : `${want} options`}`
         } else if (g.rule === 'SelectAtMost') {
           const want = g.max ?? 1
           isBad = checked > want
-          detail = `sélectionne au plus ${want} (actuellement ${checked})`
+          detail = `choisis au plus ${want === 1 ? 'une option' : `${want} options`}`
         }
         if (isBad) {
+          // v2.9.67 — Label intelligent (wizardSection si groupName auto-généré)
           blockers.push({
             kind: 'group',
             doc: d.name || '?',
             page: g.page,
-            label: g.name || 'Groupe de cases à cocher',
+            label: getGroupDisplayLabel(g.name, g.members),
             detail,
           })
         }

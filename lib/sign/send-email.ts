@@ -510,6 +510,8 @@ export async function sendSignUploadedDocsEmail(
 // il reçoit son propre email de confirmation (sendSignCompletedEmail).
 export interface SignFinalRecapEmailParams {
   envelopeTitle: string
+  /** v2.9.67 — Nom complet du candidat lié à l'enveloppe (utilisé dans le sujet) */
+  candidateName?: string
   /** Nom du candidat qui a chargé des pièces jointes */
   uploaderName: string
   /** Nombre de documents juridiquement signés en pièce jointe (avec champ signature) */
@@ -545,9 +547,12 @@ export async function sendSignFinalRecapEmail(
   const sCount = params.signedCount
   const uCount = params.uploadCount
   const signedNoun = sCount > 1 ? 'documents signés' : 'document signé'
+  // v2.9.67 — Sujet : « Nom Prénom — Documents signés » (priorité au nom candidat)
+  // ou fallback envelopeTitle si pas de candidat lié.
+  const titleForSubject = (params.candidateName || '').trim() || params.envelopeTitle
   const subject = uCount > 0
-    ? `Documents signés + pièces jointes — ${params.envelopeTitle}`
-    : `${sCount > 1 ? 'Documents signés' : 'Document signé'} — ${params.envelopeTitle}`
+    ? `${titleForSubject} — Documents signés + pièces jointes`
+    : `${titleForSubject} — ${sCount > 1 ? 'Documents signés' : 'Document signé'}`
 
   // v2.9.50 — Wording adapté selon que les uploads candidat sont joints au mail
   // OU annoncés via lien (cas taille > 35 MB ou retry fallback Resend).

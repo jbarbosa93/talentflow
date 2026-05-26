@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, FileSignature, FolderCog, ClipboardList } from 'lucide-react'
+import { Plus, FileSignature, FolderCog } from 'lucide-react'
 import SignSidebar, { type SignSection } from '@/components/sign/SignSidebar'
 import EnvelopesFilters, { type DatePreset } from '@/components/sign/EnvelopesFilters'
 import EnvelopesTable from '@/components/sign/EnvelopesTable'
@@ -153,10 +153,7 @@ export default function SignPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Link href="/sign/rapports" className="neo-btn-ghost">
-            <ClipboardList size={14} />
-            Rapports
-          </Link>
+          {/* v2.9.67 — Bouton « Rapports » retiré : Rapports a désormais son propre onglet sidebar */}
           <Link href="/sign/templates" className="neo-btn-ghost">
             <FolderCog size={14} />
             Templates

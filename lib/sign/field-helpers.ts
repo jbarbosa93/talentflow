@@ -436,6 +436,48 @@ export function getFieldDisplayLabel(
 }
 
 /**
+ * v2.9.67 — Retourne un label lisible pour un groupe de checkboxes utilisé
+ * dans les messages d'erreur de validation. Priorité :
+ *   1. groupName si défini ET non auto-généré (« Groupe N », « G13 »…)
+ *   2. wizardSection du 1er membre (souvent la question parlante)
+ *   3. tooltips des 2 premiers membres joints (« Oui / Non »)
+ *   4. fallback générique
+ */
+export function getGroupDisplayLabel(
+  groupName: string | undefined | null,
+  members: SignField[],
+): string {
+  const name = (groupName || '').trim()
+  // Auto-généré : « Groupe N » / « GN » / « Group N »
+  const isAutoName = /^(?:groupe?|g)\s*\d+$/i.test(name)
+  if (name && !isAutoName) return name
+  // Fallback 1 : wizardSection du 1er membre
+  const firstSection = (members[0]?.wizardSection || '').trim()
+  if (firstSection) return firstSection
+  // Fallback 2 : tooltips joints (max 2 premiers)
+  const tooltips = members
+    .slice(0, 2)
+    .map(m => (m.tooltip || m.label || '').trim())
+    .filter(Boolean)
+  if (tooltips.length > 0) return tooltips.join(' / ')
+  return name || 'Groupe'
+}
+
+/**
+ * v2.9.67 — Retourne un label lisible pour un champ utilisé dans les messages
+ * d'erreur de validation. Format : « Section — Tooltip » si section + tooltip
+ * distincts, sinon le plus informatif des deux.
+ */
+export function getFieldErrorLabel(field: SignField): string {
+  const section = (field.wizardSection || '').trim()
+  const tooltip = (field.tooltip || field.label || '').trim()
+  if (section && tooltip && section !== tooltip) {
+    return `${section} — ${tooltip}`
+  }
+  return tooltip || section || 'Champ'
+}
+
+/**
  * v2.7.8 — Groupe des fields par wizardSection pour afficher dans un dropdown
  * avec optgroups. Les fields sans section sont dans le bucket null.
  */

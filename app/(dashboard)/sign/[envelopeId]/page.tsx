@@ -608,10 +608,30 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                           <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{t.recipient_email}</div>
                         </div>
                         {isSigned ? (
-                          <span className="neo-badge neo-badge-green" style={{ fontSize: 11 }}>
-                            <Check size={11} />
-                            Signé
-                          </span>
+                          <>
+                            <span className="neo-badge neo-badge-green" style={{ fontSize: 11 }}>
+                              <Check size={11} />
+                              Signé
+                            </span>
+                            {/* v2.9.67 — Badge « Auto-signé » si signé via preset template */}
+                            {t.signature_method === 'auto' && (
+                              <span
+                                className="neo-badge"
+                                style={{
+                                  fontSize: 10.5,
+                                  background: 'rgba(245,166,35,0.12)',
+                                  color: '#92400E',
+                                  border: '1px solid rgba(245,166,35,0.35)',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.03em',
+                                }}
+                                title="Signature apposée automatiquement depuis la signature pré-enregistrée du template"
+                              >
+                                Auto-signé
+                              </span>
+                            )}
+                          </>
                         ) : (
                           <span className="neo-badge neo-badge-gray" style={{ fontSize: 11 }}>
                             En attente

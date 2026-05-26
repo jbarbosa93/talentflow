@@ -3495,7 +3495,9 @@ function TypeSpecificOptions({
                 <input
                   type="checkbox"
                   checked={!!field.autoFillCandidatePhone}
-                  onChange={e => onPatch({ autoFillCandidatePhone: e.target.checked || undefined })}
+                  // v2.9.67 — Écrit explicitement true OU false (pas undefined)
+                  // pour éliminer le fallback heuristique fragile.
+                  onChange={e => onPatch({ autoFillCandidatePhone: e.target.checked })}
                 />
                 Pré-remplir avec le téléphone du candidat lié à l&apos;enveloppe
               </label>
