@@ -70,12 +70,6 @@ const badgeVariants = {
 
 export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?: boolean; onClose?: () => void; desktopCollapsed?: boolean }) {
   const pathname = usePathname()
-  // v2.9.65 — Lecture brute window.location.search (pas useSearchParams)
-  // pour éviter de forcer Suspense sur toute la layout. Recalculé à chaque render —
-  // suffisant car les navigations Link déclenchent un re-render via pathname.
-  const kindParam = (typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('kind')
-    : '') || ''
   const importCtx = useImport()
   const matchingCtx = useMatching()
   const photosCtx = usePhotos()
@@ -253,10 +247,10 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
     // v2.9.65 — Désambiguïsation /sign vs /sign/rapports : la sidebar a 2 onglets
     // distincts ; /sign ne doit PAS s'allumer sur /sign/rapports/* (et inversement
     // /sign/rapports ne doit pas s'allumer sur /sign/templates ou /sign/[id]).
+    // v2.9.66 — Désambiguïsation /sign vs /sign/rapports (2 onglets sidebar distincts).
+    // /sign ne doit PAS s'allumer sur les pages /sign/rapports/* (Rapports a son propre onglet).
+    // Note : /sign/rapports/templates est désormais une route distincte de /sign/templates.
     if (href === '/sign' && pathname.startsWith('/sign/rapports')) return false
-    // /sign/templates?kind=report → onglet Rapports (pas Signatures)
-    if (href === '/sign' && pathname === '/sign/templates' && kindParam === 'report') return false
-    if (href === '/sign/rapports' && pathname === '/sign/templates' && kindParam === 'report') return true
     if (pathname.startsWith(href + '/')) return true
     return false
   }

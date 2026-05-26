@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.65'
+export const APP_VERSION = '2.9.66'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.66 — Templates Rapports : route dédiée /sign/rapports/templates
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.66',
+    date: '2026-05-26',
+    label: 'Templates Rapports déplacés sur leur propre route /sign/rapports/templates (séparation complète Signatures / Rapports)',
+    features: [
+      'ROUTES DISTINCTES — Avant : /sign/templates?kind=report (querystring) faisait quand même tomber la sidebar sur l\'onglet Signatures. Désormais : /sign/templates (Signatures) et /sign/rapports/templates (Rapports) sont 2 routes complètement séparées qui partagent le même composant interne.',
+      'SIDEBAR PROPRE — La règle `startsWith /sign/rapports` allume désormais TOUJOURS le bon onglet pour toutes les sous-pages de Rapports (templates, [id], new, submissions).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.65 — Sidebar : Rapports vraiment distinct de Signatures (plus de chevauchement)
   // ─────────────────────────────────────────────────────────────────────

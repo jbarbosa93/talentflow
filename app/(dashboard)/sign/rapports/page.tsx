@@ -263,7 +263,7 @@ export default function ReportsListPage() {
         </div>
         {/* v2.3.9 Bug 3 — Bouton "Envois" supprimé du header rapports */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <Link href="/sign/templates?kind=report" className="neo-btn-ghost">
+          <Link href="/sign/rapports/templates" className="neo-btn-ghost">
             <FileText size={14} />
             Templates
           </Link>
