@@ -31,6 +31,19 @@ function Shell({ children }: { children: React.ReactNode }) {
   }
   const pathname = usePathname()
 
+  // v2.9.72 — Section /m/* = expérience mobile dédiée, bypass shell desktop
+  // (sidebar + topbar + bottom nav desktop). Le layout /m/layout.tsx fournit
+  // son propre header compact + bottom nav. On garde RealtimeBridge actif.
+  const isMobileSection = pathname === '/m' || pathname?.startsWith('/m/')
+  if (isMobileSection) {
+    return (
+      <>
+        <RealtimeBridge />
+        {children}
+      </>
+    )
+  }
+
   const isOnCandidats = pathname === '/candidats' || pathname.startsWith('/candidats/')
 
   return (

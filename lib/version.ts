@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.75'
+export const APP_VERSION = '2.9.76'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.76 — Administration : Carte ID checkbox + propagation dates fin mission
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.76',
+    date: '2026-05-27',
+    label: 'Administration : checkbox Carte ID + propagation dates fin mission Excel',
+    features: [
+      'CARTE ID DANS DOCUMENTS REÇUS — Ajout de la checkbox « Carte ID » dans la zone documents reçus de la fiche candidat (même pattern que AVS/IBAN : true → "oui", false → "" sur le champ TEXT carte_id). Ajoutée aussi dans les filtres avancés (has_carte_id : tous/oui/non).',
+      'PROPAGATION DATES FIN MISSION — Lors du merge Excel v2.9.74, la colonne « Mission terminée » de l\'Excel a été stockée dans mission_terminee (date) mais l\'UI utilise is_mission_terminee (bool) + date_fin_mission. Hotfix DB : UPDATE 173 candidats pour propager les dates → ils apparaissent maintenant comme « 🏁 Mission terminée » avec leur date de fin dans l\'UI.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.75 — Hotfix logs_secretariat (user null silent depuis v2.7.5)
   // ─────────────────────────────────────────────────────────────────────

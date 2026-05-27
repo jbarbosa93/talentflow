@@ -637,6 +637,11 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
                     style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
                   IBAN
                 </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
+                  <input type="checkbox" checked={!!form.carte_id} onChange={e => set('carte_id', e.target.checked ? 'oui' : '')}
+                    style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                  Carte ID
+                </label>
               </div>
               <div style={{ marginTop: 10 }}>
                 <label style={{ ...S.label, marginBottom: 4 }}>Note Docs Clients (visible au survol)</label>
@@ -2567,6 +2572,7 @@ type AdvFilters = {
   mappe: 'tous' | 'oui' | 'non'
   has_avs: 'tous' | 'oui' | 'non'
   has_iban: 'tous' | 'oui' | 'non'
+  has_carte_id: 'tous' | 'oui' | 'non'
   suisse: 'tous' | 'oui' | 'non'
   has_quadrigis: 'tous' | 'oui' | 'non'
 }
@@ -2603,6 +2609,7 @@ function AdvancedFiltersPanel({ filters, setFilters }: { filters: AdvFilters; se
     { key: 'has_permis_conduire', label: 'Permis conduire' },
     { key: 'has_avs', label: 'AVS' },
     { key: 'has_iban', label: 'IBAN' },
+    { key: 'has_carte_id', label: 'Carte ID' },
     { key: 'suisse', label: '🇨🇭 Suisse' },
     { key: 'has_quadrigis', label: 'N° Quadrigis' },
   ]
@@ -2911,6 +2918,7 @@ function SecretariatPage() {
     mappe: 'tous' as 'tous' | 'oui' | 'non',
     has_avs: 'tous' as 'tous' | 'oui' | 'non',
     has_iban: 'tous' as 'tous' | 'oui' | 'non',
+    has_carte_id: 'tous' as 'tous' | 'oui' | 'non',
     suisse: 'tous' as 'tous' | 'oui' | 'non',
     has_quadrigis: 'tous' as 'tous' | 'oui' | 'non',
   })
@@ -2918,12 +2926,13 @@ function SecretariatPage() {
     + (advFilters.has_cv !== 'tous' ? 1 : 0) + (advFilters.has_cm !== 'tous' ? 1 : 0)
     + (advFilters.has_docs_clients !== 'tous' ? 1 : 0) + (advFilters.has_permis_conduire !== 'tous' ? 1 : 0)
     + (advFilters.mappe !== 'tous' ? 1 : 0) + (advFilters.has_avs !== 'tous' ? 1 : 0)
-    + (advFilters.has_iban !== 'tous' ? 1 : 0) + (advFilters.suisse !== 'tous' ? 1 : 0)
-    + (advFilters.has_quadrigis !== 'tous' ? 1 : 0)
+    + (advFilters.has_iban !== 'tous' ? 1 : 0) + (advFilters.has_carte_id !== 'tous' ? 1 : 0)
+    + (advFilters.suisse !== 'tous' ? 1 : 0) + (advFilters.has_quadrigis !== 'tous' ? 1 : 0)
   const resetAdvFilters = () => setAdvFilters({
     permis: [], enfants: [], type_demande: [],
     has_cv: 'tous', has_cm: 'tous', has_docs_clients: 'tous', has_permis_conduire: 'tous',
-    mappe: 'tous', has_avs: 'tous', has_iban: 'tous', suisse: 'tous', has_quadrigis: 'tous',
+    mappe: 'tous', has_avs: 'tous', has_iban: 'tous', has_carte_id: 'tous',
+    suisse: 'tous', has_quadrigis: 'tous',
   })
 
   // Filtre ALFA terminé / en cours
@@ -3153,6 +3162,7 @@ function SecretariatPage() {
     if (!checkBool(advFilters.mappe, c.mappe)) return false
     if (!checkBool(advFilters.has_avs, !!c.numero_avs)) return false
     if (!checkBool(advFilters.has_iban, !!c.iban)) return false
+    if (!checkBool(advFilters.has_carte_id, !!c.carte_id)) return false
     if (!checkBool(advFilters.suisse, c.suisse)) return false
     if (!checkBool(advFilters.has_quadrigis, !!c.numero_quadrigis)) return false
     return true
