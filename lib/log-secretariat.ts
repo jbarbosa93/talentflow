@@ -1,5 +1,6 @@
 // lib/log-secretariat.ts — Helper pour logger les modifications secrétariat
-import type { SupabaseClient } from '@supabase/supabase-js'
+// v2.6.7 — Accepte user en paramètre (fix bug user=null silent depuis v2.7.5)
+import type { SupabaseClient, User } from '@supabase/supabase-js'
 
 interface LogParams {
   supabase: SupabaseClient
@@ -8,23 +9,36 @@ interface LogParams {
   referenceId: string
   nomCandidat?: string | null
   champsModifies?: Record<string, { avant: any; apres: any }>
+  /** v2.6.7 — Passer l'user explicitement pour éviter le fail silencieux quand getUser() retourne null après l'UPDATE. */
+  user?: User | null
 }
 
-export async function logSecretariat({ supabase, action, table, referenceId, nomCandidat, champsModifies }: LogParams) {
+export async function logSecretariat({ supabase, action, table, referenceId, nomCandidat, champsModifies, user }: LogParams) {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    // v2.6.7 — Priorité à l'user passé en param, fallback à auth.getUser()
+    let u: User | null = user || null
+    if (!u) {
+      const { data } = await supabase.auth.getUser()
+      u = data?.user || null
+    }
+    if (!u) {
+      console.warn('[logSecretariat] Skipped: no user (action=' + action + ', table=' + table + ', id=' + referenceId + ')')
+      return
+    }
 
-    await (supabase as any).from('logs_secretariat').insert({
-      user_id: user.id,
-      user_email: user.email,
-      user_nom: [user.user_metadata?.prenom, user.user_metadata?.nom].filter(Boolean).join(' ') || user.email,
+    const { error } = await (supabase as any).from('logs_secretariat').insert({
+      user_id: u.id,
+      user_email: u.email,
+      user_nom: [u.user_metadata?.prenom, u.user_metadata?.nom].filter(Boolean).join(' ') || u.email,
       action,
       table_concernee: table,
       reference_id: referenceId,
       nom_candidat: nomCandidat || null,
       champs_modifies: champsModifies || null,
     })
+    if (error) {
+      console.error('[logSecretariat] Insert error:', error.message, '(action=' + action + ', table=' + table + ')')
+    }
   } catch (e: any) {
     console.error('[logSecretariat] Error:', e.message)
   }

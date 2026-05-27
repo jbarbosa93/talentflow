@@ -18,6 +18,7 @@ export async function PATCH(
 
   try {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })
@@ -46,6 +47,7 @@ export async function PATCH(
       if (diff) {
         await logSecretariat({
           supabase: supabase as any,
+          user,
           action: 'update',
           table: 'secretariat_candidats',
           referenceId: id,
@@ -71,6 +73,7 @@ export async function DELETE(
 
   try {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })
@@ -91,6 +94,7 @@ export async function DELETE(
 
     await logSecretariat({
       supabase: supabase as any,
+          user,
       action: 'delete',
       table: 'secretariat_candidats',
       referenceId: id,
