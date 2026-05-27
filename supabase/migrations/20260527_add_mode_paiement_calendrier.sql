@@ -1,4 +1,4 @@
--- v2.6.6 — Mode de paiement candidats + calendrier paiement + log notifications
+-- v2.9.74 — Mode de paiement candidats + calendrier paiement + log notifications
 -- 3 changements :
 --   1. ADD COLUMN mode_paiement sur secretariat_candidats
 --   2. Table secretariat_paiement_calendrier (référentiel dates 2026)

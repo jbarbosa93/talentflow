@@ -1,5 +1,5 @@
 // lib/log-secretariat.ts — Helper pour logger les modifications secrétariat
-// v2.6.7 — Accepte user en paramètre (fix bug user=null silent depuis v2.7.5)
+// v2.9.75 — Accepte user en paramètre (fix bug user=null silent depuis v2.7.5)
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 
 interface LogParams {

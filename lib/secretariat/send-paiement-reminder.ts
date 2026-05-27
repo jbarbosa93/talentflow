@@ -1,5 +1,5 @@
 // TalentFlow — Email rappel J-2 versement de salaire
-// v2.6.6 — Envoyé par /api/cron/paiement-rappel-heures
+// v2.9.74 — Envoyé par /api/cron/paiement-rappel-heures
 // Logo officiel L-Agence obligatoire (règle dure CLAUDE.md)
 
 export type PaiementMode = 'calendrier_mensuel' | 'mensuel' | 'hebdomadaire'

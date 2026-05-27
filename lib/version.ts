@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.73'
+export const APP_VERSION = '2.9.75'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,34 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.75 — Hotfix logs_secretariat (user null silent depuis v2.7.5)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.75',
+    date: '2026-05-27',
+    label: 'Administration : fix logs_secretariat — toutes les modifications sont à nouveau tracées',
+    features: [
+      'BUG IDENTIFIÉ — Depuis v2.7.5 (12/05), aucune modification n\'était enregistrée dans logs_secretariat (16 jours d\'historique perdu) à cause d\'un supabase.auth.getUser() qui retournait null après l\'UPDATE → if(!user) return silencieux.',
+      'FIX — User récupéré explicitement en début de handler (après requireSecretariatAccess et createClient) puis transmis à logSecretariat. Fallback à getUser conservé pour rétrocompatibilité. Warning console si toujours null pour faciliter futur debug.',
+      'PORTÉE — 5 routes API patchées (candidats, accidents, alfa, alfa-paiements, loyers), PATCH + DELETE.',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.74 — Administration : mode de paiement + notification J-2 versement + merge Excel
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.74',
+    date: '2026-05-27',
+    label: 'Administration : 3 modes de paiement + rappel email J-2 du versement + merge Excel 2026',
+    features: [
+      'MODE DE PAIEMENT CANDIDAT — Nouveau champ mode_paiement (3 choix : Calendrier mensuel décalé rouge / Mensuel vert / Hebdomadaire bleu). Dropdown sur fiche candidat secrétariat + badge couleur dans tableau quand mission active.',
+      'PAGE CALENDRIER PAIEMENTS — /secretariat/paiements/calendrier affiche les 3 calendriers 2026 (79 dates seed : 14 mensuel décalé + 12 mensuel + 53 hebdomadaires). Badge ● PROCHAIN sur la prochaine date par mode. Stats candidats actifs par mode.',
+      'CRON EMAIL J-2 — Nouvelle route /api/cron/paiement-rappel-heures tournant chaque jour à 7h UTC (9h CEST). Envoie 1 email par candidat actif avec mode défini, 2 jours avant son paiement. Dédup via secretariat_paiement_notifs_log.',
+      'TEMPLATE EMAIL L-AGENCE — Logo officiel + badge couleur mode + bouton WhatsApp pré-rempli (vert) ouvrant la conversation avec +41 76 297 97 95 + texte personnalisé selon la période. Sender L-Agence SA <noreply@talent-flow.ch>, reply-to info@l-agence.ch.',
+      'MERGE EXCEL 2026 — 766 opérations DB sans erreur : secretariat_accidents (12 UPDATE), secretariat_candidats (351 UPDATE + 118 INSERT → 548 total), secretariat_alfa (180 UPDATE + 14 INSERT → 194), secretariat_alfa_paiements (74 UPDATE + 15 INSERT → 91), secretariat_loyers (2 UPDATE). Politique safe : jamais d\'écrasement par valeur Excel vide.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.73 — Sign : aide visuelle dans éditeur WizardEditor + preview admin
   // ─────────────────────────────────────────────────────────────────────

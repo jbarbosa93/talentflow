@@ -1,5 +1,5 @@
 // /api/cron/paiement-rappel-heures — Rappel J-2 versement de salaire
-// v2.6.6 — Schedule : 0 8 * * * (8h UTC = 9h ou 10h Suisse selon DST)
+// v2.9.74 — Schedule : 0 7 * * * (7h UTC = 9h CEST / 8h CET)
 // Protection : Bearer CRON_SECRET
 //
 // Logique :
