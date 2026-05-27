@@ -105,7 +105,22 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.9.71** — 26/05/2026 (marathon Sign refonte)
+**v2.9.77** — 27/05/2026 (TalentFlow Mobile /m/* — modules complets)
+
+### v2.9.77 (27/05) — TalentFlow Mobile : modules Sign détail/new + Missions + Rapports
+
+Suite de v2.9.76 qui a livré la fondation `/m/*` (layout, dashboard, candidats, sign liste). Cette release complète les modules manquants :
+
+- `/m/sign/[id]` — détail enveloppe : **qui signé / qui manque** (avatars CheckCircle/Clock + signed_at), boutons Relance (PATCH `action:remind`), Envoyer (draft), Annuler, lien candidat cliquable
+- `/m/sign/new` — envoi rapide en 2 étapes : choix template existant → fill destinataires (pré-remplis si `?candidate_id=`) → Créer + Envoyer en 1 tap. **Pas d'éditeur de champs** (utiliser desktop pour ça).
+- `/m/missions` — cards par statut (en_cours / terminee / toutes), photo candidat + canton client + métier + dates + marge
+- `/m/rapports` — liste `report_links` par statut (active / paused / revoked / tous), recherche, lien candidat + ouvre `/report/[slug]` (nouvel onglet)
+
+**Réutilise** : `/api/sign/envelopes/[id]` (GET + PATCH:remind), `/api/sign/envelopes/[id]/send`, `/cancel`, `/api/sign/templates`, `/api/missions`, `/api/admin/reports`. Zéro nouvelle route API.
+
+### v2.9.76 (27/05) — Administration : Carte ID + Fondation mobile `/m/*`
+
+Outre le travail Administration (checkbox Carte ID + propagation dates fin mission Excel), commit fourre-tout incluant la fondation `/m/*` : layout `DashboardShell` early-return sur `/m/*`, layout mobile dédié, `MBottomNav` (5 tabs), `MHeader`, CSS `m.css`, pages `/m`, `/m/candidats` + `[id]`, `/m/sign` (liste).
 
 ### Marathon 26/05 — Sign templates Rapports + UX enveloppe (v2.9.47→71)
 

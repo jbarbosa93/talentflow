@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.76'
+export const APP_VERSION = '2.9.77'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -17,7 +17,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   // ─────────────────────────────────────────────────────────────────────
-  // v2.9.76 — Administration : Carte ID checkbox + propagation dates fin mission
+  // v2.9.77 — TalentFlow Mobile : modules Sign détail/new + Missions + Rapports
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.77',
+    date: '2026-05-27',
+    label: 'TalentFlow Mobile : Sign détail/new + Missions + Rapports',
+    features: [
+      'SIGN DÉTAIL MOBILE — /m/sign/[id] affiche qui a signé / qui manque (avatars CheckCircle/Clock + signed_at), avec boutons Relance (renvoie email aux non-signés), Envoyer (si brouillon), Annuler, lien vers fiche candidat. Chronologie complète (créée/envoyée/signée/expire).',
+      'ENVOI RAPIDE MOBILE — /m/sign/new permet d\'envoyer un document à signer depuis le smartphone en 2 étapes : choix template existant → saisie destinataires (nom/email/tel, pré-remplis si on vient de la fiche candidat) → Créer + Envoyer en 1 tap. L\'éditeur de champs reste sur desktop.',
+      'MISSIONS MOBILE — /m/missions affiche les missions par statut (en cours / terminées / toutes) sous forme de cards avec photo candidat, client + canton, métier, dates, marge brute, accès rapide candidat + rapport.',
+      'RAPPORTS HEBDO MOBILE — /m/rapports liste les liens rapport (active / paused / revoked) avec recherche, lien candidat ouvert dans nouvel onglet (`/report/[slug]`) + accès soumissions.',
+      'ZÉRO RÉGRESSION DESKTOP — Toutes les routes desktop existantes inchangées. Section mobile dédiée n\'impacte que le rendering quand pathname commence par /m/.',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.76 — Administration : Carte ID checkbox + propagation dates fin mission + fondation mobile /m
   // ─────────────────────────────────────────────────────────────────────
   {
     version: '2.9.76',
