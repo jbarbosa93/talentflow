@@ -28,6 +28,10 @@
     {
       "path": "/api/cron/auto-arret-reports",
       "schedule": "0 20 * * 0"
+    },
+    {
+      "path": "/api/cron/paiement-rappel-heures",
+      "schedule": "0 7 * * *"
     }
   ]
 }

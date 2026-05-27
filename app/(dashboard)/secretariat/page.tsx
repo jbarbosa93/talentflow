@@ -47,6 +47,7 @@ interface SecretariatCandidat {
   archive: boolean
   archived_at: string | null
   annee: number
+  mode_paiement?: 'calendrier_mensuel' | 'mensuel' | 'hebdomadaire' | null
   photo_url?: string | null
   tel?: string | null
   email?: string | null
@@ -442,6 +443,7 @@ const EMPTY_CANDIDAT_FORM = {
   mappe: false,
   suisse: false,
   archive: false,
+  mode_paiement: '' as '' | 'calendrier_mensuel' | 'mensuel' | 'hebdomadaire',
   annee: new Date().getFullYear(),
 }
 
@@ -476,6 +478,7 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
     mappe: item.mappe || false,
     suisse: item.suisse || false,
     archive: !!item.archive,
+    mode_paiement: (item.mode_paiement || '') as '' | 'calendrier_mensuel' | 'mensuel' | 'hebdomadaire',
     annee: item.annee || new Date().getFullYear(),
   } : { ...EMPTY_CANDIDAT_FORM, annee: new Date().getFullYear() })
   const [saving, setSaving] = useState(false)
@@ -512,6 +515,7 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
         date_fin_mission: form.is_mission_terminee ? (form.date_fin_mission || null) : null,
         mappe: form.mappe,
         suisse: form.suisse,
+        mode_paiement: form.mode_paiement || null,
         archive: form.archive,
         archived_at: form.archive && !item?.archive ? new Date().toISOString() : (item?.archived_at || null),
         annee: form.annee,
@@ -733,19 +737,43 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
           {/* ─── ZONE 4 : MISSIONS & ARCHIVAGE ─── */}
           <ZoneSection title="Missions" icon="💼">
             {!form.is_mission_terminee && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={S.label}>Date Mission Active</label>
-                  <input type="date" value={form.date_mission} onChange={e => set('date_mission', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={S.label}>Date Mission Active</label>
+                    <input type="date" value={form.date_mission} onChange={e => set('date_mission', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+                  </div>
+                  <div>
+                    <label style={S.label}>Année</label>
+                    <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input }}>
+                      <option value={2026}>2026</option>
+                      <option value={2025}>2025</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label style={S.label}>Année</label>
-                  <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input }}>
-                    <option value={2026}>2026</option>
-                    <option value={2025}>2025</option>
+                <div style={{ marginTop: 10 }}>
+                  <label style={S.label}>💰 Mode de paiement</label>
+                  <select
+                    value={form.mode_paiement}
+                    onChange={e => set('mode_paiement', e.target.value as any)}
+                    style={{
+                      ...S.input,
+                      borderLeft: form.mode_paiement === 'calendrier_mensuel' ? '4px solid #DC2626'
+                        : form.mode_paiement === 'mensuel' ? '4px solid #059669'
+                        : form.mode_paiement === 'hebdomadaire' ? '4px solid #2563EB'
+                        : undefined,
+                    }}
+                  >
+                    <option value="">— Non défini —</option>
+                    <option value="calendrier_mensuel">🔴 Calendrier mensuel (mensuel décalé)</option>
+                    <option value="mensuel">🟢 Mensuel (payé le mois suivant)</option>
+                    <option value="hebdomadaire">🔵 Hebdomadaire (paiement chaque jeudi)</option>
                   </select>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                    Une notification email sera envoyée au candidat 2 jours avant chaque versement de salaire.
+                  </div>
                 </div>
-              </div>
+              </>
             )}
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', padding: '8px 12px', borderRadius: 8, background: form.is_mission_terminee ? 'rgba(239,68,68,0.10)' : 'var(--secondary)', border: `1.5px solid ${form.is_mission_terminee ? 'rgba(239,68,68,0.3)' : 'var(--border)'}` }}>
@@ -1957,6 +1985,19 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange, alfaCandid
                       <>
                         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>📅 {formatDate(c.date_mission)}</span>
                         <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.12)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.25)', whiteSpace: 'nowrap' }}>● Active</span>
+                        {c.mode_paiement && (
+                          <span
+                            title={`Notification email J-2 du versement`}
+                            style={{
+                              padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
+                              background: c.mode_paiement === 'calendrier_mensuel' ? 'rgba(220,38,38,0.10)' : c.mode_paiement === 'mensuel' ? 'rgba(5,150,105,0.10)' : 'rgba(37,99,235,0.10)',
+                              color: c.mode_paiement === 'calendrier_mensuel' ? '#DC2626' : c.mode_paiement === 'mensuel' ? '#059669' : '#2563EB',
+                              border: `1px solid ${c.mode_paiement === 'calendrier_mensuel' ? 'rgba(220,38,38,0.25)' : c.mode_paiement === 'mensuel' ? 'rgba(5,150,105,0.25)' : 'rgba(37,99,235,0.25)'}`,
+                            }}
+                          >
+                            💰 {c.mode_paiement === 'calendrier_mensuel' ? 'Cal. mensuel' : c.mode_paiement === 'mensuel' ? 'Mensuel' : 'Hebdo'}
+                          </span>
+                        )}
                       </>
                     ) : !isArchive ? (
                       <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>
@@ -3496,7 +3537,7 @@ function SecretariatPage() {
       )}
 
       {/* Tabs principaux */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' }}>
         <TabBtn active={activeTab === 'candidats'} onClick={() => { setActiveTab('candidats'); setSearchQuery(''); setShowForm(false); setEditItem(null); setCandidatFiltre('tous'); setMissionFiltre('tous'); setDocsFiltre('tous'); resetAdvFilters() }} count={filteredCandidats.length}>
           <User size={14} /> Suivi Candidats
         </TabBtn>
@@ -3506,6 +3547,10 @@ function SecretariatPage() {
         <TabBtn active={activeTab === 'accidents'} onClick={() => { setActiveTab('accidents'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={filteredAccidents.length}>
           <AlertCircle size={14} /> Accidents &amp; Maladies
         </TabBtn>
+        <a href="/secretariat/paiements/calendrier"
+          style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'rgba(245,158,11,0.10)', color: '#D97706', border: '1.5px solid rgba(245,158,11,0.30)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          💰 Calendrier paiements
+        </a>
       </div>
 
       {/* Sous-tabs ALFA (suivi / à payer) */}
