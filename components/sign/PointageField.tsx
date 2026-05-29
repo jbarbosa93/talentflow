@@ -13,6 +13,8 @@ export { pointageHours, pointageFilled, formatHours } from '@/lib/sign/pointage'
 export type { PointageValue, PointagePause, GpsPoint } from '@/lib/sign/pointage'
 
 const GREEN = '#15803D'
+// v2.9.88 — Motifs d'absence prédéfinis (cf. choix João). « Autre » = texte libre.
+const ABSENCE_PRESETS = ['Vacances', 'Jour férié'] as const
 
 export default function PointageField({
   value, onChange, captureGps,
@@ -24,6 +26,27 @@ export default function PointageField({
   const v: PointageValue = (value && typeof value === 'object') ? value as PointageValue : {}
   const [gpsBusy, setGpsBusy] = useState<null | 'start' | 'end'>(null)
   const update = (patch: Partial<PointageValue>) => onChange({ ...v, ...patch })
+
+  // v2.9.88 — État d'absence
+  const isAbsent = !!v.absent
+  const reason = v.absenceReason || ''
+  const presetActive = (ABSENCE_PRESETS as readonly string[]).includes(reason) ? reason : null
+  const isAutre = isAbsent && reason !== '' && !presetActive
+  const [otherFocus, setOtherFocus] = useState(false)
+  const showOtherInput = isAutre || otherFocus
+
+  const setAbsent = (on: boolean) => {
+    if (on) {
+      // Passe en absence : on garde une trace mais 0h. Motif vide par défaut.
+      onChange({ absent: true, absenceReason: reason })
+    } else {
+      // Retour présent : on retire les marqueurs d'absence (conserve heures si saisies)
+      const { absent: _a, absenceReason: _r, ...rest } = v
+      void _a; void _r
+      onChange({ ...rest })
+      setOtherFocus(false)
+    }
+  }
 
   const nowHHMM = () => {
     const d = new Date()
@@ -91,8 +114,62 @@ export default function PointageField({
 
   const rowLabel: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 4 }
 
+  const chipBtn = (label: string, active: boolean, on: () => void) => (
+    <button
+      type="button"
+      onClick={on}
+      style={{
+        padding: '7px 12px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
+        fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap',
+        border: active ? '1.5px solid #A16207' : '1.5px solid #D1D5DB',
+        background: active ? '#FEF3C7' : '#fff',
+        color: active ? '#92400E' : '#374151',
+      }}
+    >
+      {label}
+    </button>
+  )
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, border: '1px solid #E5E7EB', borderRadius: 12, padding: 14, background: '#FAFAF7' }}>
+      {/* v2.9.88 — Bascule Présent / Absent */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        {chipBtn('🟢 Présent', !isAbsent, () => setAbsent(false))}
+        {chipBtn('🚫 Absent / Congé', isAbsent, () => setAbsent(true))}
+      </div>
+
+      {isAbsent ? (
+        /* ── Mode absence ── */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <div style={rowLabel}>Motif (optionnel — visible sur le certificat de pointage)</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {ABSENCE_PRESETS.map(m => chipBtn(
+                m, presetActive === m,
+                () => { update({ absenceReason: m }); setOtherFocus(false) },
+              ))}
+              {chipBtn('Autre…', showOtherInput, () => { setOtherFocus(true); if (presetActive) update({ absenceReason: '' }) })}
+            </div>
+          </div>
+          {showOtherInput && (
+            <input
+              type="text"
+              value={isAutre ? reason : ''}
+              onChange={e => update({ absenceReason: e.target.value })}
+              placeholder="Préciser la raison…"
+              autoFocus
+              style={{
+                width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10,
+                border: '1px solid #D1D5DB', background: '#fff', color: '#1C1A14', fontSize: 15, fontFamily: 'inherit',
+              }}
+            />
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #E5E7EB', paddingTop: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>Total travaillé</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: '#A16207', fontVariantNumeric: 'tabular-nums' }}>0 h{reason ? ` · ${reason}` : ''}</span>
+          </div>
+        </div>
+      ) : (<>
       {/* Début */}
       <div>
         <div style={rowLabel}>Début</div>
@@ -154,6 +231,7 @@ export default function PointageField({
         <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>Total travaillé</span>
         <span style={{ fontSize: 18, fontWeight: 800, color: GREEN, fontVariantNumeric: 'tabular-nums' }}>{formatHours(total)}</span>
       </div>
+      </>)}
     </div>
   )
 }

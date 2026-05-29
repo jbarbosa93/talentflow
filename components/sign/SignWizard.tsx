@@ -18,6 +18,7 @@ import type { WizardStep, WizardStepAttachment } from '@/lib/sign/wizard-builder
 import { fieldsByStep } from '@/lib/sign/wizard-builder'
 import AttachmentField from './AttachmentField'
 import PointageField, { pointageFilled } from './PointageField'
+import { isPointageValue } from '@/lib/sign/pointage'
 import FilePreviewModal from './FilePreviewModal'
 
 const AttachmentViewerModal = dynamic(() => import('./AttachmentViewerModal'), { ssr: false })
@@ -484,6 +485,7 @@ export default function SignWizard({
             token={token}
             onOpenAttachment={setOpenAttachment}
             weekStartDate={contextData?.weekStartDate || null}
+            allDocumentFields={allDocumentFields}
           />
         ) : null}
 
@@ -577,11 +579,12 @@ interface StepContentProps {
   token?: string
   onOpenAttachment: (a: { url: string; filename: string; label: string }) => void
   weekStartDate?: string | null
+  allDocumentFields?: SignField[]
 }
 
 function StepContent({
   step, fields, values, onChange, signatureDataUrl, onRequestSignature, autoFill,
-  documents, token, onOpenAttachment, weekStartDate,
+  documents, token, onOpenAttachment, weekStartDate, allDocumentFields,
 }: StepContentProps) {
   // Filtre les fields cachés par les conditions (action='hide' satisfaite)
   // v2.9.28 — Exclut aussi les champs marqués « Masquer dans le wizard »
@@ -748,6 +751,7 @@ function StepContent({
         signatureDataUrl={signatureDataUrl}
         onRequestSignature={onRequestSignature}
         token={token}
+        allDocumentFields={allDocumentFields}
       />
     </div>
   )
@@ -756,7 +760,7 @@ function StepContent({
 // ─── GroupedFields — rendu list (sub-titres) ou cards (1 carte / section) ───
 function GroupedFields({
   fields, displayMode, values, onChange, autoFill, weekStartDate,
-  signatureDataUrl, onRequestSignature, token,
+  signatureDataUrl, onRequestSignature, token, allDocumentFields,
 }: {
   fields: SignField[]
   displayMode: 'list' | 'cards'
@@ -767,6 +771,7 @@ function GroupedFields({
   signatureDataUrl: string | null
   onRequestSignature: (force?: boolean) => void
   token?: string
+  allDocumentFields?: SignField[]
 }) {
   if (fields.length === 0) {
     return (
@@ -792,7 +797,7 @@ function GroupedFields({
     return (
       <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {fields.map(f => (
-          <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
+          <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} allDocumentFields={allDocumentFields} />
         ))}
       </div>
     )
@@ -850,7 +855,7 @@ function GroupedFields({
                 gap: 12,
               }}>
                 {g.fields.map(f => (
-                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} hideLabelIfEmpty />
+                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} hideLabelIfEmpty allDocumentFields={allDocumentFields} />
                 ))}
               </div>
             </div>
@@ -858,7 +863,7 @@ function GroupedFields({
             // Fields hors-section : empilage vertical normal
             <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {g.fields.map(f => (
-                <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
+                <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} allDocumentFields={allDocumentFields} />
               ))}
             </div>
           )
@@ -905,7 +910,7 @@ function GroupedFields({
               </div>
             )}
             {g.fields.map(f => (
-              <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
+              <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} allDocumentFields={allDocumentFields} />
             ))}
           </div>
         )
@@ -1007,9 +1012,11 @@ interface FieldRowProps {
   onRequestSignature?: () => void
   /** v2.9.23 — Token de signature, requis pour les champs pièce jointe (upload). */
   token?: string
+  /** v2.9.88 — Tous les champs du document (pour « Copier les heures vers un autre jour »). */
+  allDocumentFields?: SignField[]
 }
 
-function FieldRow({ field, value, onChange, onChangeRaw, autoFill, allValues, hideLabelIfEmpty, signatureDataUrl, onRequestSignature, token }: FieldRowProps) {
+function FieldRow({ field, value, onChange, onChangeRaw, autoFill, allValues, hideLabelIfEmpty, signatureDataUrl, onRequestSignature, token, allDocumentFields }: FieldRowProps) {
   const t = field.type as SignFieldType
   // v2.7.6 — Si on est dans une carte ET aucun libellé explicite (tooltip ET label vides
   // ou label = UUID DocuSign), on masque l'étiquette du field (la carte porte déjà le titre).
@@ -1274,11 +1281,41 @@ function FieldRow({ field, value, onChange, onChangeRaw, autoFill, allValues, hi
 
   // v2.9.82 — POINTEUSE (timbrage jour) : Début/Fin + pauses dynamiques + total auto + GPS
   if (t === 'pointage') {
+    // v2.9.88 — Cibles « Copier vers… » : autres pointeuses du document (par jour/section).
+    const otherPointages = (allDocumentFields || [])
+      .filter(f => f.type === 'pointage' && f.id !== field.id)
+      .map(f => ({ id: f.id, label: (f.wizardSection || '').trim() || f.label || 'Autre jour' }))
+    const hasValue = isPointageValue(value) && (pointageFilled(value) || !!(value as { absenceReason?: string }).absenceReason)
+    const copyTo = (targetId: string) => {
+      if (!onChangeRaw || !targetId) return
+      const src = value as Record<string, unknown>
+      // Copie heures + pauses + absence, SANS le GPS (spécifique au lieu/moment).
+      const { startGps: _sg, endGps: _eg, ...rest } = src
+      void _sg; void _eg
+      onChangeRaw(targetId, { ...rest })
+    }
     return (
       <div>
         {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
         <PointageField value={value} onChange={v => onChange(v)} captureGps={field.captureGps} />
+        {hasValue && otherPointages.length > 0 && onChangeRaw && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 600 }}>⧉ Copier ces heures vers :</span>
+            <select
+              value=""
+              onChange={e => { copyTo(e.target.value); e.target.value = '' }}
+              style={{
+                flex: 1, minWidth: 140, padding: '8px 10px', borderRadius: 9,
+                border: '1.5px solid #D1D5DB', background: '#fff', color: '#374151',
+                fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+              }}
+            >
+              <option value="">— Choisir un jour —</option>
+              {otherPointages.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
+          </div>
+        )}
       </div>
     )
   }

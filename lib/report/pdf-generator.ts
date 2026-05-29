@@ -390,19 +390,26 @@ async function appendTimbrageAnnex(
     const v = (fieldValues[f.id] && typeof fieldValues[f.id] === 'object')
       ? fieldValues[f.id] as PointageValue : {} as PointageValue
     draw(day, 40, 12, bold); y -= 16
-    draw(`Debut : ${v.start || '—'}`, 52, 10, helv)
-    const sg = fmtGps(v.startGps); if (sg) draw(sg, 300, 9, helv, grey)
-    y -= 14
-    for (let i = 0; i < (v.pauses || []).length; i++) {
-      const pz = v.pauses![i]
-      draw(`Pause ${i + 1} : ${pz.from || '—'} -> ${pz.to || '—'}`, 52, 10, helv); y -= 14
-      newPageIfNeeded(60)
+    if (v.absent) {
+      // v2.9.88 — Jour d'absence : motif affiché ici (certificat), 0h dans le rapport.
+      const reason = (v.absenceReason || '').trim()
+      draw(`Absent${reason ? ` — ${reason}` : ''}`, 52, 10, helv, rgb(0.63, 0.38, 0.03)); y -= 14
+      draw('Total : 0.00 h', 52, 10, bold, green); y -= 20
+    } else {
+      draw(`Debut : ${v.start || '—'}`, 52, 10, helv)
+      const sg = fmtGps(v.startGps); if (sg) draw(sg, 300, 9, helv, grey)
+      y -= 14
+      for (let i = 0; i < (v.pauses || []).length; i++) {
+        const pz = v.pauses![i]
+        draw(`Pause ${i + 1} : ${pz.from || '—'} -> ${pz.to || '—'}`, 52, 10, helv); y -= 14
+        newPageIfNeeded(60)
+      }
+      draw(`Fin : ${v.end || '—'}`, 52, 10, helv)
+      const eg = fmtGps(v.endGps); if (eg) draw(eg, 300, 9, helv, grey)
+      y -= 14
+      const h = pointageHours(v); grandTotal += h
+      draw(`Total : ${h.toFixed(2)} h`, 52, 10, bold, green); y -= 20
     }
-    draw(`Fin : ${v.end || '—'}`, 52, 10, helv)
-    const eg = fmtGps(v.endGps); if (eg) draw(eg, 300, 9, helv, grey)
-    y -= 14
-    const h = pointageHours(v); grandTotal += h
-    draw(`Total : ${h.toFixed(2)} h`, 52, 10, bold, green); y -= 20
   }
 
   // ── Champs heure simples (ancien modèle, regroupés par section) ──

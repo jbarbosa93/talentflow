@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.87'
+export const APP_VERSION = '2.9.88'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.88 — Pointeuse : copier un jour + bouton Absent/Congé
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.88',
+    date: '2026-05-29',
+    label: 'Pointeuse : copier les heures d\'un jour + bouton Absent / Congé',
+    features: [
+      'NOUVEAU — « Copier ces heures vers… » sous chaque pointeuse remplie : copie Début/pauses/Fin (sans le GPS) vers un autre jour de la semaine en 1 clic. Saisie beaucoup plus rapide.',
+      'NOUVEAU — Bascule « Présent / Absent » par jour. En absence : motif Vacances / Jour férié / Autre (texte libre). Le rapport affiche 0h ; le motif n\'apparaît QUE dans le certificat de pointage annexe. Motif laissé vide → rapport affiche simplement 0.',
+      'Le total semaine exclut automatiquement les jours d\'absence (0h).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.87 — Fix pointeuse : « Object » côté client + aperçu PDF candidat
   // ─────────────────────────────────────────────────────────────────────

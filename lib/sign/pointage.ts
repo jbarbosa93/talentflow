@@ -12,6 +12,11 @@ export interface PointageValue {
   pauses?: PointagePause[]
   startGps?: GpsPoint
   endGps?: GpsPoint
+  // v2.9.88 — Absence : si `absent` → 0h dans le rapport. `absenceReason` (motif
+  // Vacances / Jour férié / texte libre) apparaît UNIQUEMENT dans le certificat
+  // de pointage annexe. Motif vide → rapport affiche simplement 0.
+  absent?: boolean
+  absenceReason?: string
 }
 
 const HHMM_RE = /^(\d{1,2}):(\d{2})$/
@@ -29,6 +34,7 @@ function span(start: number, end: number): number { let d = end - start; if (d <
 export function pointageHours(value: unknown): number {
   const p = (value && typeof value === 'object') ? value as PointageValue : null
   if (!p) return 0
+  if (p.absent) return 0 // v2.9.88 — jour d'absence → 0h
   const st = hhmmToMin(p.start); const en = hhmmToMin(p.end)
   if (st === null || en === null) return 0
   let pause = 0
@@ -42,12 +48,13 @@ export function pointageHours(value: unknown): number {
 /** Vrai si la pointeuse a au moins Début + Fin renseignés. */
 export function pointageFilled(value: unknown): boolean {
   const p = (value && typeof value === 'object') ? value as PointageValue : null
+  if (p?.absent) return true // v2.9.88 — jour marqué absent = jour rempli
   return !!(p && hhmmToMin(p.start) !== null && hhmmToMin(p.end) !== null)
 }
 
-/** Vrai si la valeur ressemble à une pointeuse (objet avec start/end/pauses). */
+/** Vrai si la valeur ressemble à une pointeuse (objet avec start/end/pauses/absent). */
 export function isPointageValue(value: unknown): value is PointageValue {
-  return !!value && typeof value === 'object' && ('start' in value || 'end' in value || 'pauses' in value)
+  return !!value && typeof value === 'object' && ('start' in value || 'end' in value || 'pauses' in value || 'absent' in value)
 }
 
 export function formatHours(h: number): string {

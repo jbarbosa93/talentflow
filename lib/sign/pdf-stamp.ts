@@ -382,10 +382,15 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
           // v2.9.82 — La pointeuse posée sur une cellule (« Heures normales ») affiche
           // DIRECTEMENT le total calculé (Fin − Début − pauses). Le détail complet
           // (début/pauses/fin/GPS) va dans la page annexe « Détail des pointages ».
-          const h = pointageHours(opts.fieldValues[f.id])
+          const pv = opts.fieldValues[f.id]
+          const h = pointageHours(pv)
+          const absent = !!(pv && typeof pv === 'object' && (pv as { absent?: boolean }).absent)
           if (h > 0) {
             const txt = Math.abs(h % 1) < 1e-9 ? h.toFixed(0) : h.toFixed(2)
             drawTextInBox(page, txt, xPts, yPtsBL, wPts, hPts, helv, f)
+          } else if (absent) {
+            // v2.9.88 — Jour d'absence : « 0 » explicite (motif dans l'annexe).
+            drawTextInBox(page, '0', xPts, yPtsBL, wPts, hPts, helv, f)
           }
           break
         }
