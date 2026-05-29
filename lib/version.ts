@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.84'
+export const APP_VERSION = '2.9.85'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.85 — Templates rapport : dupliquer une section entière (jour) en 1 clic
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.85',
+    date: '2026-05-29',
+    label: 'Templates : dupliquer une section entière (ex. Lundi → Mardi) en 1 clic',
+    features: [
+      'DUPLIQUER UNE SECTION — Dans « Gérer les sections » (Mode Wizard), un bouton ⧉ duplique TOUTE une section et ses champs vers une nouvelle section nommée. Idéal pour les rapports jour par jour : « Lundi » (date + pointeuse) → « Mardi » en 1 clic (le nom de section pilote aussi la date auto du jour). Beaucoup plus rapide que dupliquer champ par champ.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.84 — Fix : pointeuses sélectionnables comme sources de formule (Total semaine)
   // ─────────────────────────────────────────────────────────────────────

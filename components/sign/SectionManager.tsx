@@ -18,7 +18,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  X, ChevronRight, ChevronDown, ArrowUp, ArrowDown, Trash2,
+  X, ChevronRight, ChevronDown, ArrowUp, ArrowDown, Trash2, Copy,
   Check, Layers, FoldVertical, UnfoldVertical, Pencil,
 } from 'lucide-react'
 
@@ -50,6 +50,8 @@ interface SectionManagerProps {
   unsectionedCount: number
   onRename: (oldName: string, newName: string) => void
   onDelete: (name: string, deleteFields: boolean) => void
+  /** v2.9.85 — Duplique toute la section (tous ses champs) vers une nouvelle section */
+  onDuplicate?: (name: string) => void
   onToggleRequired: (name: string, required: boolean) => void
   onMove: (name: string, dir: -1 | 1) => void
   onToggleCollapse: (name: string) => void
@@ -67,7 +69,7 @@ interface SectionManagerProps {
 
 export default function SectionManager({
   mode, rows, unsectionedCount,
-  onRename, onDelete, onToggleRequired, onMove, onToggleCollapse, onCollapseAll,
+  onRename, onDelete, onDuplicate, onToggleRequired, onMove, onToggleCollapse, onCollapseAll,
   onClose,
   onDeleteField, onMoveField, onToggleFieldRequired,
 }: SectionManagerProps) {
@@ -175,6 +177,7 @@ export default function SectionManager({
                   row={row}
                   onRename={onRename}
                   onDelete={onDelete}
+                  onDuplicate={onDuplicate}
                   onToggleRequired={onToggleRequired}
                   onMove={onMove}
                   onToggleCollapse={onToggleCollapse}
@@ -194,13 +197,14 @@ export default function SectionManager({
 
 // ─── Une ligne de section ──────────────────────────────────────────────────
 function SectionRow({
-  mode, row, onRename, onDelete, onToggleRequired, onMove, onToggleCollapse,
+  mode, row, onRename, onDelete, onDuplicate, onToggleRequired, onMove, onToggleCollapse,
   onDeleteField, onMoveField, onToggleFieldRequired,
 }: {
   mode: 'wizard' | 'document'
   row: SectionManagerRow
   onRename: (oldName: string, newName: string) => void
   onDelete: (name: string, deleteFields: boolean) => void
+  onDuplicate?: (name: string) => void
   onToggleRequired: (name: string, required: boolean) => void
   onMove: (name: string, dir: -1 | 1) => void
   onToggleCollapse: (name: string) => void
@@ -326,6 +330,18 @@ function SectionRow({
               <ArrowDown size={14} style={{ opacity: row.canMoveDown ? 1 : 0.3 }} />
             </button>
           </div>
+        )}
+
+        {/* v2.9.85 — Dupliquer toute la section (wizard) */}
+        {mode === 'wizard' && onDuplicate && (
+          <button
+            type="button"
+            onClick={() => onDuplicate(row.name)}
+            title="Dupliquer cette section (tous ses champs) vers une nouvelle section"
+            style={iconBtn}
+          >
+            <Copy size={14} />
+          </button>
         )}
 
         {/* Supprimer */}

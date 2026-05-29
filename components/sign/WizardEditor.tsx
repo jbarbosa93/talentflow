@@ -746,6 +746,57 @@ export default function WizardEditor({
   const collapseAllSections = (collapsed: boolean) => {
     persistCollapsed(collapsed ? new Set(sectionRows.map(r => r.name)) : new Set())
   }
+  // v2.9.85 — Dupliquer une SECTION entière (tous ses champs) vers une nouvelle section.
+  // Idéal pour les rapports jour par jour : duplique « Lundi » → « Mardi » en 1 clic
+  // (le nom de section pilote aussi la date auto du jour). Bien plus rapide que champ/champ.
+  const duplicateSection = (name: string) => {
+    const members = allRecipientFields.filter(f => (f.wizardSection || '').trim() === name)
+    if (members.length === 0) return
+    const stepIdx = steps.findIndex(s => members.some(m => s.fieldIds.includes(m.id)))
+    if (stepIdx < 0) { toast.error('Section hors étape — ajoute ses champs à une étape d\'abord'); return }
+    const newName = (typeof window !== 'undefined'
+      ? window.prompt(`Nom de la nouvelle section (copie de « ${name} ») :`, '')
+      : '')?.trim()
+    if (!newName) return
+    if (sectionRows.some(r => r.name.toLowerCase() === newName.toLowerCase())) {
+      toast.error(`La section « ${newName} » existe déjà`); return
+    }
+    // Ordre des membres selon l'étape
+    const ordered = steps[stepIdx].fieldIds
+      .map(id => members.find(m => m.id === id))
+      .filter((m): m is SignField => !!m)
+    const clones: Array<{ docIdx: number; field: SignField }> = []
+    const newIds: string[] = []
+    for (const src of ordered) {
+      const ref = fieldIndex.get(src.id)
+      if (!ref) continue
+      const newId = 'fld_' + Math.random().toString(36).slice(2, 11)
+      const labelMatchesSection = (src.label || '').trim() === name
+      const newField: SignField = {
+        ...src,
+        id: newId,
+        wizardSection: newName,
+        label: labelMatchesSection ? newName : src.label,
+        y: Math.min(0.95, src.y + 0.03),
+        groupId: undefined,
+      }
+      clones.push({ docIdx: ref.docIdx, field: newField })
+      newIds.push(newId)
+    }
+    if (clones.length === 0) return
+    setDocuments(prev => {
+      const next = prev.slice()
+      for (const c of clones) {
+        const doc = { ...next[c.docIdx] }
+        doc.fields = [...(doc.fields || []), c.field]
+        next[c.docIdx] = doc
+      }
+      return next
+    })
+    setSteps(prev => prev.map((s, i) => i === stepIdx ? { ...s, fieldIds: [...s.fieldIds, ...newIds] } : s))
+    markDirty()
+    toast.success(`Section « ${name} » dupliquée → « ${newName} » (${clones.length} champ${clones.length > 1 ? 's' : ''})`)
+  }
 
   // ─── Re-génération auto ─────────────────────────────────────────────────
   // v2.7.6 — handleRegenerate supprimé (cf. audit). Cause de bugs récurrents
@@ -1276,6 +1327,7 @@ export default function WizardEditor({
           unsectionedCount={unsectionedCount}
           onRename={renameSection}
           onDelete={deleteSection}
+          onDuplicate={duplicateSection}
           onToggleRequired={toggleSectionRequired}
           onMove={moveSection}
           onToggleCollapse={toggleSectionCollapse}
