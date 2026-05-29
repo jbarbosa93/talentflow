@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.82'
+export const APP_VERSION = '2.9.83'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.83 — Pointeuse : la case posée sur le tableau affiche le total calculé
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.83',
+    date: '2026-05-29',
+    label: 'Pointeuse : la case posée sur le rapport affiche directement le total d\'heures',
+    features: [
+      'POINTEUSE → TOTAL DANS LA CELLULE — Quand on pose une pointeuse sur une cellule du rapport (ex. « Heures normales / Lundi »), le PDF y affiche directement le TOTAL calculé (Fin − Début − pauses). Plus besoin d\'un champ formule séparé par jour : 1 pointeuse par jour, posée sur la bonne case, et le total apparaît. Le détail (début/pauses/fin/GPS) reste sur la page annexe.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.82 — Rapports : Pointeuse (timbrage GPS) + email destinataire + annotation WhatsApp
   // ─────────────────────────────────────────────────────────────────────

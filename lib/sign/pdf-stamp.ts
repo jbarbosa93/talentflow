@@ -13,6 +13,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib'
 import type { SignField } from './types'
 import { computeFormulaValue, formatFormulaValue, effectiveCheckedState } from './field-helpers'
+import { pointageHours } from './pointage'
 import { safePdfText } from './safe-text'
 
 // ─── Stamp envelopeId (Phase 3) ─────────────────────────────────────────
@@ -375,11 +376,19 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
           break
         }
 
-        case 'time':       // v2.9.82 — heure HH:MM (timbrage) : NON tamponnée sur le corps
-        case 'pointage':   // v2.9.82 — pointeuse : NON tamponnée (détail en page annexe)
-          // (sinon les champs s'empilent sur le tableau). Le détail va dans la page
-          // annexe « Détail des pointages » ; seul le total (formule) est tamponné.
+        case 'time':       // v2.9.82 — heure HH:MM simple : NON tamponnée sur le corps
           break
+        case 'pointage': {
+          // v2.9.82 — La pointeuse posée sur une cellule (« Heures normales ») affiche
+          // DIRECTEMENT le total calculé (Fin − Début − pauses). Le détail complet
+          // (début/pauses/fin/GPS) va dans la page annexe « Détail des pointages ».
+          const h = pointageHours(opts.fieldValues[f.id])
+          if (h > 0) {
+            const txt = Math.abs(h % 1) < 1e-9 ? h.toFixed(0) : h.toFixed(2)
+            drawTextInBox(page, txt, xPts, yPtsBL, wPts, hPts, helv, f)
+          }
+          break
+        }
         case 'text':
         case 'number': {
           const v = opts.fieldValues[f.id]
