@@ -2,6 +2,7 @@
 import Image from 'next/image'
 import { formatFullName, formatInitials, formatEmail, formatCity, formatCountry } from '@/lib/format-candidat'
 import { safeContentType } from '@/lib/utils/mime'
+import { openMail } from '@/lib/utils/open-mail'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
@@ -30,7 +31,6 @@ import { toWaPhone } from '@/lib/phone-format'
 import PhotoCropModal from '@/components/PhotoCropModal'
 import DocumentsPanel from '@/components/DocumentsSection'
 import CompliancePanel from '@/components/compliance/CompliancePanel'
-import SharedNotesModal from '@/components/portal/SharedNotesModal'
 import DeleteConfirmModal from '@/components/DeleteConfirmModal'
 import { MetierPopover } from '@/components/CandidatsList'
 
@@ -195,19 +195,8 @@ export default function CandidatDetailPage() {
       const m = data.user?.user_metadata || {}
       const p = (m.prenom || m.first_name || '').toString().trim()
       if (p) setConsultantPrenom(p)
-      if (data.user?.id) setCurrentUserId(data.user.id)
     })
   }, [])
-  // v2.8.8 — Fetch count notes partagées au mount candidat
-  useEffect(() => {
-    if (!id) return
-    let cancelled = false
-    fetch(`/api/candidats/${id}/notes-partagees`)
-      .then(r => r.json())
-      .then(d => { if (!cancelled) setSharedNotesCount(Array.isArray(d.notes) ? d.notes.length : 0) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [id])
   const [note, setNote]                   = useState('')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editingNoteText, setEditingNoteText] = useState('')
@@ -232,9 +221,6 @@ export default function CandidatDetailPage() {
   const [showDocuments, setShowDocuments] = useState(false)
   const [showCompliance, setShowCompliance] = useState(false)
   // v2.8.8 — Notes partagées (visibles aussi côté portail client)
-  const [showSharedNotes, setShowSharedNotes] = useState(false)
-  const [sharedNotesCount, setSharedNotesCount] = useState(0)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [showCvCustomizer, setShowCvCustomizer] = useState(false)
   const [showMergeSearch, setShowMergeSearch] = useState(false)
   const [showActivityHistory, setShowActivityHistory] = useState(false)
@@ -982,46 +968,8 @@ export default function CandidatDetailPage() {
               </button>
             </>
           )}
-          {/* v2.8.8 — Bouton Notes partagées (visible client + consultant) */}
-          <button
-            onClick={() => setShowSharedNotes(true)}
-            className="neo-btn-ghost neo-btn-sm"
-            title="Notes partagées entre L-Agence et le client"
-            style={{ position: 'relative' }}
-          >
-            <MessageSquare size={13} />
-            Notes
-            {sharedNotesCount > 0 && (
-              <span style={{
-                fontSize: 10, fontWeight: 800,
-                background: '#1E40AF', color: '#fff',
-                borderRadius: 99, padding: '0 5px',
-                minWidth: 16, textAlign: 'center', marginLeft: 4,
-              }}>{sharedNotesCount}</span>
-            )}
-          </button>
-          {!isEditing ? (
-            <button onClick={startEdit} className="neo-btn-ghost neo-btn-sm">
-              <Pencil size={13} /> Modifier
-            </button>
-          ) : (
-            <>
-              {/* v1.9.127 — Enregistrer = même classe que Annuler (héritage CSS exact) + override couleur vert success via .btn-save-action */}
-              <button
-                onClick={saveEdit}
-                disabled={updateCandidat.isPending}
-                className="neo-btn-ghost neo-btn-sm btn-save-action"
-                style={{ opacity: updateCandidat.isPending ? 0.6 : 1 }}
-              >
-                <Check size={13} />
-                {updateCandidat.isPending ? 'Enregistrement...' : 'Enregistrer'}
-              </button>
-              <button onClick={cancelEdit} className="neo-btn-ghost neo-btn-sm">
-                <X size={13} /> Annuler
-              </button>
-            </>
-          )}
-          {/* Bouton Notes avec tooltip au survol */}
+          {/* v2.9.78 — Bouton Notes internes unique (badge gris cohérent avec Documents + survol).
+              Les notes partagées (client) ne sont plus sur la fiche : elles vivent dans le portail. */}
           <div style={{ position: 'relative' }}
             onMouseEnter={() => setShowNotesTooltip(true)}
             onMouseLeave={() => setShowNotesTooltip(false)}
@@ -1029,14 +977,19 @@ export default function CandidatDetailPage() {
             <button
               onClick={() => { setShowNotes(true); setShowNotesTooltip(false) }}
               className="neo-btn-ghost neo-btn-sm"
-              style={{ padding: '6px 8px', minWidth: 0, position: 'relative' }}
-              title="Notes internes"
+              title="Notes internes (visibles uniquement par l'équipe)"
+              style={{ position: 'relative' }}
             >
-              <MessageSquare size={15} />
+              <MessageSquare size={13} />
+              Notes
               {(candidat?.notes_candidat?.length ?? 0) > 0 && (
-                <span style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: '50%', background: 'var(--primary)', color: 'var(--ink, #1C1A14)', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
-                  {candidat.notes_candidat.length}
-                </span>
+                <span style={{
+                  marginLeft: 4,
+                  padding: '1px 7px', borderRadius: 999,
+                  background: '#E5E7EB', color: '#374151',
+                  fontSize: 10, fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums', lineHeight: 1.4,
+                }}>{candidat.notes_candidat.length}</span>
               )}
             </button>
             {showNotesTooltip && (candidat?.notes_candidat?.length ?? 0) > 0 && (
@@ -1066,7 +1019,27 @@ export default function CandidatDetailPage() {
               </div>
             )}
           </div>
-
+          {!isEditing ? (
+            <button onClick={startEdit} className="neo-btn-ghost neo-btn-sm">
+              <Pencil size={13} /> Modifier
+            </button>
+          ) : (
+            <>
+              {/* v1.9.127 — Enregistrer = même classe que Annuler (héritage CSS exact) + override couleur vert success via .btn-save-action */}
+              <button
+                onClick={saveEdit}
+                disabled={updateCandidat.isPending}
+                className="neo-btn-ghost neo-btn-sm btn-save-action"
+                style={{ opacity: updateCandidat.isPending ? 0.6 : 1 }}
+              >
+                <Check size={13} />
+                {updateCandidat.isPending ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+              <button onClick={cancelEdit} className="neo-btn-ghost neo-btn-sm">
+                <X size={13} /> Annuler
+              </button>
+            </>
+          )}
           {/* Menu 3 points */}
           <div style={{ position: 'relative' }} ref={menuRef}>
             <button
@@ -1169,19 +1142,44 @@ export default function CandidatDetailPage() {
           background: `linear-gradient(90deg, ${fadeColor} 0%, transparent 55%)`,
           pointerEvents: 'none',
         }} />
-        {/* v2.1.5 — Boutons photo À GAUCHE en VERTICAL (au lieu d'en bas qui épaississait la card) */}
-        <div style={{ flexShrink: 0, zIndex: 1, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {/* Toolbar boutons photo — verticale à gauche */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'center' }}>
+        {/* v2.9.78 — Boutons photo À L'INTÉRIEUR de la photo (bas), révélés au survol.
+            Photo agrandie (140px) + alignée à gauche (toolbar latérale retirée → plus d'espace). */}
+        <div className="candidat-photo-wrap" style={{ flexShrink: 0, zIndex: 1, position: 'relative', width: 140, height: 140 }}>
+          {(candidat.photo_url && candidat.photo_url !== 'checked')
+            ? <Image src={candidat.photo_url} width={140} height={140} unoptimized
+                style={{ width: 140, height: 140, borderRadius: 14, objectFit: 'cover', display: 'block' }}
+                alt={formatFullName(candidat.prenom, candidat.nom)} />
+            : (
+              <div style={{
+                width: 140, height: 140, borderRadius: 14,
+                background: 'var(--surface-3, var(--secondary))',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 44, fontWeight: 800, color: 'var(--text-2, var(--muted-foreground))',
+              }}>{initiales}</div>
+            )
+          }
+          {photoUploading && (
+            <div style={{ position: 'absolute', inset: 0, borderRadius: 14, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Loader2 size={18} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
+            </div>
+          )}
+          {/* Barre d'actions overlay (bas de la photo) — apparaît au survol */}
+          <div className="candidat-photo-actions" style={{
+            position: 'absolute', left: 0, right: 0, bottom: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            padding: '10px 0 7px',
+            background: 'linear-gradient(transparent, rgba(0,0,0,0.55))',
+            borderBottomLeftRadius: 14, borderBottomRightRadius: 14,
+          }}>
             <button onClick={() => photoInputRef.current?.click()} title="Changer la photo"
               className="candidat-photo-btn"
-              style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-              <Camera size={10} color="var(--primary-foreground)" />
+              style={{ width: 26, height: 26, borderRadius: '50%', border: '2px solid white', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+              <Camera size={12} color="var(--foreground)" />
             </button>
             {candidat.cv_url && (
               <button onClick={() => setShowCropModal(true)} title="Crop depuis le CV"
                 className="candidat-photo-btn"
-                style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--border)', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 9 }}>
+                style={{ width: 26, height: 26, borderRadius: '50%', border: '2px solid white', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 12 }}>
                 ✂️
               </button>
             )}
@@ -1189,36 +1187,15 @@ export default function CandidatDetailPage() {
               <>
                 <button onClick={handlePhotoRotate} title="Rotation 90°"
                   className="candidat-photo-btn"
-                  style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--info-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                  <RotateCw size={10} color="var(--info)" />
+                  style={{ width: 26, height: 26, borderRadius: '50%', border: '2px solid white', background: 'var(--info-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <RotateCw size={12} color="var(--info)" />
                 </button>
                 <button onClick={handlePhotoDelete} title="Supprimer la photo"
                   className="candidat-photo-btn"
-                  style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--destructive-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                  <X size={10} color="var(--destructive)" />
+                  style={{ width: 26, height: 26, borderRadius: '50%', border: '2px solid white', background: 'var(--destructive-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <X size={12} color="var(--destructive)" />
                 </button>
               </>
-            )}
-          </div>
-          {/* Photo (à droite de la toolbar verticale) */}
-          <div style={{ position: 'relative', width: 120, height: 120 }}>
-            {(candidat.photo_url && candidat.photo_url !== 'checked')
-              ? <Image src={candidat.photo_url} width={120} height={120} unoptimized
-                  style={{ width: 120, height: 120, borderRadius: 14, objectFit: 'cover', display: 'block' }}
-                  alt={formatFullName(candidat.prenom, candidat.nom)} />
-              : (
-                <div style={{
-                  width: 120, height: 120, borderRadius: 14,
-                  background: 'var(--surface-3, var(--secondary))',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 38, fontWeight: 800, color: 'var(--text-2, var(--muted-foreground))',
-                }}>{initiales}</div>
-              )
-            }
-            {photoUploading && (
-              <div style={{ position: 'absolute', inset: 0, borderRadius: 14, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Loader2 size={18} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
-              </div>
             )}
           </div>
         </div>
@@ -1635,6 +1612,7 @@ export default function CandidatDetailPage() {
             return (
               <a href={`mailto:${candidat.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
                 title="Envoyer un email (sujet + corps pré-remplis)"
+                onClick={e => { e.preventDefault(); openMail(candidat.email, { subject, body }) }}
                 style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   width: 38, height: 38, borderRadius: 10,
@@ -2151,11 +2129,8 @@ export default function CandidatDetailPage() {
                       title="Envoyer un email"
                       onClick={(e) => {
                         e.preventDefault()
-                        // Tenter d'ouvrir Outlook d'abord, sinon fallback mailto
-                        const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(candidat.email)}&subject=${encodeURIComponent(`Bonjour ${candidat.prenom || ''},`)}`
-                        const mailtoUrl = `mailto:${candidat.email}?subject=${encodeURIComponent(`Bonjour ${candidat.prenom || ''},`)}`
-                        // Essayer Outlook web/app, fallback sur mailto natif
-                        window.location.href = mailtoUrl
+                        // v2.9.78 — Ouvre l'app mail + avertit si aucune app par défaut (fallback Seb)
+                        openMail(candidat.email, { subject: `Bonjour ${candidat.prenom || ''},` })
                       }}
                       style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--info-soft)', border: '1px solid var(--info-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', cursor: 'pointer' }}
                     >
@@ -3098,7 +3073,7 @@ export default function CandidatDetailPage() {
       )}
 
       {/* ── Panneau Infos (slide-in) — v2.1.11 design v2 ── */}
-      {showInfo && (
+      {showInfo && createPortal((
         <div onClick={() => setShowInfo(false)} style={{
           position: 'fixed', inset: 0, zIndex: 8000,
           background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
@@ -3166,7 +3141,7 @@ export default function CandidatDetailPage() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* ── Modal Confirmation Ré-analyse IA ── */}
       {showReanalyseConfirm && (
@@ -3225,17 +3200,6 @@ export default function CandidatDetailPage() {
         onClose={() => setShowCompliance(false)}
         candidatId={candidat.id}
         candidatName={formatFullName(candidat.prenom, candidat.nom)}
-      />
-
-      {/* v2.8.8 — Modal notes partagées (visibles côté portail client) */}
-      <SharedNotesModal
-        open={showSharedNotes}
-        onClose={() => setShowSharedNotes(false)}
-        mode="admin"
-        candidatId={candidat.id}
-        candidatName={formatFullName(candidat.prenom, candidat.nom)}
-        currentUserId={currentUserId || undefined}
-        onCountChange={setSharedNotesCount}
       />
 
       {/* ── Panneau Documents (slide-in) ── */}
@@ -3537,6 +3501,8 @@ export default function CandidatDetailPage() {
         @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideInRight { from{transform:translateX(100%)} to{transform:translateX(0)} }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .candidat-photo-actions { opacity: 0; pointer-events: none; transition: opacity .15s ease; }
+        .candidat-photo-wrap:hover .candidat-photo-actions { opacity: 1; pointer-events: auto; }
       `}</style>
     </div>
   )

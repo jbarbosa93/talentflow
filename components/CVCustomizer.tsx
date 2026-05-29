@@ -1210,12 +1210,24 @@ function CvOriginalHoverButton({ cvUrl, label }: { cvUrl: string; label: string 
     timer.current = window.setTimeout(() => setPreviewPos(null), 150)
   }
 
+  // v2.9.78 — Word/DOCX : /api/cv/print sert toujours en application/pdf → le viewer PDF
+  // échoue (« Échec de chargement du document PDF »). On bascule sur le viewer Office officiel
+  // (comme la fiche candidat) pour les .doc/.docx ; PDF/images gardent /api/cv/print.
+  const ext = (cvUrl.split('?')[0].split('.').pop() || '').toLowerCase()
+  const isWord = ext === 'doc' || ext === 'docx'
+  const openUrl = isWord
+    ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(cvUrl)}`
+    : `/api/cv/print?url=${encodeURIComponent(cvUrl)}`
+  const iframeUrl = isWord
+    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(cvUrl)}`
+    : `/api/cv/print?url=${encodeURIComponent(cvUrl)}#zoom=page-width`
+
   return (
     <>
       <button
         ref={btnRef}
         type="button"
-        onClick={() => window.open(`/api/cv/print?url=${encodeURIComponent(cvUrl)}`, '_blank')}
+        onClick={() => window.open(openUrl, '_blank')}
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
         title="Voir le CV original (cliquer pour ouvrir)"
@@ -1254,7 +1266,7 @@ function CvOriginalHoverButton({ cvUrl, label }: { cvUrl: string; label: string 
             </span>
           </div>
           <iframe
-            src={`/api/cv/print?url=${encodeURIComponent(cvUrl)}#zoom=page-width`}
+            src={iframeUrl}
             style={{ width: '100%', height: 'calc(100% - 34px)', border: 'none' }}
           />
         </div>,

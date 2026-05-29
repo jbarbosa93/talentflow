@@ -1308,22 +1308,25 @@ export default function CandidatsList() {
         {(() => {
           void recentlyUpdatedTick
           void badgeTick
-          // v1.9.111 — masquer dès que la fiche est ouverte (cohérent avec badge rouge non-vu)
-          if (viewedSet.has(c.id)) return null
+          // v2.9.78 — COHÉRENCE point rouge ⟺ pastille colorée : on affiche la pastille
+          // EXACTEMENT quand le point rouge est présent (isNewCandidat = hasBadge). Ainsi les deux
+          // apparaissent et disparaissent ensemble (ouverture de fiche + « Tout marquer vu »).
+          if (!isNewCandidat) return null
           const manuel = getRecentlyUpdatedEntry(c.id)
           const onedriveType = (c as any).onedrive_change_type as ('nouveau' | 'reactive' | 'mis_a_jour' | null) | undefined
           let effectiveType = manuel?.type ?? onedriveType ?? null
-          // Fallback v1.9.96-style : si pas de type explicite mais last_import_at > created_at + 1j
-          // → dériver "mis_a_jour" pour expliquer visuellement pourquoi le badge rouge est présent.
+          // Fallback : pas de type explicite → on dérive depuis les dates pour qu'une pastille
+          // accompagne TOUJOURS le point rouge. last_import > created + 1j = "Actualisé", sinon "Nouveau".
           if (!effectiveType) {
             const lastImport = (c as any).last_import_at as string | null | undefined
             const createdAt = (c as any).created_at as string | null | undefined
-            if (lastImport && createdAt && Date.now() - new Date(lastImport).getTime() < 30 * 24 * 60 * 60 * 1000) {
+            if (lastImport && createdAt) {
               const diffMs = new Date(lastImport).getTime() - new Date(createdAt).getTime()
-              if (diffMs > 24 * 60 * 60 * 1000) effectiveType = 'mis_a_jour'
+              effectiveType = diffMs > 24 * 60 * 60 * 1000 ? 'mis_a_jour' : 'nouveau'
+            } else {
+              effectiveType = 'nouveau'
             }
           }
-          if (!effectiveType) return null
           const style = getBadgeStyleForType(effectiveType)
           const titleExtra = manuel ? ` — ${relativeMinutes(manuel.ts)}` : ' (OneDrive)'
           return (
@@ -2131,7 +2134,11 @@ export default function CandidatsList() {
                 try {
                   const res = await fetch(`/api/candidats/count-new?t=${Date.now()}`)
                   const { ids } = await res.json() as { ids: { id: string; import_status: string }[] }
-                  markTousVus(ids.map(item => item.id))
+                  // v2.9.78 — Ajoute AUSSI tous les candidats chargés au viewedSet : le badge coloré
+                  // a un fallback sur last_import_at (ignore onedrive_change_type=null), seul
+                  // viewedSet.has(id) le masque. Sans ça, certains badges restaient affichés.
+                  const allIds = Array.from(new Set([...ids.map(item => item.id), ...sorted.map((c: any) => c.id)]))
+                  markTousVus(allIds)
                   setNonVusTotal(0)
                   setNonVusParStatut({})
                   if (filterNonVu) {
@@ -2149,16 +2156,17 @@ export default function CandidatsList() {
                   markTousVus(idsAvecBadge)
                 } finally {
                   // v2.0.1 (16-B) — Tout marquer vu reset AUSSI les badges colorés Actualisé/Réactivé/Nouveau :
-                  //  - DB OneDrive (onedrive_change_type=null) → handled par la route /api/candidats/mark-all-vu
+                  //  - DB OneDrive (onedrive_change_type=null) → persisté par la route /api/candidats/mark-all-vu
                   //  - localStorage manuel (recently-updated) → clearAllRecentlyUpdated()
-                  //  - Invalider React Query pour refresh visuel immédiat
                   await fetch('/api/candidats/mark-all-vu', { method: 'POST' }).catch(() => {})
                   clearAllRecentlyUpdated()
                   markAllVu()
                   // Sync React state (sinon hasBadge() utilise l'ancien viewedAllAt du closure)
                   setViewedAllAt(new Date().toISOString())
-                  // Refetch pour récupérer les onedrive_change_type=null et purger l'affichage
-                  queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                  // v2.9.78 — Mise à jour SILENCIEUSE : plus de queryClient.invalidateQueries(['candidats'])
+                  // qui refetchait toute la liste (= clignotement). Les badges visibles sont masqués
+                  // immédiatement via viewedSet (markTousVus déclenche dispatchBadgesChanged → re-render),
+                  // et le serveur a déjà persisté onedrive_change_type=null pour les chargements futurs.
                 }
               }}
               className="neo-btn-ghost"
@@ -3829,7 +3837,9 @@ export default function CandidatsList() {
           if (nextCandidat) openWhatsApp(nextCandidat)
         }
 
-        return (
+        // v2.9.78 — Portalisé : un ancêtre avec transform/filter cassait position:fixed
+        // (modale coupée + collée en haut). createPortal(document.body) résout (pattern #10).
+        return createPortal((
           <div style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
@@ -4149,7 +4159,7 @@ export default function CandidatsList() {
               </div>
             </div>
           </div>
-        )
+        ), document.body)
       })()}
 
       {/* v1.9.71 — Modal Lier à commande */}

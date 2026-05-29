@@ -171,10 +171,13 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
           </div>
           <button
             onClick={onClose}
-            style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--secondary)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
             title="Fermer (Esc)"
           >
-            <X size={14} style={{ color: 'var(--muted-foreground)' }} />
+            {/* v2.9.78 — Croix en couleur foreground (avant var(--muted-foreground) gris invisible en light mode) */}
+            <X size={14} style={{ color: 'var(--foreground)' }} />
           </button>
         </div>
 

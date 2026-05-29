@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Phone, Smartphone, MessageCircle, Mail, MessageSquare, ChevronDown } from 'lucide-react'
 import { detectAndFormat, toWaPhone } from '@/lib/phone-format'
+import { openMail } from '@/lib/utils/open-mail'
 
 type ContactCandidat = {
   id: string
@@ -157,8 +158,8 @@ export default function MatchingContactModal({
       logAttempt('whatsapp', [c], body)
       window.open(`whatsapp://send?phone=${waPhone}&text=${encBody}`, '_blank')
     } else if (canal === 'mail' && c.email) {
-      const subject = encodeURIComponent(`Opportunité pour ${c.prenom || 'vous'}`)
-      window.open(`mailto:${c.email}?subject=${subject}&body=${encBody}`, '_self')
+      // v2.9.78 — Ouvre l'app mail + avertit si aucune app par défaut (fallback Seb)
+      openMail(c.email, { subject: `Opportunité pour ${c.prenom || 'vous'}`, body })
     }
   }
 

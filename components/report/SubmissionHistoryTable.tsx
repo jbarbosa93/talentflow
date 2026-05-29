@@ -43,6 +43,48 @@ interface Props {
   candidatEmail?: string | null
 }
 
+// v2.9.78 — Badge 📝 avec vrai tooltip au survol (le title natif n'affichait pas
+// les sauts de ligne et restait souvent invisible). Portalisé pour échapper au overflow du tableau.
+function NoteHoverBadge({ noteCandidat, noteClient }: { noteCandidat?: string | null; noteClient?: string | null }) {
+  const [rect, setRect] = useState<{ top: number; left: number } | null>(null)
+  if (!noteCandidat && !noteClient) return null
+  return (
+    <span
+      onMouseEnter={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setRect({ top: r.bottom, left: r.left + r.width / 2 }) }}
+      onMouseLeave={() => setRect(null)}
+      aria-label="Note présente"
+      style={{ fontSize: 13, cursor: 'help', opacity: 0.85, display: 'inline-flex' }}
+    >
+      📝
+      {rect && typeof document !== 'undefined' && createPortal(
+        <div style={{
+          position: 'fixed', top: rect.top + 8, left: rect.left, transform: 'translateX(-50%)',
+          zIndex: 9999, width: 280, textAlign: 'left',
+          background: 'var(--card)', color: 'var(--foreground)',
+          border: '1px solid var(--border)', borderRadius: 12,
+          boxShadow: '0 16px 40px rgba(0,0,0,0.20)', padding: '12px 14px',
+          fontSize: 12.5, lineHeight: 1.55, whiteSpace: 'pre-wrap',
+          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+        }}>
+          {noteCandidat && (
+            <div style={{ marginBottom: noteClient ? 10 : 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 3 }}>Note candidat</div>
+              {noteCandidat}
+            </div>
+          )}
+          {noteClient && (
+            <div style={{ borderTop: noteCandidat ? '1px solid var(--border)' : undefined, paddingTop: noteCandidat ? 10 : 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 3 }}>Note client</div>
+              {noteClient}
+            </div>
+          )}
+        </div>,
+        document.body,
+      )}
+    </span>
+  )
+}
+
 export default function SubmissionHistoryTable({
   submissions, onViewPdf, slug, showLinkColumn, linksMeta, onCorrected, clients, candidatName,
   candidatPhone, candidatEmail,
@@ -225,28 +267,11 @@ export default function SubmissionHistoryTable({
                   <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
                     <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                       <StatusBadge status={s.status} />
-                      {/* v2.4.0 — Icône 📝 si notes (candidat ou client) avec tooltip */}
-                      {(() => {
-                        const nc = (s as any).notes_candidat as string | null | undefined
-                        const ncl = (s as any).notes_client as string | null | undefined
-                        if (!nc && !ncl) return null
-                        const tip = [
-                          nc ? `Note candidat : ${nc}` : '',
-                          ncl ? `Note client : ${ncl}` : '',
-                        ].filter(Boolean).join('\n')
-                        return (
-                          <span
-                            title={tip}
-                            aria-label="Note présente"
-                            style={{
-                              fontSize: 13, cursor: 'help',
-                              opacity: 0.85,
-                            }}
-                          >
-                            📝
-                          </span>
-                        )
-                      })()}
+                      {/* v2.4.0 — Icône 📝 si notes (candidat ou client) ; v2.9.78 tooltip réel au survol */}
+                      <NoteHoverBadge
+                        noteCandidat={(s as any).notes_candidat}
+                        noteClient={(s as any).notes_client}
+                      />
                     </div>
                     {(s as any).metadata?.client_modified && (
                       <span style={{

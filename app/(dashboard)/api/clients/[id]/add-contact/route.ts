@@ -57,13 +57,16 @@ export async function POST(
       return NextResponse.json({ client: c, alreadyExists: true })
     }
 
+    // v2.9.78 — Mappe vers le schéma JSONB utilisé partout ailleurs (fiche client + ContactsEditor) :
+    // prenom / nom / telephone / fonction. Avant on écrivait firstName/lastName/phone/role,
+    // donc le contact apparaissait sans nom (« Contact sans nom ») → impression qu'il n'était pas créé.
     const newContact = {
       id: 'ct_' + Math.random().toString(36).slice(2, 11),
-      firstName: (body.firstName || '').trim(),
-      lastName: (body.lastName || '').trim(),
+      prenom: (body.firstName || '').trim(),
+      nom: (body.lastName || '').trim(),
       email,
-      phone: (body.phone || '').trim() || undefined,
-      role: (body.role || '').trim() || undefined,
+      telephone: (body.phone || '').trim() || undefined,
+      fonction: (body.role || '').trim() || undefined,
     }
     const next = [...existing, newContact]
 

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.77'
+export const APP_VERSION = '2.9.78'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.78 — Pack correctifs UX : notes candidat, badges, photo, envois, mail, divers
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.78',
+    date: '2026-05-29',
+    label: 'Pack de 13 correctifs UX (notes, badges, photo, historique envois, mail, modaux)',
+    features: [
+      'NOTES CANDIDAT UNIFIÉES — La fiche candidat n\'a plus qu\'UN seul bouton Notes (badge gris cohérent avec Documents, au lieu du badge bleu) lié aux notes internes équipe (notes_candidat) : modifiables, supprimables, et affichées au survol comme dans la liste candidats. Le 2e bouton bulle redondant a été retiré. Les notes partagées avec le client ont été retirées de la fiche (elles vivent dans le portail client).',
+      'PANNEAU INFORMATIONS — Le panneau latéral « Informations » de la fiche candidat ne reste plus collé en haut : il s\'ouvre désormais en plein écran à droite (portalisé sur document.body, comme les autres modaux).',
+      'BOUTONS PHOTO REPENSÉS — Les boutons d\'action de la photo (changer / crop / rotation / supprimer) sont maintenant à L\'INTÉRIEUR de la photo en bas et n\'apparaissent qu\'au survol. La photo est agrandie (140px) et alignée à gauche (toolbar latérale supprimée → fiche plus aérée).',
+      '« TOUT MARQUER VU » SILENCIEUX — Plus de clignotement : le bouton ne recharge plus toute la liste (suppression du refetch React Query). Mise à jour instantanée et silencieuse.',
+      'BADGES ROUGE ⟺ COLORÉ COHÉRENTS — La pastille colorée (Nouveau/Actualisé/Réactivé) apparaît désormais EXACTEMENT quand le point rouge apparaît, et disparaît avec lui (ouverture de fiche + « Tout marquer vu »). Le badge vert « Nouveau » s\'affiche enfin pour les candidats récemment créés.',
+      'MODALE WHATSAPP EN MASSE — La fenêtre d\'envoi WhatsApp groupé depuis la liste candidats n\'est plus coupée/collée en haut : portalisée et correctement centrée.',
+      'HISTORIQUE DES ENVOIS — Affiche le NOM du destinataire (candidat résolu par téléphone/email, ou entreprise + personne de contact pour les emails) au lieu du numéro/email brut. Le MÉTIER ciblé par la campagne est extrait du message et affiché (chip liste + badge panneau). Pills candidat cliquables (fiche) avec aperçu CV au survol, et bouton « Voir tous » → liste complète des destinataires + métier.',
+      'NOTE RAPPORT AU SURVOL — L\'icône 📝 dans l\'historique des soumissions de rapports affiche maintenant un vrai tooltip lisible au survol (note candidat + note client), au lieu de l\'info-bulle native illisible.',
+      'BOUTON MAIL PLUS ROBUSTE — Si aucune application mail par défaut n\'est configurée (cas rencontré), l\'adresse est copiée automatiquement et un message explique comment définir une app mail par défaut sur Windows et Mac.',
+      'CONTACT CLIENT VIA LIEN RAPPORT — Correction : ajouter un contact à un client existant depuis « créer un lien rapport » enregistre désormais correctement la personne (nom/prénom/téléphone/fonction) dans la fiche client. Avant, les champs étaient mal nommés → le contact apparaissait sans nom.',
+      'CV ORIGINAL WORD — Dans « Personnaliser le CV », l\'aperçu du CV original d\'un fichier Word (.doc/.docx) s\'affiche correctement via le viewer Office, au lieu de l\'erreur « Échec de chargement du document PDF ».',
+      'CROIX MODALE DOUBLON — La croix de fermeture de la modale « candidat potentiellement en doublon » (import manuel) est de nouveau visible en mode clair (était grise sur fond clair).',
+      'PUBLICATION JOB-ROOM — Identifiants Job-Room (SECO) configurés → la publication d\'une commande sur job-room.ch fonctionne (l\'erreur HTTP 400 venait des identifiants de test).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.77 — TalentFlow Mobile : modules Sign détail/new + Missions + Rapports
   // ─────────────────────────────────────────────────────────────────────

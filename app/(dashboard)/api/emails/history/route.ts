@@ -9,15 +9,28 @@ import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
+// v2.9.78 — Destinataire résolu : on tente d'associer chaque email/téléphone à un candidat
+// (par email ou téléphone) ou à une entreprise cliente (par email), pour afficher un NOM
+// plutôt qu'un numéro/email brut dans l'historique.
+interface ResolvedRecipient {
+  value: string                  // email ou téléphone brut envoyé
+  kind: 'candidat' | 'client' | 'raw'
+  candidat?: { id: string; prenom: string | null; nom: string | null; pipeline_metier: string | null; cv_url: string | null; cv_nom_fichier: string | null }
+  entreprise?: string | null     // nom entreprise (si email = client)
+  contact?: string | null        // nom de la personne de contact (si email = contact client)
+}
+
 interface CampagneResume {
   campagne_id: string
   created_at: string
   sujet: string
   destinataires: string[]
   nb_destinataires: number
+  recipients: ResolvedRecipient[]
   candidat_ids: string[]
   nb_candidats: number
-  candidats: { id: string; prenom: string | null; nom: string | null; cv_url: string | null; cv_nom_fichier: string | null }[]
+  candidats: { id: string; prenom: string | null; nom: string | null; cv_url: string | null; cv_nom_fichier: string | null; pipeline_metier: string | null }[]
+  metier: string | null          // v2.9.78 — métier ciblé par la campagne (extrait du corps)
   client_nom: string | null
   cv_personnalise: boolean
   cv_urls_utilises: string[]
@@ -28,6 +41,26 @@ interface CampagneResume {
   user_id: string | null          // v1.9.68 — expéditeur (pour historique global team)
   user_name: string | null        // v1.9.68 — prénom ou nom affiché
   is_own: boolean                 // v1.9.68 — true si l'envoi appartient au user courant (pour UI bouton supprimer)
+}
+
+// v2.9.78 — Extrait le métier ciblé du corps d'un message de prospection.
+// Modèle L-Agence : « …à la recherche d'un CHAUFFEUR PERMIS BE pour une mission sur … ».
+function extractMetier(corps: string | null | undefined): string | null {
+  const txt = (corps || '').replace(/\s+/g, ' ').trim()
+  if (!txt) return null
+  const patterns = [
+    /recherche d['’]une?\s+(.+?)\s+pour\b/i,
+    /recherchons? une?\s+(.+?)\s+pour\b/i,
+    /cherch\w*\s+une?\s+(.+?)\s+pour\b/i,
+  ]
+  for (const re of patterns) {
+    const m = txt.match(re)
+    if (m && m[1]) {
+      const v = m[1].trim().replace(/[.,;:]+$/, '')
+      if (v.length >= 2 && v.length <= 60) return v
+    }
+  }
+  return null
 }
 
 export async function GET(req: Request) {
@@ -87,6 +120,7 @@ export async function GET(req: Request) {
       nb_destinataires: destinataires.length,
       candidat_ids: candidatIds,
       nb_candidats: candidatIds.length,
+      recipients: [],
       candidats: [],
       client_nom: first.client_nom ?? null,
       cv_personnalise: !!first.cv_personnalise,
@@ -108,6 +142,7 @@ export async function GET(req: Request) {
         if (mh && typeof mh.index === 'number') return raw.slice(0, mh.index).trimEnd()
         return raw
       })(),
+      metier: extractMetier(first.corps),
       statut: first.statut ?? 'envoye',
       canal: (first.canal ?? 'email') as CampagneResume['canal'],
       user_id: first.user_id ?? null,
@@ -121,7 +156,7 @@ export async function GET(req: Request) {
   if (allCandidatIds.length > 0) {
     const { data: cands } = await supabase
       .from('candidats')
-      .select('id, prenom, nom, cv_url, cv_nom_fichier')
+      .select('id, prenom, nom, cv_url, cv_nom_fichier, pipeline_metier')
       .in('id', allCandidatIds)
     const byId = new Map((cands ?? []).map((c: any) => [c.id, c]))
     for (const c of campagnes) {
@@ -143,7 +178,121 @@ export async function GET(req: Request) {
       })
     : campagnes
 
-  return NextResponse.json({ campagnes: filtered.slice(0, limit) })
+  const result = filtered.slice(0, limit)
+
+  // ──────────────────────────────────────────────────────────────────────
+  // v2.9.78 — Résolution des destinataires en NOMS (candidat ou entreprise).
+  // Objectif : afficher « Sava Durasovic — Chauffeur PL » au lieu de « +4179... »,
+  // et « Entreprise (Contact) » au lieu d'un email brut. Cliquable vers la fiche candidat.
+  // ──────────────────────────────────────────────────────────────────────
+  const phoneKey = (s: string): string => {
+    const d = (s || '').replace(/\D/g, '')
+    return d.length >= 9 ? d.slice(-9) : d
+  }
+  const norm = (e: string) => e.toLowerCase().trim()
+
+  const allDest = [...new Set(result.flatMap(c => c.destinataires))].filter(Boolean)
+  const emailDest = [...new Set(allDest.filter(d => d.includes('@')).map(norm))]
+  const phoneDestKeys = new Set(allDest.filter(d => !d.includes('@')).map(phoneKey).filter(Boolean))
+
+  const candByEmail = new Map<string, ResolvedRecipient['candidat']>()
+  const candByPhone = new Map<string, ResolvedRecipient['candidat']>()
+  const clientByEmail = new Map<string, { entreprise: string | null; contact: string | null }>()
+
+  const pickCand = (c: any) => ({
+    id: c.id, prenom: c.prenom ?? null, nom: c.nom ?? null,
+    pipeline_metier: c.pipeline_metier ?? null, cv_url: c.cv_url ?? null, cv_nom_fichier: c.cv_nom_fichier ?? null,
+  })
+
+  // 1) Candidats par EMAIL (requête exacte, indexée)
+  if (emailDest.length > 0) {
+    const { data } = await supabase
+      .from('candidats')
+      .select('id, prenom, nom, email, pipeline_metier, cv_url, cv_nom_fichier')
+      .in('email', emailDest)
+    for (const c of (data ?? []) as any[]) if (c.email) candByEmail.set(norm(c.email), pickCand(c))
+  }
+
+  // 2) Candidats par TÉLÉPHONE (9 derniers chiffres) — pagination bornée car formats variés
+  if (phoneDestKeys.size > 0) {
+    let from = 0
+    const page = 1000
+    for (let i = 0; i < 8; i++) {
+      const { data } = await supabase
+        .from('candidats')
+        .select('id, prenom, nom, telephone, pipeline_metier, cv_url, cv_nom_fichier')
+        .not('telephone', 'is', null)
+        .range(from, from + page - 1)
+      const rows = (data ?? []) as any[]
+      for (const c of rows) {
+        const k = phoneKey(c.telephone)
+        if (k && phoneDestKeys.has(k) && !candByPhone.has(k)) candByPhone.set(k, pickCand(c))
+      }
+      if (rows.length < page) break
+      from += page
+    }
+  }
+
+  // 3) Entreprises clientes par EMAIL (email principal OU email d'un contact)
+  if (emailDest.length > 0) {
+    const { data } = await supabase
+      .from('clients' as any)
+      .select('id, nom, email, contacts')
+      .in('email', emailDest)
+    for (const cl of (data ?? []) as any[]) {
+      if (cl.email) clientByEmail.set(norm(cl.email), { entreprise: cl.nom ?? null, contact: null })
+    }
+    // Contacts (jsonb) : on récupère TOUS les clients ayant des contacts pour matcher l'email contact.
+    // Borné : on ne le fait que s'il reste des emails non résolus (ni candidat ni email principal client).
+    const stillUnresolved = emailDest.filter(e => !candByEmail.has(e) && !clientByEmail.has(e))
+    if (stillUnresolved.length > 0) {
+      const unresolvedSet = new Set(stillUnresolved)
+      let from = 0
+      const page = 1000
+      for (let i = 0; i < 4; i++) {
+        const { data: cls } = await supabase
+          .from('clients' as any)
+          .select('id, nom, contacts')
+          .not('contacts', 'is', null)
+          .range(from, from + page - 1)
+        const rows = (cls ?? []) as any[]
+        for (const cl of rows) {
+          // contacts peut être un array OU une string JSON (cf. parser fiche client)
+          let contacts: any[] = []
+          if (Array.isArray(cl.contacts)) contacts = cl.contacts
+          else if (typeof cl.contacts === 'string') { try { const p = JSON.parse(cl.contacts); if (Array.isArray(p)) contacts = p } catch { /* ignore */ } }
+          for (const ct of contacts) {
+            const ce = ct?.email ? norm(ct.email) : ''
+            if (ce && unresolvedSet.has(ce) && !clientByEmail.has(ce)) {
+              const contactName = [ct.prenom, ct.nom].filter(Boolean).join(' ').trim() || null
+              clientByEmail.set(ce, { entreprise: cl.nom ?? null, contact: contactName })
+            }
+          }
+        }
+        if (rows.length < page) break
+        from += page
+      }
+    }
+  }
+
+  // 4) Construit recipients[] par campagne
+  for (const c of result) {
+    c.recipients = c.destinataires.map((d): ResolvedRecipient => {
+      if (d.includes('@')) {
+        const e = norm(d)
+        const cand = candByEmail.get(e)
+        if (cand) return { value: d, kind: 'candidat', candidat: cand }
+        const cl = clientByEmail.get(e)
+        if (cl) return { value: d, kind: 'client', entreprise: cl.entreprise, contact: cl.contact }
+        return { value: d, kind: 'raw' }
+      }
+      const cand = candByPhone.get(phoneKey(d))
+      if (cand) return { value: d, kind: 'candidat', candidat: cand }
+      return { value: d, kind: 'raw' }
+    })
+  }
+
+  return NextResponse.json({ campagnes: result })
 }
 
 /**

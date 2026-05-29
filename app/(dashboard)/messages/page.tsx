@@ -2525,15 +2525,38 @@ function CreateTemplateForm({ onSuccess, initialTemplate }: { onSuccess: () => v
 // v1.9.68 : Historique global team — tous les envois du team sont visibles avec
 // "envoyé par X". Le bouton supprimer n'apparaît que sur les envois du user courant.
 
+// v2.9.78 — Destinataire résolu (téléphone/email → nom candidat ou entreprise)
+interface ResolvedRecipient {
+  value: string
+  kind: 'candidat' | 'client' | 'raw'
+  candidat?: { id: string; prenom: string | null; nom: string | null; pipeline_metier: string | null; cv_url: string | null; cv_nom_fichier: string | null }
+  entreprise?: string | null
+  contact?: string | null
+}
+
+// Libellé affichable d'un destinataire résolu
+function recipientLabel(r: ResolvedRecipient): string {
+  if (r.kind === 'candidat' && r.candidat) {
+    return `${r.candidat.prenom || ''} ${r.candidat.nom || ''}`.trim() || r.value
+  }
+  if (r.kind === 'client') {
+    const ent = r.entreprise || ''
+    return r.contact ? `${ent} (${r.contact})`.trim() : (ent || r.value)
+  }
+  return r.value
+}
+
 interface HistoriqueCampagne {
   campagne_id: string
   created_at: string
   sujet: string
   destinataires: string[]
   nb_destinataires: number
+  recipients?: ResolvedRecipient[]
   candidat_ids: string[]
   nb_candidats: number
-  candidats: { id: string; prenom: string | null; nom: string | null; cv_url?: string | null; cv_nom_fichier?: string | null }[]
+  candidats: { id: string; prenom: string | null; nom: string | null; cv_url?: string | null; cv_nom_fichier?: string | null; pipeline_metier?: string | null }[]
+  metier?: string | null
   client_nom: string | null
   cv_personnalise: boolean
   cv_urls_utilises: string[]
@@ -2552,6 +2575,236 @@ const CANAL_META: Record<HistoriqueCampagne['canal'], { label: string; icon: str
   imessage: { label: 'iMessage', icon: '💬', color: 'var(--primary)',  bg: 'var(--primary-soft)' },
   whatsapp: { label: 'WhatsApp', icon: '📱', color: 'var(--success)',  bg: 'var(--success-soft)' },
   sms:      { label: 'SMS',      icon: '📨', color: 'var(--warning)',  bg: 'var(--warning-soft)' },
+}
+
+// v2.9.78 — Bouton « Voir tous » + modal listant les candidats destinataires avec leur métier.
+function CandidatsRecipientsButton({ candidats }: { candidats: HistoriqueCampagne['candidats'] }) {
+  const [open, setOpen] = useState(false)
+  if (!candidats || candidats.length === 0) return null
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          padding: '4px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+          background: 'var(--secondary)', color: 'var(--foreground)',
+          border: '1px solid var(--border)', cursor: 'pointer',
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+        }}
+      >
+        Voir tous ({candidats.length})
+      </button>
+      {open && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+            fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 'min(560px, 95vw)', maxHeight: '82vh',
+              background: 'var(--card)', borderRadius: 16, border: '1px solid var(--border)',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.30)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <h2 style={{ fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif', fontSize: 22, fontWeight: 400, margin: 0, color: 'var(--foreground)' }}>
+                  Candidats destinataires
+                </h2>
+                <p style={{ fontSize: 12, color: 'var(--muted)', margin: '3px 0 0', fontWeight: 500 }}>
+                  {candidats.length} candidat{candidats.length > 1 ? 's' : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                style={{ width: 34, height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--foreground)' }}
+                title="Fermer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 18px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {candidats.map(cand => {
+                  const label = `${cand.prenom || ''} ${cand.nom || ''}`.trim() || '—'
+                  return (
+                    <a
+                      key={cand.id}
+                      href={`/candidats/${cand.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                        padding: '10px 12px', borderRadius: 10,
+                        background: 'var(--surface, var(--secondary))', border: '1px solid var(--border)',
+                        textDecoration: 'none', color: 'var(--foreground)',
+                      }}
+                    >
+                      <span style={{ fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                        👤 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+                      </span>
+                      <span style={{
+                        flexShrink: 0, fontSize: 11, fontWeight: 600,
+                        padding: '2px 9px', borderRadius: 99,
+                        background: cand.pipeline_metier ? 'var(--primary-soft)' : 'var(--secondary)',
+                        color: cand.pipeline_metier ? 'var(--primary)' : 'var(--muted)',
+                        border: '1px solid var(--border)',
+                      }}>
+                        {cand.pipeline_metier || 'Métier non assigné'}
+                      </span>
+                    </a>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
+// v2.9.78 — Pill d'un destinataire résolu (candidat cliquable + CV au survol, entreprise, ou brut)
+function RecipientPill({ r, cvHook }: { r: ResolvedRecipient; cvHook?: any }) {
+  const label = recipientLabel(r)
+  if (r.kind === 'candidat' && r.candidat) {
+    const cand = r.candidat
+    const pill = (
+      <a
+        href={`/candidats/${cand.id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`${label}${cand.pipeline_metier ? ' — ' + cand.pipeline_metier : ''} · ouvrir la fiche${cand.cv_url ? ' · survol = aperçu CV' : ''}`}
+        style={{
+          padding: '4px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+          background: 'var(--primary-soft)', color: 'var(--primary)',
+          border: '1px solid rgba(245,166,35,0.30)', textDecoration: 'none',
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+        }}
+      >👤 {label}</a>
+    )
+    return (cand.cv_url && cvHook) ? (
+      <CvHoverTrigger cvUrl={cand.cv_url} cvNomFichier={cand.cv_nom_fichier} candidatId={cand.id} hook={cvHook}>
+        {pill}
+      </CvHoverTrigger>
+    ) : pill
+  }
+  if (r.kind === 'client') {
+    return (
+      <span title={r.value} style={{
+        padding: '4px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+        background: 'var(--secondary)', color: 'var(--foreground)', border: '1px solid var(--border)',
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+      }}>🏢 {label}</span>
+    )
+  }
+  return (
+    <span title={r.value} style={{
+      padding: '4px 10px', borderRadius: 99, fontSize: 12,
+      background: 'var(--secondary)', color: 'var(--foreground)', border: '1px solid var(--border)', fontWeight: 500,
+    }}>{label}</span>
+  )
+}
+
+// v2.9.78 — Bouton « Voir tous » + modal listant tous les destinataires résolus (nom + métier/entreprise)
+function RecipientsModalButton({ recipients }: { recipients: ResolvedRecipient[] }) {
+  const [open, setOpen] = useState(false)
+  if (!recipients || recipients.length === 0) return null
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          padding: '4px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+          background: 'var(--secondary)', color: 'var(--foreground)',
+          border: '1px solid var(--border)', cursor: 'pointer',
+        }}
+      >
+        Voir tous ({recipients.length})
+      </button>
+      {open && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+            fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 'min(580px, 95vw)', maxHeight: '82vh',
+              background: 'var(--card)', borderRadius: 16, border: '1px solid var(--border)',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.30)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <h2 style={{ fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif', fontSize: 22, fontWeight: 400, margin: 0, color: 'var(--foreground)' }}>
+                  Destinataires
+                </h2>
+                <p style={{ fontSize: 12, color: 'var(--muted)', margin: '3px 0 0', fontWeight: 500 }}>
+                  {recipients.length} destinataire{recipients.length > 1 ? 's' : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                style={{ width: 34, height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--foreground)' }}
+                title="Fermer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 18px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {recipients.map((r, i) => {
+                  const label = recipientLabel(r)
+                  const rightBadge = r.kind === 'candidat'
+                    ? (r.candidat?.pipeline_metier || 'Métier non assigné')
+                    : (r.kind === 'client' ? 'Entreprise' : r.value)
+                  const inner = (
+                    <>
+                      <span style={{ fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                        {r.kind === 'candidat' ? '👤' : r.kind === 'client' ? '🏢' : '✉️'}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+                      </span>
+                      <span style={{
+                        flexShrink: 0, fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 99,
+                        background: r.kind === 'candidat' && r.candidat?.pipeline_metier ? 'var(--primary-soft)' : 'var(--secondary)',
+                        color: r.kind === 'candidat' && r.candidat?.pipeline_metier ? 'var(--primary)' : 'var(--muted)',
+                        border: '1px solid var(--border)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>{rightBadge}</span>
+                    </>
+                  )
+                  const rowStyle = {
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                    padding: '10px 12px', borderRadius: 10,
+                    background: 'var(--surface, var(--secondary))', border: '1px solid var(--border)',
+                    textDecoration: 'none', color: 'var(--foreground)',
+                  } as const
+                  return r.kind === 'candidat' && r.candidat ? (
+                    <a key={i} href={`/candidats/${r.candidat.id}`} target="_blank" rel="noopener noreferrer" style={rowStyle}>{inner}</a>
+                  ) : (
+                    <div key={i} style={rowStyle}>{inner}</div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  )
 }
 
 function HistoriqueTab() {
@@ -3479,11 +3732,12 @@ function EnvoisHubV2({ onCompose, onTemplates }: { onCompose: () => void; onTemp
             {campagnes.map(c => {
               const meta = CANAL_META[c.canal]
               const isSelected = selected?.campagne_id === c.campagne_id
-              // v2.1.15 — Affiche le CLIENT comme destinataire (pas le candidat).
-              //           Prio : client_nom > destinataires[0] > candidats[0] (fallback historique sans client).
-              const dest = c.client_nom
-                || c.destinataires[0]
-                || (c.candidats[0] ? `${c.candidats[0].prenom || ''} ${c.candidats[0].nom || ''}`.trim() : '—')
+              // v2.9.78 — Affiche un NOM (candidat ou entreprise) plutôt que le numéro/email brut.
+              //           Prio : 1er destinataire résolu > client_nom > 1er candidat proposé > brut.
+              const firstResolved = c.recipients?.find(r => r.kind !== 'raw')
+              const firstCandName = c.candidats[0] ? `${c.candidats[0].prenom || ''} ${c.candidats[0].nom || ''}`.trim() : ''
+              const dest = (firstResolved ? recipientLabel(firstResolved) : '')
+                || c.client_nom || firstCandName || c.destinataires[0] || '—'
               const more = (c.nb_destinataires || c.destinataires.length || 1) - 1
               return (
                 <div
@@ -3516,8 +3770,20 @@ function EnvoisHubV2({ onCompose, onTemplates }: { onCompose: () => void; onTemp
                         {fmtDate(c.created_at)}
                       </span>
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.sujet || '(sans sujet)'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, minWidth: 0 }}>
+                      {/* v2.9.78 — Métier ciblé par la campagne (chip), très utile pour les envois WhatsApp/iMessage */}
+                      {c.metier && (
+                        <span style={{
+                          flexShrink: 0, fontSize: 10.5, fontWeight: 700,
+                          padding: '1px 7px', borderRadius: 99,
+                          background: 'var(--primary-soft)', color: 'var(--primary)',
+                          border: '1px solid rgba(245,166,35,0.30)',
+                          maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>🛠 {c.metier}</span>
+                      )}
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.sujet || '(sans sujet)'}
+                      </span>
                     </div>
                     {c.corps_extract && (
                       <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -3587,6 +3853,19 @@ function EnvoisHubV2({ onCompose, onTemplates }: { onCompose: () => void; onTemp
                 <span>· {selected.nb_destinataires} destinataire{selected.nb_destinataires > 1 ? 's' : ''}</span>
               </div>
 
+              {/* v2.9.78 — Métier ciblé par la campagne (extrait du message) */}
+              {selected.metier && (
+                <div style={{ marginBottom: 14 }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    fontSize: 13, fontWeight: 700,
+                    padding: '5px 12px', borderRadius: 99,
+                    background: 'var(--primary-soft)', color: 'var(--primary)',
+                    border: '1px solid rgba(245,166,35,0.30)',
+                  }}>🛠 Métier recherché : {selected.metier}</span>
+                </div>
+              )}
+
               {/* v2.1.15 — Destinataires = CLIENT (entreprise + emails) + Candidats = JOINTS (séparés) */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
@@ -3605,24 +3884,18 @@ function EnvoisHubV2({ onCompose, onTemplates }: { onCompose: () => void; onTemp
                       🏢 {selected.client_nom}
                     </span>
                   )}
-                  {selected.destinataires.slice(0, 8).map((d, i) => (
-                    <span
-                      key={`dest-${i}`}
-                      title={d}
-                      style={{
-                        padding: '4px 10px', borderRadius: 99, fontSize: 12,
-                        background: 'var(--secondary)',
-                        color: 'var(--foreground)',
-                        border: '1px solid var(--border)',
-                        fontWeight: 500,
-                      }}
-                    >{d}</span>
-                  ))}
-                  {selected.destinataires.length > 8 && (
-                    <span style={{ padding: '4px 10px', fontSize: 12, color: 'var(--muted)' }}>
-                      +{selected.destinataires.length - 8}
-                    </span>
-                  )}
+                  {/* v2.9.78 — Destinataires résolus en NOMS (candidat cliquable / entreprise) au lieu du n°/email brut */}
+                  {(() => {
+                    const recips: ResolvedRecipient[] = (selected.recipients && selected.recipients.length > 0)
+                      ? selected.recipients
+                      : selected.destinataires.map(d => ({ value: d, kind: 'raw' as const }))
+                    return (
+                      <>
+                        {recips.slice(0, 8).map((r, i) => <RecipientPill key={`rcp-${i}`} r={r} cvHook={cvHook} />)}
+                        {recips.length > 8 && <RecipientsModalButton recipients={recips} />}
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
 
@@ -3660,11 +3933,8 @@ function EnvoisHubV2({ onCompose, onTemplates }: { onCompose: () => void; onTemp
                         </CvHoverTrigger>
                       ) : pill
                     })}
-                    {selected.candidats.length > 12 && (
-                      <span style={{ padding: '4px 10px', fontSize: 12, color: 'var(--muted)' }}>
-                        +{selected.candidats.length - 12}
-                      </span>
-                    )}
+                    {/* v2.9.78 — « Voir tous » → modal liste candidats + métier assigné */}
+                    <CandidatsRecipientsButton candidats={selected.candidats} />
                   </div>
                 </div>
               )}

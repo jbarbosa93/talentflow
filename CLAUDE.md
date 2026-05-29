@@ -105,7 +105,37 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.9.77** — 27/05/2026 (TalentFlow Mobile /m/* — modules complets)
+**v2.9.78** — 29/05/2026 (Pack 13 correctifs UX — notes, badges, photo, envois, mail, modaux)
+
+### v2.9.78 (29/05) — Pack correctifs UX (13 bugs)
+
+Session de correction de bugs remontés par João (dossier `Desktop/BUG TalentFlow`, 17 captures → 15 bugs distincts, 13 corrigés). Aucune nouvelle dépendance, aucune migration DB.
+
+**Fiche candidat** :
+- **Notes unifiées** : un seul bouton Notes (badge gris comme Documents, plus le bleu) → notes internes `notes_candidat` modifiables + survol, lié à la liste. 2e bouton bulle supprimé. Notes partagées (`shared_notes`) retirées de la fiche (client = portail). `SharedNotesModal` reste utilisé côté portail.
+- **Panneau Informations** : `createPortal(document.body)` (ne reste plus collé en haut — pattern #10).
+- **Boutons photo** : déplacés DANS la photo (bas, au survol via `.candidat-photo-wrap:hover .candidat-photo-actions`), photo 120→140px alignée à gauche, toolbar latérale retirée.
+- **Bouton Mail** : helper `lib/utils/open-mail.ts` (`openMail`) → copie l'email + toast d'aide Windows/Mac si pas d'app mail par défaut (heuristique `document.hasFocus()` après 1,2s). Câblé fiche + `MatchingContactModal`.
+
+**Liste candidats** (`CandidatsList.tsx`) :
+- **« Tout marquer vu » silencieux** : suppression du `queryClient.invalidateQueries(['candidats'])` (= clignotement). Mise à jour via `viewedSet` + `markTousVus(tous les ids visibles)`.
+- **Badges rouge ⟺ coloré couplés** : la pastille colorée s'affiche désormais SSI `isNewCandidat` (= hasBadge, même condition que le point rouge) → les deux apparaissent/disparaissent ensemble. Le fallback dérive `nouveau` (créé récemment) ou `mis_a_jour` (last_import > created+1j) → le badge vert « Nouveau » apparaît enfin.
+- **Modale WhatsApp en masse** : `createPortal(document.body)` (était coupée/sticky — pattern #10).
+
+**Historique envois** (`messages/page.tsx` + `api/emails/history`) :
+- Destinataires **résolus en noms** : par `candidat_ids`, sinon reverse-lookup candidat par **email** (`.in`) ou **téléphone** (9 derniers chiffres, pagination candidats), sinon **client** par email principal/contact (parsing `contacts` array OU string JSON). Affiche « Entreprise (Contact) » pour les emails clients.
+- **Métier ciblé** extrait du corps (`extractMetier`, regex « recherche d'un X pour ») → chip liste + badge panneau.
+- Pills candidat cliquables (fiche) + aperçu CV au survol (`CvHoverTrigger`). Bouton « Voir tous » → modal `RecipientsModalButton`/`CandidatsRecipientsButton`.
+- API : `pipeline_metier` ajouté au SELECT candidats + champ `recipients[]` + `metier`.
+
+**Divers** :
+- **Note rapport au survol** : `SubmissionHistoryTable` — tooltip portalisé (le `title` natif n'affichait pas les `\n`).
+- **Contact client via lien rapport** : `api/clients/[id]/add-contact` écrivait `firstName/lastName/phone/role` au lieu de `prenom/nom/telephone/fonction` → contact « sans nom ». Corrigé.
+- **CV original Word** (`CVCustomizer`) : `.doc/.docx` → viewer Office (avant `/api/cv/print` servait en `application/pdf` → erreur PDF).
+- **Croix modale doublon** (`ConfirmMatchModal`) : couleur `--foreground` (était `--muted-foreground` invisible en light).
+- **Job-Room** : identifiants prod configurés en env (`JOBROOM_USERNAME/PASSWORD` + API_URL prod). L'erreur 400 venait des creds de test staging.
+
+**Reportés (besoin input João)** : #11 Firefox télécharge le CV (probable réglage navigateur PDF, pas un bug code — fix pdf.js possible si confirmé) · #15 « badge manquant » (besoin d'un exemple précis).
 
 ### v2.9.77 (27/05) — TalentFlow Mobile : modules Sign détail/new + Missions + Rapports
 
