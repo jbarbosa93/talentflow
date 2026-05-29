@@ -4,6 +4,7 @@
 // Helpers partagés entre le rendu wizard et l'éditeur.
 
 import type { SignField, SignFieldType, SignFieldCondition } from './types'
+import { isPointageValue, pointageHours } from './pointage'
 
 /**
  * v2.2.4 — Mapping nom de jour → offset depuis lundi (0 = lundi, 6 = dimanche).
@@ -302,10 +303,55 @@ export function computeFormulaValue(
   if (sources.length === 0) return null
   const op = field.formulaOp || 'sum'
 
+  // v2.9.82 — Timbrage : sources = champs `time` (HH:MM) regroupés par JOUR de 4 champs
+  // dans l'ordre [Entrée, Pause début, Pause fin, Sortie]. Total = Σ jours en HEURES :
+  //   jour = (Sortie − Entrée) − (Pause fin − Pause début) si la pause est remplie, sinon 0.
+  // La pause vide n'est PAS déduite (jour = Sortie − Entrée). Un reliquat de 2 champs est
+  // traité comme [Entrée, Sortie] sans pause. Passage minuit géré (+24h).
+  if (op === 'worktime') {
+    const toMin = (v: unknown): number | null => {
+      if (typeof v !== 'string') return null
+      const m = v.match(/^(\d{1,2}):(\d{2})$/)
+      if (!m) return null
+      const h = Number(m[1]); const mi = Number(m[2])
+      if (h > 23 || mi > 59) return null
+      return h * 60 + mi
+    }
+    const span = (start: number, end: number) => { let d = end - start; if (d < 0) d += 24 * 60; return d }
+    let totalMin = 0
+    let i = 0
+    while (i < sources.length) {
+      const remaining = sources.length - i
+      if (remaining >= 4) {
+        const E = toMin(fieldValues[sources[i]])
+        const PD = toMin(fieldValues[sources[i + 1]])
+        const PF = toMin(fieldValues[sources[i + 2]])
+        const S = toMin(fieldValues[sources[i + 3]])
+        i += 4
+        if (E === null || S === null) continue          // jour incomplet → ignoré
+        let worked = span(E, S)
+        if (PD !== null && PF !== null) worked -= span(PD, PF)  // pause déduite seulement si remplie
+        totalMin += Math.max(0, worked)
+      } else if (remaining >= 2) {
+        const E = toMin(fieldValues[sources[i]])
+        const S = toMin(fieldValues[sources[i + 1]])
+        i += 2
+        if (E === null || S === null) continue
+        totalMin += span(E, S)
+      } else {
+        i += 1
+      }
+    }
+    return totalMin / 60
+  }
+
   const nums: number[] = []
   for (const id of sources) {
     const v = fieldValues[id]
     if (v === undefined || v === null || v === '') continue
+    // v2.9.82 — Champ pointeuse : la valeur est un objet → on additionne ses heures travaillées
+    // (permet « Total semaine » = sum des pointeuses des jours).
+    if (isPointageValue(v)) { nums.push(pointageHours(v)); continue }
     // v2.2.2 — Support checkbox : true=1, false=0 (permet "Nombre de cases cochées" via sum)
     if (typeof v === 'boolean') { nums.push(v ? 1 : 0); continue }
     // String "true"/"false" (sérialisations diverses) → idem

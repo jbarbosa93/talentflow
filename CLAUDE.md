@@ -105,7 +105,19 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.9.81** — 29/05/2026 (Fiche : Notes Clients lecture seule + fix notes portail bloquées)
+**v2.9.82** — 29/05/2026 (Rapports : Pointeuse timbrage GPS + email destinataire + annotation WhatsApp)
+
+### v2.9.82 (29/05) — Pointeuse (timbrage GPS) + email destinataire + annotation client
+
+- **Pointeuse** : nouveau type de champ `pointage` (templates rapport). Widget `PointageField` (`components/sign/PointageField.tsx`) : Début/Fin (input time + bouton « Maintenant ») + pauses dynamiques (début/fin) + total auto + GPS au Début/Fin. Logique pure dans `lib/sign/pointage.ts` (`pointageHours`, `pointageFilled`, `isPointageValue`) — importée serveur (pdf, field-helpers) + client. Valeur stockée en objet `{start,end,pauses[],startGps,endGps}` dans `field_values[id]`.
+- **Total semaine** : `computeFormulaValue` op `sum` détecte les valeurs pointeuse → additionne `pointageHours`. (Aussi : type `time` + op `worktime` ajoutés comme briques.)
+- **Création de champ en Wizard** : `WizardEditor` → bouton « ➕ Créer un nouveau champ » (avant : seulement assigner des champs du Mode Document). `createFieldInStep`.
+- **PDF** : `pointage`/`time` non tamponnés sur le corps (pattern : total via formule). Page annexe `appendTimbrageAnnex` dans `lib/report/pdf-generator.ts` (détail début/pauses/fin/GPS + total/jour + total semaine).
+- **Email destinataire interne** : colonne `report_links.notify_email` (migration `20260529_report_links_notify_email.sql`). PATCH `/api/admin/reports/[id]` accepte `notify_email`. Sign route (`api/reports/client/[token]/sign`) : `notify_email` prime sur créateur/ADMIN_EMAIL. UI : carte `NotifyEmailCard` sur `/sign/rapports/[id]`.
+- **Annotation WhatsApp client** : encadré explicatif sur `app/report/client/[token]/page.tsx` (bouton WhatsApp = transfert à un collègue, pas à L-Agence ; signer = en bas).
+- **Records `SignFieldType`** complétés (`time`+`pointage`) : FieldsCanvas ×2, docusign-import, FIELD_TYPE_LABELS, TemplateEditor TOOL_ICONS.
+
+### v2.9.81 (29/05) — Fiche : Notes Clients lecture seule + fix notes portail bloquées
 
 ### v2.9.81 (29/05) — Notes Clients (fiche, lecture seule) + fix chargement portail
 

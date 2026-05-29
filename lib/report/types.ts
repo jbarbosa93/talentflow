@@ -54,6 +54,9 @@ export interface ReportLink {
   status: ReportLinkStatus
   delivery_channel: ReportDeliveryChannel
   created_by: string | null
+  /** v2.9.82 — Email interne L-Agence qui reçoit le rapport finalisé (override du créateur).
+   *  NULL = comportement historique (email du créateur du lien, fallback ADMIN_EMAIL). */
+  notify_email?: string | null
   /** v2.7.1 — Mission liée. Si renseignée, les dates de mission sont synchronisées
    *  automatiquement sur report_link_clients (mission_start_date / mission_end_date)
    *  via le PATCH /api/missions/[id]. Permet aussi au form heures candidat de

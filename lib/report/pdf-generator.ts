@@ -18,6 +18,10 @@ import fs from 'fs'
 import path from 'path'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { stampPdf } from '@/lib/sign/pdf-stamp'
+import { computeFormulaValue } from '@/lib/sign/field-helpers'
+import { safePdfText } from '@/lib/sign/safe-text'
+import { pointageHours, type PointageValue } from '@/lib/sign/pointage'
+import type { SignField } from '@/lib/sign/types'
 import { uploadSignDocument, SIGN_BUCKET } from '@/lib/sign/storage'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import type { SignDocument, SignTemplate } from '@/lib/sign/types'
@@ -230,6 +234,9 @@ export async function generateReportPdf(
       })
       console.log('[report/pdf-generator] Audit header added:', currentBuf.length + 'B')
 
+      // ─── 2.6 : v2.9.82 — Page annexe « Détail des pointages » (si champs timbrage) ───
+      currentBuf = await appendTimbrageAnnex(currentBuf, doc, submission.field_values || {})
+
       // ─── 3a : Upload rapport ───
       const reportName = buildReportFilename(link, submission, candidat)
       const reportBlob = new Blob([currentBuf as BlobPart], { type: 'application/pdf' })
@@ -340,6 +347,96 @@ function buildCertFilename(link: ReportLink, submission: ReportSubmission, candi
   } catch {
     return 'certificat_signature.pdf'
   }
+}
+
+// ─── v2.9.82 — Page annexe « Détail des pointages » (timbrage) ────────────
+// Si le document contient des champs `time`, on ajoute une page récapitulant,
+// jour par jour (wizardSection), l'entrée / pause / sortie + total + position GPS.
+// Le tableau principal ne montre que le total ; le détail vit ici (auditable).
+async function appendTimbrageAnnex(
+  pdfBuffer: Uint8Array,
+  doc: SignDocument,
+  fieldValues: Record<string, unknown>,
+): Promise<Uint8Array> {
+  const pointageFields = (doc.fields || []).filter(f => f.type === 'pointage')
+  const timeFields = (doc.fields || []).filter(f => f.type === 'time')
+  if (pointageFields.length === 0 && timeFields.length === 0) return pdfBuffer
+
+  const pdf = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
+  const helv = await pdf.embedFont(StandardFonts.Helvetica)
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
+  const ink = rgb(0.11, 0.10, 0.08)
+  const grey = rgb(0.42, 0.45, 0.50)
+  const green = rgb(0.08, 0.50, 0.20)
+
+  let page = pdf.addPage([595, 842])
+  let y = 800
+  const draw = (txt: string, x: number, size: number, f = helv, color = ink) =>
+    page.drawText(safePdfText(txt), { x, y, size, font: f, color })
+  const newPageIfNeeded = (min = 70) => { if (y < min) { page = pdf.addPage([595, 842]); y = 800 } }
+  const fmtGps = (g?: { lat?: number; lng?: number; acc?: number }) =>
+    (g && typeof g.lat === 'number' && typeof g.lng === 'number')
+      ? `GPS ${g.lat.toFixed(5)}, ${g.lng.toFixed(5)} (+/-${g.acc ?? '?'} m)` : ''
+
+  draw('Détail des pointages', 40, 16, bold); y -= 10
+  page.drawLine({ start: { x: 40, y }, end: { x: 555, y }, thickness: 1, color: rgb(0.9, 0.78, 0.3) }); y -= 22
+
+  let grandTotal = 0
+
+  // ── Pointeuses (1 champ = 1 jour) ──
+  for (const f of pointageFields) {
+    newPageIfNeeded(110)
+    const day = (f.tooltip || f.label || f.wizardSection || 'Jour').toString()
+    const v = (fieldValues[f.id] && typeof fieldValues[f.id] === 'object')
+      ? fieldValues[f.id] as PointageValue : {} as PointageValue
+    draw(day, 40, 12, bold); y -= 16
+    draw(`Debut : ${v.start || '—'}`, 52, 10, helv)
+    const sg = fmtGps(v.startGps); if (sg) draw(sg, 300, 9, helv, grey)
+    y -= 14
+    for (let i = 0; i < (v.pauses || []).length; i++) {
+      const pz = v.pauses![i]
+      draw(`Pause ${i + 1} : ${pz.from || '—'} -> ${pz.to || '—'}`, 52, 10, helv); y -= 14
+      newPageIfNeeded(60)
+    }
+    draw(`Fin : ${v.end || '—'}`, 52, 10, helv)
+    const eg = fmtGps(v.endGps); if (eg) draw(eg, 300, 9, helv, grey)
+    y -= 14
+    const h = pointageHours(v); grandTotal += h
+    draw(`Total : ${h.toFixed(2)} h`, 52, 10, bold, green); y -= 20
+  }
+
+  // ── Champs heure simples (ancien modèle, regroupés par section) ──
+  if (timeFields.length > 0) {
+    const groups = new Map<string, SignField[]>()
+    for (const f of timeFields) {
+      const sec = (f.wizardSection || 'Heures').trim() || 'Heures'
+      if (!groups.has(sec)) groups.set(sec, [])
+      groups.get(sec)!.push(f)
+    }
+    for (const [day, fields] of groups) {
+      newPageIfNeeded(90)
+      draw(day, 40, 12, bold); y -= 16
+      for (const f of fields) {
+        const v = fieldValues[f.id]
+        draw(`• ${(f.tooltip || f.label || 'Heure')} : ${v ? String(v) : '—'}`, 52, 10, helv); y -= 14
+        newPageIfNeeded(60)
+      }
+      const total = computeFormulaValue(
+        { id: 'tmp', type: 'formula', formulaOp: 'worktime', formulaSourceIds: fields.map(f => f.id) } as unknown as SignField,
+        fieldValues,
+      )
+      if (total !== null) { grandTotal += total; draw(`Total : ${total.toFixed(2)} h`, 52, 10, bold, green); y -= 18 }
+      y -= 6
+    }
+  }
+
+  // ── Total général de la semaine ──
+  newPageIfNeeded(60)
+  y -= 6
+  page.drawLine({ start: { x: 40, y }, end: { x: 555, y }, thickness: 0.7, color: rgb(0.8, 0.8, 0.8) }); y -= 18
+  draw(`TOTAL SEMAINE : ${grandTotal.toFixed(2)} h`, 40, 13, bold, green)
+
+  return await pdf.save()
 }
 
 // ─── Ligne audit discrete sur la page 1 du rapport ────────────────────

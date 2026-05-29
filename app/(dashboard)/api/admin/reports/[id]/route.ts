@@ -124,6 +124,15 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       update.mission_id = body.mission_id || null
     }
 
+    // v2.9.82 — Email destinataire interne du rapport finalisé (override du créateur)
+    if (body.notify_email !== undefined) {
+      const e = (body.notify_email || '').toString().toLowerCase().trim()
+      if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+        return NextResponse.json({ error: 'Email destinataire invalide' }, { status: 400 })
+      }
+      update.notify_email = e || null
+    }
+
     // v2.9.79 — Changer le template du lien rapport (les nouveaux rapports utiliseront ce
     // template ; les soumissions déjà signées conservent leur ancien template, c'est voulu).
     if (typeof body.template_id === 'string' && body.template_id.trim()) {

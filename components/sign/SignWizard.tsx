@@ -17,6 +17,7 @@ import type { SignField, SignFieldType, SignDocument, SignAttachmentValue } from
 import type { WizardStep, WizardStepAttachment } from '@/lib/sign/wizard-builder'
 import { fieldsByStep } from '@/lib/sign/wizard-builder'
 import AttachmentField from './AttachmentField'
+import PointageField, { pointageFilled } from './PointageField'
 import FilePreviewModal from './FilePreviewModal'
 
 const AttachmentViewerModal = dynamic(() => import('./AttachmentViewerModal'), { ssr: false })
@@ -791,7 +792,7 @@ function GroupedFields({
     return (
       <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {fields.map(f => (
-          <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
+          <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
         ))}
       </div>
     )
@@ -849,7 +850,7 @@ function GroupedFields({
                 gap: 12,
               }}>
                 {g.fields.map(f => (
-                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} hideLabelIfEmpty />
+                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} hideLabelIfEmpty />
                 ))}
               </div>
             </div>
@@ -857,7 +858,7 @@ function GroupedFields({
             // Fields hors-section : empilage vertical normal
             <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {g.fields.map(f => (
-                <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
+                <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
               ))}
             </div>
           )
@@ -904,7 +905,7 @@ function GroupedFields({
               </div>
             )}
             {g.fields.map(f => (
-              <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
+              <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} />
             ))}
           </div>
         )
@@ -994,6 +995,8 @@ interface FieldRowProps {
   field: SignField
   value: unknown
   onChange: (v: unknown) => void
+  /** v2.9.82 — Setter brut (fieldId, value) pour stocker des clés annexes (ex: GPS du timbrage). */
+  onChangeRaw?: (fieldId: string, value: unknown) => void
   autoFill: AutoFill
   allValues?: Record<string, unknown>
   /** v2.7.6 — Si true et que le field n'a aucun label/tooltip explicite,
@@ -1006,7 +1009,7 @@ interface FieldRowProps {
   token?: string
 }
 
-function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpty, signatureDataUrl, onRequestSignature, token }: FieldRowProps) {
+function FieldRow({ field, value, onChange, onChangeRaw, autoFill, allValues, hideLabelIfEmpty, signatureDataUrl, onRequestSignature, token }: FieldRowProps) {
   const t = field.type as SignFieldType
   // v2.7.6 — Si on est dans une carte ET aucun libellé explicite (tooltip ET label vides
   // ou label = UUID DocuSign), on masque l'étiquette du field (la carte porte déjà le titre).
@@ -1265,6 +1268,66 @@ function FieldRow({ field, value, onChange, autoFill, allValues, hideLabelIfEmpt
           onChange={e => onChange(e.target.value)}
           style={inputStyle}
         />
+      </div>
+    )
+  }
+
+  // v2.9.82 — POINTEUSE (timbrage jour) : Début/Fin + pauses dynamiques + total auto + GPS
+  if (t === 'pointage') {
+    return (
+      <div>
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
+        <HelpText text={field.helpText} />
+        <PointageField value={value} onChange={v => onChange(v)} captureGps={field.captureGps} />
+      </div>
+    )
+  }
+
+  // v2.9.82 — TIME (heure HH:MM) — timbrage : saisie manuelle OU bouton « Maintenant » + GPS
+  if (t === 'time') {
+    const stringValue = typeof value === 'string' ? value : ''
+    const gps = allValues?.[`${field.id}__gps`] as { lat: number; lng: number; acc?: number; ts?: string } | undefined
+    const stampNow = () => {
+      const d = new Date()
+      const hh = String(d.getHours()).padStart(2, '0')
+      const mm = String(d.getMinutes()).padStart(2, '0')
+      onChange(`${hh}:${mm}`)
+      if (field.captureGps && onChangeRaw && typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => onChangeRaw(`${field.id}__gps`, {
+            lat: pos.coords.latitude, lng: pos.coords.longitude,
+            acc: Math.round(pos.coords.accuracy), ts: new Date().toISOString(),
+          }),
+          () => { /* refus ou GPS indispo : on garde l'heure sans position */ },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+        )
+      }
+    }
+    return (
+      <div>
+        {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
+        <HelpText text={field.helpText} />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input type="time" value={stringValue} onChange={e => onChange(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+          {field.timbrageButton && (
+            <button
+              type="button"
+              onClick={stampNow}
+              style={{
+                flexShrink: 0, padding: '10px 14px', borderRadius: 10,
+                border: '1.5px solid #15803D', background: '#15803D', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+              }}
+            >
+              ⏱ Maintenant
+            </button>
+          )}
+        </div>
+        {field.captureGps && (
+          <div style={{ fontSize: 10.5, color: gps ? '#15803D' : '#9CA3AF', marginTop: 4 }}>
+            {gps ? `📍 Position enregistrée (±${gps.acc ?? '?'} m)` : '📍 La position sera enregistrée au moment du timbrage'}
+          </div>
+        )}
       </div>
     )
   }
@@ -1593,6 +1656,7 @@ function isFieldFilled(
   }
   if (t === 'annotation') return true
   if (t === 'formula') return true  // calcul auto, toujours "rempli" même si 0
+  if (t === 'pointage') return pointageFilled(value)  // v2.9.82 — rempli si Début + Fin
   // v2.9.23 — Pièce jointe : remplie si au moins un fichier chargé
   if (t === 'attachment') {
     const v = value as { files?: unknown[] } | undefined

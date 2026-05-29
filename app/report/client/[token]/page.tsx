@@ -594,6 +594,14 @@ export default function PublicClientReportPage({
               📱 WhatsApp
             </button>
           </div>
+          {/* v2.9.82 — Clarifie le rôle du bouton WhatsApp (les clients croyaient renvoyer à L-Agence) */}
+          <p style={{
+            margin: '10px 0 0', fontSize: 12, lineHeight: 1.5,
+            color: '#6B7280', background: '#F0FDF4', border: '1px solid #BBF7D0',
+            borderRadius: 8, padding: '8px 10px',
+          }}>
+            💡 Le bouton <strong style={{ color: '#15803D' }}>WhatsApp</strong> sert à <strong>transférer ce rapport à un collègue de votre entreprise</strong> (ex. le chef de secteur) pour qu&apos;il valide les heures. <strong>Pour valider, signez en bas de la page.</strong>
+          </p>
         </div>
       )}
 

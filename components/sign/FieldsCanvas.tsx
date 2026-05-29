@@ -65,6 +65,8 @@ export const DEFAULT_FIELD_SIZE_PCT: Record<SignFieldType, { w: number; h: numbe
   // Entrées
   text:       { w: 0.22, h: 0.025 },
   number:     { w: 0.12, h: 0.025 },
+  time:       { w: 0.12, h: 0.025 },
+  pointage:   { w: 0.12, h: 0.025 },
   checkbox:   { w: 0.022, h: 0.016 },
   select:     { w: 0.20, h: 0.025 },
   annotation: { w: 0.30, h: 0.030 },
@@ -88,6 +90,8 @@ export const PLACEHOLDER: Record<SignFieldType, string> = {
   // Entrées
   text:       'Texte',
   number:     '0',
+  time:       'HH:MM',
+  pointage:   'Pointeuse',
   checkbox:   '',
   select:     'Sélectionner',
   annotation: 'Aide pour le signataire',

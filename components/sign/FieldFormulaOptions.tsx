@@ -22,6 +22,7 @@ const OP_LABELS: Record<NonNullable<SignField['formulaOp']>, string> = {
   avg: 'Moyenne',
   min: 'Minimum',
   max: 'Maximum',
+  worktime: 'Heures travaillées (timbrage HH:MM)',
 }
 
 const labelStyle: React.CSSProperties = {
@@ -52,7 +53,7 @@ export default function FieldFormulaOptions({ field, allRecipientFields, onUpdat
   // Inclut checkbox (compte true=1, false=0) en plus de number/text/formula.
   const eligibleFields = allRecipientFields.filter(f =>
     f.id !== field.id &&
-    (f.type === 'number' || f.type === 'text' || f.type === 'formula' || f.type === 'checkbox')
+    (f.type === 'number' || f.type === 'text' || f.type === 'formula' || f.type === 'checkbox' || f.type === 'time')
   )
   const sourceIds = field.formulaSourceIds || []
   const op = field.formulaOp || 'sum'
@@ -73,7 +74,7 @@ export default function FieldFormulaOptions({ field, allRecipientFields, onUpdat
           onChange={e => onUpdate({ formulaOp: e.target.value as SignField['formulaOp'] })}
           style={inputStyle}
         >
-          {(['sum', 'sub', 'mul', 'avg', 'min', 'max'] as const).map(o => (
+          {(['sum', 'sub', 'mul', 'avg', 'min', 'max', 'worktime'] as const).map(o => (
             <option key={o} value={o}>{OP_LABELS[o]}</option>
           ))}
         </select>

@@ -23,6 +23,7 @@ import type { SignField, SignFieldType, SignAttachmentValue } from '@/lib/sign/t
 import { formatDate } from '@/lib/sign/pdf-stamp'
 import { effectiveCheckedState, effectiveFieldState, computeFormulaValue, formatFormulaValue, looksLikePhoneField, isCandidatePhoneField } from '@/lib/sign/field-helpers'
 import AttachmentField from './AttachmentField'
+import PointageField, { pointageFilled } from './PointageField'
 
 interface Props {
   page: number
@@ -678,6 +679,46 @@ function FieldInput({
     )
   }
 
+  // ─── POINTEUSE (timbrage jour) ───
+  // v2.9.82 — Widget composite (Début/Fin + pauses + total + GPS). En mode Document le
+  // champ a une petite boîte ; on laisse le widget déborder vers le bas (largeur fixe).
+  if (t === 'pointage') {
+    return (
+      <div style={{ position: 'absolute', top: 0, left: 0, width: 300, zIndex: 5 }}>
+        <PointageField value={value} onChange={v => onChange(v)} captureGps={field.captureGps} />
+        {tooltipBubble}
+      </div>
+    )
+  }
+
+  // ─── TIME (heure HH:MM — timbrage) ───
+  // v2.9.82 — Mode Document (desktop) : simple input heure. Le bouton « Timbrer
+  // maintenant » + GPS riche est géré dans le Mode Wizard (mobile candidat).
+  if (t === 'time') {
+    const tv = value !== undefined && value !== null ? String(value) : ''
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <input
+          ref={el => { inputRef.current = el }}
+          type="time"
+          value={tv}
+          onChange={e => onChange(e.target.value)}
+          onFocus={showOnFocus}
+          onBlur={hideOnBlur}
+          readOnly={!!field.readOnly}
+          style={{
+            width: '100%', height: '100%', minHeight: 0, boxSizing: 'border-box',
+            WebkitAppearance: 'none', appearance: 'none', margin: 0,
+            background: bgColor, border: `1px solid ${borderColor}`, borderRadius: 2,
+            fontSize: Math.min(heightPx * 0.55, 13), color: '#1C1A14',
+            padding: '0 6px', fontFamily: 'inherit', outline: 'none',
+          }}
+        />
+        {tooltipBubble}
+      </div>
+    )
+  }
+
   // ─── FORMULE (calcul automatique, lecture seule) ───
   // v2.9.22 — Avant : `formula` tombait dans le fallback input texte → le
   // candidat voyait un champ éditable et pouvait écraser le calcul. Maintenant :
@@ -899,6 +940,7 @@ function isFieldFilled(
   }
   if (t === 'annotation') return true // toujours "rempli" (informatif)
   if (t === 'formula') return true // calcul auto
+  if (t === 'pointage') return pointageFilled(value) // v2.9.82 — rempli si Début + Fin
   // v2.9.23 — Pièce jointe : remplie si au moins un fichier chargé
   if (t === 'attachment') {
     const v = value as { files?: unknown[] } | undefined

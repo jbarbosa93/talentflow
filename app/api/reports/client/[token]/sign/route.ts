@@ -175,6 +175,14 @@ export async function POST(
   } catch (e) {
     console.error('[REPORT SIGN] getUserById exception:', e instanceof Error ? e.message : String(e))
   }
+  // v2.9.82 — Override explicite : si notify_email est renseigné sur le lien, il PRIME
+  // sur le créateur / ADMIN_EMAIL (modifiable depuis la fiche du lien rapport).
+  const notifyOverride = (link as { notify_email?: string | null }).notify_email
+  if (notifyOverride && typeof notifyOverride === 'string' && notifyOverride.trim()) {
+    creatorEmail = notifyOverride.trim()
+    creatorEmailSource = 'created_by_user'
+    console.log('[REPORT SIGN] notify_email override actif:', creatorEmail)
+  }
   console.log('[REPORT SIGN] Final creatorEmail:', creatorEmail || 'EMPTY', '— source:', creatorEmailSource)
 
   console.log('[REPORT SIGN] Delivery channel:', link.delivery_channel)

@@ -375,6 +375,11 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
           break
         }
 
+        case 'time':       // v2.9.82 — heure HH:MM (timbrage) : NON tamponnée sur le corps
+        case 'pointage':   // v2.9.82 — pointeuse : NON tamponnée (détail en page annexe)
+          // (sinon les champs s'empilent sur le tableau). Le détail va dans la page
+          // annexe « Détail des pointages » ; seul le total (formule) est tamponné.
+          break
         case 'text':
         case 'number': {
           const v = opts.fieldValues[f.id]

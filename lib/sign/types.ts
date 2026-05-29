@@ -39,6 +39,8 @@ export type SignFieldType =
   // ENTRÉES
   | 'text'        // TextTab — texte libre
   | 'number'      // NumberTab — champ numérique avec min/max/décimales
+  | 'time'        // v2.9.82 — Heure simple HH:MM (+ bouton Maintenant / GPS optionnel)
+  | 'pointage'    // v2.9.82 — Pointeuse jour : Début/Fin + pauses dynamiques + total auto + GPS
   | 'checkbox'    // CheckboxTab
   | 'select'      // ListTab — liste déroulante
   | 'annotation'  // NoteTab — aide contextuelle (pas un champ à remplir)
@@ -90,12 +92,20 @@ export interface SignField {
   // Formule (calcul) — v2.2.0 (legacy free-text expression)
   formulaExpression?: string   // ex: "[Salaire1] + [Salaire2]" ou "[Quantité] * [Prix]"
   // v2.2.1 — Formule structurée (préférable au free-text car plus simple à éditer)
-  /** Opération à appliquer aux champs sources */
-  formulaOp?: 'sum' | 'avg' | 'mul' | 'min' | 'max' | 'sub'
+  /** Opération à appliquer aux champs sources.
+   *  v2.9.82 — 'worktime' : sources = champs `time` (HH:MM) groupés par paires
+   *  [début, fin, début, fin, …] → somme des (fin − début) en HEURES décimales.
+   *  Pour un jour avec pause : [Entrée, Pause début, Pause fin, Sortie]. */
+  formulaOp?: 'sum' | 'avg' | 'mul' | 'min' | 'max' | 'sub' | 'worktime'
   /** IDs des champs sources (number ou formula). L'ordre est respecté pour 'sub' (a - b - c). */
   formulaSourceIds?: string[]
   /** Nombre de décimales pour l'affichage du résultat (default 2) */
   formulaDecimals?: number
+  // v2.9.82 — Champ `time` (timbrage)
+  /** Si true, propose un bouton « Timbrer maintenant » (remplit l'heure courante). */
+  timbrageButton?: boolean
+  /** Si true, capture la position GPS au moment du timbrage (consentement navigateur). */
+  captureGps?: boolean
   // Pièce jointe
   attachmentMaxSizeMb?: number
   attachmentMimeTypes?: string[]  // ['application/pdf', 'image/jpeg']
@@ -617,6 +627,8 @@ export const FIELD_TYPE_LABELS: Record<SignFieldType, string> = {
   // Entrées
   text:       'Texte',
   number:     'Numéro',
+  time:       'Heure (HH:MM)',
+  pointage:   'Pointeuse (timbrage)',
   checkbox:   'Case à cocher',
   select:     'Liste',
   annotation: 'Annotation',

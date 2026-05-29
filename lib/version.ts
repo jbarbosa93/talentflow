@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.81'
+export const APP_VERSION = '2.9.82'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.82 — Rapports : Pointeuse (timbrage GPS) + email destinataire + annotation WhatsApp
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.82',
+    date: '2026-05-29',
+    label: 'Rapports : Pointeuse (timbrage GPS), email destinataire modifiable, annotation client WhatsApp',
+    features: [
+      'POINTEUSE (TIMBRAGE) — Nouveau type de champ « Pointeuse » pour les templates rapport : le candidat saisit Début / Fin (modifiable à la main OU bouton « Maintenant »), ajoute autant de pauses qu\'il veut (début/fin), et le TOTAL d\'heures se calcule automatiquement. GPS capturé au Début et à la Fin (preuve de présence). Remplissable à tout moment (le candidat peut tout saisir en fin de semaine). Opt-in : n\'apparaît que sur les templates où on l\'ajoute, zéro impact sur l\'existant.',
+      'CRÉATION DE CHAMP EN MODE WIZARD — On peut désormais créer un nouveau champ directement dans l\'éditeur Wizard (avant : seulement assigner des champs déjà placés en Mode Document). Indispensable pour bâtir un formulaire 100% wizard.',
+      'PAGE ANNEXE « DÉTAIL DES POINTAGES » — Le PDF du rapport garde le tableau propre (total par jour) + une page annexe liste chaque jour : Début, pauses, Fin, GPS, total, + total semaine. Auditable.',
+      'EMAIL DESTINATAIRE INTERNE MODIFIABLE — Sur chaque fiche de lien rapport, on peut désormais changer l\'email L-Agence qui reçoit le rapport finalisé (avant : toujours le créateur du lien). Modifiable même sur les liens déjà existants. NULL = créateur (comportement historique).',
+      'ANNOTATION WHATSAPP CÔTÉ CLIENT — Sur la page de validation client, un encadré explique que le bouton WhatsApp sert à transférer le rapport à un collègue de l\'entreprise (ex. chef de secteur) pour validation — pour signer, c\'est en bas de page. Évite la confusion.',
+      'Champ « Heure (HH:MM) » + opérateur de formule « Heures travaillées » également disponibles (briques réutilisables).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.81 — Notes Clients (fiche, lecture seule) + fix chargement notes portail
   // ─────────────────────────────────────────────────────────────────────

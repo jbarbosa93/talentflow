@@ -13,7 +13,7 @@ import {
   PenLine, Type, CheckSquare, Calendar, List as ListIcon, Trash2, Files,
   StickyNote, Plus, Hash, Mail, Building2, Briefcase, User, IdCard,
   Sigma, Paperclip, Pencil, Check as CheckIcon, X as XIcon, Eye,
-  Sparkles, Search, FilePlus, ArrowUp, ArrowDown, AlertTriangle, Layers,
+  Sparkles, Search, FilePlus, ArrowUp, ArrowDown, AlertTriangle, Layers, Clock,
 } from 'lucide-react'
 // v2.7.6 — Import partagé du modal "Champs orphelins" (défini dans WizardEditor, réutilisé ici)
 import { OrphanFieldsModal } from './WizardEditor'
@@ -85,6 +85,8 @@ const TOOL_ICONS: Record<SignFieldType, typeof PenLine> = {
   title:      Briefcase,
   text:       Type,
   number:     Hash,
+  time:       Clock,
+  pointage:   Clock,
   checkbox:   CheckSquare,
   select:     ListIcon,
   annotation: StickyNote,

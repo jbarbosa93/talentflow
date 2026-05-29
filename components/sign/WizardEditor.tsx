@@ -81,6 +81,8 @@ interface Props {
 const FIELD_TYPE_OPTIONS: { value: SignFieldType; label: string }[] = [
   { value: 'text',     label: 'Texte libre' },
   { value: 'number',   label: 'Nombre' },
+  { value: 'pointage', label: '⏱ Pointeuse (timbrage jour : début/pauses/fin)' },
+  { value: 'time',     label: 'Heure simple (HH:MM)' },
   { value: 'date',     label: 'Date' },
   { value: 'checkbox', label: 'Case Oui/Non' },
   { value: 'select',   label: 'Liste déroulante' },
@@ -577,6 +579,45 @@ export default function WizardEditor({
     }))
     markDirty()
     toast.success('Champ dupliqué')
+  }
+
+  // v2.9.82 — Crée un NOUVEAU champ directement dans une étape Wizard (sans passer par
+  // le Mode Document). Indispensable pour bâtir un formulaire 100% wizard (ex: timbrage).
+  // Position auto-décalée verticalement pour que le stamping PDF ne superpose pas tout.
+  const createFieldInStep = (stepIdx: number, type: SignFieldType) => {
+    const step = steps[stepIdx]
+    if (!step) { toast.error('Sélectionne une étape d\'abord'); return }
+    const newId = 'fld_' + Math.random().toString(36).slice(2, 11)
+    const label = FIELD_TYPE_OPTIONS.find(o => o.value === type)?.label || 'Champ'
+    const existingCount = documents[0]?.fields?.length ?? 0
+    const newField: SignField = {
+      id: newId,
+      type,
+      page: 1,
+      x: 0.08,
+      y: Math.min(0.92, 0.08 + (existingCount % 28) * 0.03),
+      width: type === 'signature' ? 0.3 : 0.2,
+      height: type === 'signature' ? 0.1 : 0.025,
+      recipientOrder: activeRole,
+      label,
+      source: 'manual',
+      // Pré-active le bouton Timbrer + GPS pour les champs heure / pointeuse
+      ...(type === 'time' ? { timbrageButton: true, captureGps: true } : {}),
+      ...(type === 'pointage' ? { captureGps: true } : {}),
+    }
+    setDocuments(prev => {
+      if (prev.length === 0) {
+        return [{ id: 'doc_' + newId, name: 'Formulaire', order: 0, fields: [newField] } as unknown as SignDocument]
+      }
+      const next = prev.slice()
+      const doc = { ...next[0] }
+      doc.fields = [...(doc.fields || []), newField]
+      next[0] = doc
+      return next
+    })
+    setSteps(prev => prev.map((s, i) => i === stepIdx ? { ...s, fieldIds: [...s.fieldIds, newId] } : s))
+    markDirty()
+    toast.success(`Champ « ${label} » créé`)
   }
 
   // ─── v2.9.21 — Gestion des sections (wizardSection) ─────────────────────
@@ -1161,6 +1202,7 @@ export default function WizardEditor({
               onReorderFieldInStep={(from, to) => reorderFieldInStep(selectedStepIdx, from, to)}
               onRemoveFieldFromStep={(fid) => removeFieldFromStep(selectedStepIdx, fid)}
               onAddFieldToStep={(fid) => addFieldToStep(selectedStepIdx, fid)}
+              onCreateField={(type) => createFieldInStep(selectedStepIdx, type)}
               onDuplicateField={(fid) => duplicateFieldInStep(selectedStepIdx, fid)}
               onMoveFieldToStep={(fid, targetIdx) => addFieldToStep(targetIdx, fid)}
               onDeleteFields={deleteFieldsById}
@@ -1290,6 +1332,8 @@ interface StepDetailProps {
   onReorderFieldInStep: (from: number, to: number) => void
   onRemoveFieldFromStep: (fieldId: string) => void
   onAddFieldToStep: (fieldId: string) => void
+  /** v2.9.82 — Crée un NOUVEAU champ (du type donné) directement dans l'étape */
+  onCreateField: (type: SignFieldType) => void
   onDuplicateField: (fieldId: string) => void
   /** v2.2.4 — Déplacer un field vers une autre étape du même rôle */
   onMoveFieldToStep: (fieldId: string, targetStepIdx: number) => void
@@ -1307,7 +1351,7 @@ function StepDetail({
   templateId, setDocuments,
   onUpdateStep, onPatchIntroContent, onMoveStep, onDeleteStep, onMergeNext, onSplitAt,
   onUpdateField, onMoveFieldInStep, onReorderFieldInStep, onRemoveFieldFromStep, onAddFieldToStep,
-  onDuplicateField, onMoveFieldToStep, onDeleteFields,
+  onCreateField, onDuplicateField, onMoveFieldToStep, onDeleteFields,
   collapsedSections, onToggleSectionCollapse, onRegroupBySection,
 }: StepDetailProps) {
   const [showAddPicker, setShowAddPicker] = useState(false)
@@ -1490,12 +1534,37 @@ function StepDetail({
             border: '1px solid var(--border)',
             borderRadius: 8,
             background: 'var(--surface)',
-            maxHeight: 200,
+            maxHeight: 320,
             overflowY: 'auto',
           }}>
+            {/* v2.9.82 — Créer un NOUVEAU champ directement (formulaire 100% wizard, ex: timbrage) */}
+            <div style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                ➕ Créer un nouveau champ
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {FIELD_TYPE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => { onCreateField(opt.value); setShowAddPicker(false) }}
+                    style={{
+                      padding: '5px 9px', borderRadius: 7, fontSize: 11.5, fontWeight: 600,
+                      border: '1px solid var(--border)', background: 'var(--card)',
+                      color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    + {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Ou placer un champ existant
+            </div>
             {availableFields.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>
-                Tous les champs du destinataire sont déjà placés.
+                Aucun champ existant à placer — utilise « Créer un nouveau champ » ci-dessus.
               </div>
             ) : availableFields.map(f => (
               <button
@@ -2329,6 +2398,49 @@ function FieldEditor({
                   Verrouiller (lecture seule)
                 </label>
               )}
+            </div>
+          )}
+
+          {/* v2.9.82 — Options du champ Heure simple */}
+          {field.type === 'time' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--foreground)' }}>
+                <input
+                  type="checkbox"
+                  checked={!!field.timbrageButton}
+                  onChange={e => onUpdate({ timbrageButton: e.target.checked || undefined })}
+                  style={{ width: 14, height: 14, accentColor: '#15803D', cursor: 'pointer' }}
+                />
+                ⏱ Bouton « Timbrer maintenant » (remplit l&apos;heure courante)
+              </label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--foreground)' }}>
+                <input
+                  type="checkbox"
+                  checked={!!field.captureGps}
+                  onChange={e => onUpdate({ captureGps: e.target.checked || undefined })}
+                  style={{ width: 14, height: 14, accentColor: '#15803D', cursor: 'pointer' }}
+                />
+                📍 Capturer la position GPS au timbrage
+              </label>
+            </div>
+          )}
+
+          {/* v2.9.82 — Options du champ Pointeuse (le widget gère début/pauses/fin) */}
+          {field.type === 'pointage' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                Le candidat saisit Début / Fin + ajoute ses pauses. Total calculé automatiquement.
+                Astuce : nomme ce champ par le jour (ex. « Lundi »).
+              </div>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--foreground)' }}>
+                <input
+                  type="checkbox"
+                  checked={!!field.captureGps}
+                  onChange={e => onUpdate({ captureGps: e.target.checked || undefined })}
+                  style={{ width: 14, height: 14, accentColor: '#15803D', cursor: 'pointer' }}
+                />
+                📍 Capturer la position GPS (au Début et à la Fin)
+              </label>
             </div>
           )}
 

@@ -444,6 +444,11 @@ export default function ReportLinkDetailPage({
         <ReportTemplateCard link={link} onChanged={fetchData} />
       )}
 
+      {/* v2.9.82 — Card "Email destinataire interne" : qui reçoit le rapport finalisé chez L-Agence */}
+      {link && (
+        <NotifyEmailCard link={link} onChanged={fetchData} />
+      )}
+
       {/* v2.4.3 — InfoCards CANDIDAT uniquement (les coords client vivent désormais
           dans la section "Entreprises autorisées" en bas de page). */}
       <div style={{
@@ -663,6 +668,81 @@ function UseClientPortalToggle({ link, onChanged }: {
       >
         {saving ? '…' : enabled ? 'Désactiver' : 'Activer'}
       </button>
+    </div>
+  )
+}
+
+// v2.9.82 — Card : email interne L-Agence qui reçoit le rapport finalisé.
+// Par défaut = créateur du lien ; modifiable ici même sur les liens existants.
+function NotifyEmailCard({ link, onChanged }: { link: ReportLink; onChanged: () => void }) {
+  const current = ((link as { notify_email?: string | null }).notify_email || '').trim()
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [val, setVal] = useState(current)
+
+  const save = async () => {
+    const e = val.trim().toLowerCase()
+    if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { toast.error('Email invalide'); return }
+    setSaving(true)
+    try {
+      const r = await fetch(`/api/admin/reports/${link.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notify_email: e }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Erreur')
+      toast.success(e ? `Rapports envoyés à ${e}` : 'Rétabli au créateur du lien')
+      setEditing(false)
+      onChanged()
+    } catch (e: any) { toast.error(e.message || 'Erreur') } finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{
+      marginTop: 12, padding: 14, borderRadius: 10,
+      border: '1px solid var(--border)', background: 'var(--surface)',
+      display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap',
+    }}>
+      <div style={{ fontSize: 22, lineHeight: 1 }}>📨</div>
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+          Email destinataire (interne L-Agence)
+        </div>
+        {!editing ? (
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
+            Le rapport finalisé est envoyé à : <strong style={{ color: 'var(--foreground)' }}>{current || 'le créateur du lien (par défaut)'}</strong>
+          </div>
+        ) : (
+          <div style={{ marginTop: 8 }}>
+            <input
+              type="email"
+              value={val}
+              onChange={e => setVal(e.target.value)}
+              placeholder="email@l-agence.ch (vide = créateur du lien)"
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }}
+            />
+          </div>
+        )}
+      </div>
+      {!editing ? (
+        <button
+          onClick={() => { setVal(current); setEditing(true) }}
+          style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--foreground)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          Modifier
+        </button>
+      ) : (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={save} disabled={saving}
+            style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #EAB308', background: '#EAB308', color: '#1c1a14', fontSize: 12.5, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1, fontFamily: 'inherit' }}>
+            {saving ? '…' : 'Enregistrer'}
+          </button>
+          <button onClick={() => setEditing(false)} disabled={saving}
+            style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--foreground)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Annuler
+          </button>
+        </div>
+      )}
     </div>
   )
 }

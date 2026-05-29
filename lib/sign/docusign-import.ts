@@ -170,6 +170,8 @@ const DEFAULT_TAB_DIMS: Record<SignFieldType, { w: number; h: number }> = {
   // Entrées
   text:       { w: 180, h: 22 },
   number:     { w: 100, h: 22 },
+  time:       { w: 100, h: 22 },
+  pointage:   { w: 100, h: 22 },
   checkbox:   { w: 16,  h: 16 },
   select:     { w: 180, h: 22 },
   annotation: { w: 220, h: 24 },
