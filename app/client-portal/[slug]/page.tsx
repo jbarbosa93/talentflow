@@ -259,7 +259,7 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
                     margin: '4px 0 0', fontSize: 11.5, color: '#6B7280',
                     textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700,
                   }}>
-                    Portail Collaborateurs · L-Agence SA
+                    Portail Collaborateurs
                   </p>
                 </div>
               </div>
