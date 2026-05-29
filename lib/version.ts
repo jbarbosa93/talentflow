@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.80'
+export const APP_VERSION = '2.9.81'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.81 — Notes Clients (fiche, lecture seule) + fix chargement notes portail
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.81',
+    date: '2026-05-29',
+    label: 'Fiche candidat : section « Notes Clients » + fix notes portail bloquées',
+    features: [
+      'NOTES CLIENTS (FICHE, LECTURE SEULE) — Nouveau bouton « Notes Clients » sur la fiche candidat : affiche en lecture seule les notes échangées avec le client via le portail, chacune avec le NOM DE L\'ENTREPRISE et la DATE. Complète la séparation v2.9.78 (le bouton « Notes » reste 100% interne ; les notes client, postées sur le portail, sont désormais consultables ici).',
+      'FIX NOTES PORTAIL BLOQUÉES SUR « CHARGEMENT… » — Le modal de notes partagées (portail client + fiche) bouclait à l\'infini car la prop onCountChange (fonction inline) recréait le fetch à chaque render. Stabilisé via une ref → le chargement se termine correctement.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.80 — Portails : copier le lien d'invitation (pour WhatsApp)
   // ─────────────────────────────────────────────────────────────────────

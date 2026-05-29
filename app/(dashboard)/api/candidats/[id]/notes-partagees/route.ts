@@ -22,7 +22,22 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     .eq('candidat_id', id)
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
-  return NextResponse.json({ notes: data || [] })
+
+  // v2.9.80 — Enrichit chaque note avec le nom de l'entreprise (clients.nom) pour
+  // l'affichage « Notes Clients » côté fiche candidat.
+  const notes = (data || []) as any[]
+  const clientIds = [...new Set(notes.map(n => n.client_id).filter(Boolean))] as string[]
+  if (clientIds.length > 0) {
+    const { data: clients } = await admin
+      .from('clients' as any)
+      .select('id, nom')
+      .in('id', clientIds)
+    const byId = new Map((clients || []).map((c: any) => [c.id, c.nom]))
+    for (const n of notes) n.entreprise = n.client_id ? (byId.get(n.client_id) || null) : null
+  } else {
+    for (const n of notes) n.entreprise = null
+  }
+  return NextResponse.json({ notes })
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

@@ -4,7 +4,7 @@
 //   - Dashboard admin : posts en tant que 'consultant' (auth user)
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Send, Loader2, MessageSquare, User, Briefcase, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -47,6 +47,12 @@ export default function SharedNotesModal(props: Props) {
     ? `/api/client-portal/${props.slug}/candidats/${props.candidatId}/notes`
     : `/api/candidats/${props.candidatId}/notes-partagees`
 
+  // v2.9.80 — onCountChange via ref : la prop est souvent une fonction inline (nouvelle
+  // référence à chaque render). Si on la met dans les deps de fetchNotes, l'effet boucle
+  // à l'infini → re-fetch permanent → modal bloqué sur « Chargement… ». La ref la stabilise.
+  const onCountChangeRef = useRef(props.onCountChange)
+  useEffect(() => { onCountChangeRef.current = props.onCountChange })
+
   const fetchNotes = useCallback(async () => {
     setLoading(true)
     try {
@@ -54,12 +60,12 @@ export default function SharedNotesModal(props: Props) {
       const d = await r.json()
       if (r.ok) {
         setNotes(d.notes || [])
-        props.onCountChange?.(d.notes?.length || 0)
+        onCountChangeRef.current?.(d.notes?.length || 0)
       }
     } finally {
       setLoading(false)
     }
-  }, [apiBase, props])
+  }, [apiBase])
 
   useEffect(() => {
     if (props.open) fetchNotes()

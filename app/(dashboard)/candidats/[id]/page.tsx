@@ -197,6 +197,16 @@ export default function CandidatDetailPage() {
       if (p) setConsultantPrenom(p)
     })
   }, [])
+  // v2.9.80 — Charge les notes clients (partagées via portail) en lecture seule
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+    fetch(`/api/candidats/${id}/notes-partagees`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setClientNotes(Array.isArray(d.notes) ? d.notes : []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [id])
   const [note, setNote]                   = useState('')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editingNoteText, setEditingNoteText] = useState('')
@@ -220,7 +230,9 @@ export default function CandidatDetailPage() {
   const [showMenu, setShowMenu]           = useState(false)
   const [showDocuments, setShowDocuments] = useState(false)
   const [showCompliance, setShowCompliance] = useState(false)
-  // v2.8.8 — Notes partagées (visibles aussi côté portail client)
+  // v2.9.80 — Notes Clients (lecture seule) : notes échangées avec le client via le portail
+  const [showClientNotes, setShowClientNotes] = useState(false)
+  const [clientNotes, setClientNotes] = useState<Array<{ id: string; author_type: string; author_name: string | null; content: string; created_at: string; entreprise: string | null }>>([])
   const [showCvCustomizer, setShowCvCustomizer] = useState(false)
   const [showMergeSearch, setShowMergeSearch] = useState(false)
   const [showActivityHistory, setShowActivityHistory] = useState(false)
@@ -1019,6 +1031,25 @@ export default function CandidatDetailPage() {
               </div>
             )}
           </div>
+          {/* v2.9.80 — Bouton Notes Clients (lecture seule) : notes échangées avec le client via le portail */}
+          <button
+            onClick={() => setShowClientNotes(true)}
+            className="neo-btn-ghost neo-btn-sm"
+            title="Notes échangées avec le client (portail) — lecture seule"
+            style={{ position: 'relative' }}
+          >
+            <MessageSquare size={13} />
+            Notes Clients
+            {clientNotes.length > 0 && (
+              <span style={{
+                marginLeft: 4,
+                padding: '1px 7px', borderRadius: 999,
+                background: '#E5E7EB', color: '#374151',
+                fontSize: 10, fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums', lineHeight: 1.4,
+              }}>{clientNotes.length}</span>
+            )}
+          </button>
           {!isEditing ? (
             <button onClick={startEdit} className="neo-btn-ghost neo-btn-sm">
               <Pencil size={13} /> Modifier
@@ -3071,6 +3102,85 @@ export default function CandidatDetailPage() {
         </div>,
         document.body
       )}
+
+      {/* v2.9.80 — Modal Notes Clients (LECTURE SEULE) : notes échangées via le portail client */}
+      {showClientNotes && createPortal((
+        <div
+          onClick={() => setShowClientNotes(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 8000,
+            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+            animation: 'fadeIn 0.15s ease',
+            fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 'min(640px, 95vw)', maxHeight: '88vh',
+              background: 'var(--card)', borderRadius: 16,
+              boxShadow: '0 24px 64px rgba(0,0,0,0.30), 0 4px 16px rgba(0,0,0,0.12)',
+              display: 'flex', flexDirection: 'column', animation: 'scaleIn 0.2s ease',
+              border: '1px solid var(--border)', overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '20px 24px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h2 style={{ fontFamily: 'var(--font-serif, "Instrument Serif", Georgia, serif)', fontSize: 22, fontWeight: 400, margin: 0, lineHeight: 1.15, color: 'var(--text, var(--foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Notes Clients{candidat && <span style={{ color: 'var(--text-3, var(--muted-foreground))' }}> · {formatFullName(candidat.prenom, candidat.nom)}</span>}
+                </h2>
+                <p style={{ fontSize: 12, color: 'var(--text-3, var(--muted-foreground))', margin: '4px 0 0', fontWeight: 500 }}>
+                  Notes échangées avec le client via le portail · lecture seule
+                </p>
+              </div>
+              <button
+                onClick={() => setShowClientNotes(false)}
+                style={{ width: 34, height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-3, var(--muted-foreground))' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2, var(--secondary))' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px 20px' }}>
+              {clientNotes.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '40px 16px', border: '1px dashed var(--border)', borderRadius: 12 }}>
+                  Aucune note client pour le moment.<br />
+                  <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>Les notes postées par le client sur son portail apparaîtront ici.</span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {clientNotes.map(n => {
+                    const isClient = n.author_type === 'client'
+                    return (
+                      <div key={n.id} style={{ background: 'var(--surface, var(--secondary))', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--foreground)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              🏢 {n.entreprise || (isClient ? 'Client' : 'L-Agence')}
+                            </span>
+                            {n.author_name && (
+                              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                                {n.author_name}{!isClient ? ' (L-Agence)' : ''}
+                              </span>
+                            )}
+                          </div>
+                          <span style={{ fontSize: 11, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                            {new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: 13, color: 'var(--foreground)', margin: 0, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{n.content}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ), document.body)}
 
       {/* ── Panneau Infos (slide-in) — v2.1.11 design v2 ── */}
       {showInfo && createPortal((

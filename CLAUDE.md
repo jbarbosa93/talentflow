@@ -105,7 +105,14 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.9.80** — 29/05/2026 (Portails : copier le lien d'invitation pour WhatsApp)
+**v2.9.81** — 29/05/2026 (Fiche : Notes Clients lecture seule + fix notes portail bloquées)
+
+### v2.9.81 (29/05) — Notes Clients (fiche, lecture seule) + fix chargement portail
+
+- **Notes Clients sur la fiche** : bouton « Notes Clients » (lecture seule) → modal listant les notes `candidat_notes_partagees` avec **nom entreprise** (clients.nom résolu) + date. GET `/api/candidats/[id]/notes-partagees` enrichi (`entreprise` par note). Complète v2.9.78 : bouton « Notes » = interne pur ; « Notes Clients » = ce que le client poste sur le portail.
+- **Fix « Chargement… » infini** : `SharedNotesModal` — `onCountChange` (fonction inline) dans les deps de `fetchNotes` → boucle de re-fetch. Stabilisé via `useRef` (deps `[apiBase]`).
+
+### v2.9.80 (29/05) — Portails clients : copier le lien d'invitation
 
 ### v2.9.80 (29/05) — Portails clients : copier le lien d'invitation
 
