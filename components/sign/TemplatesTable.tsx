@@ -129,8 +129,12 @@ function TemplateRow({
   const updated = new Date(tpl.updated_at)
 
   const handleUse = () => {
-    // Ouvre la page création d'enveloppe avec ce template pré-sélectionné
-    router.push(`/sign/new?template=${tpl.id}`)
+    // v2.9.86 — Template Rapport → page « Nouveau lien rapport » (pas l'envoi signature).
+    if (tpl.kind === 'report') {
+      router.push(`/sign/rapports/new?template=${tpl.id}`)
+    } else {
+      router.push(`/sign/new?template=${tpl.id}`)
+    }
   }
 
   const [busy, setBusy] = useState<string | null>(null)

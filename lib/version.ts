@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.85'
+export const APP_VERSION = '2.9.86'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.86 — Fix : « Utiliser » sur un template Rapport ouvre le bon écran
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.86',
+    date: '2026-05-29',
+    label: 'Fix : « Utiliser » sur un template Rapport → page Nouveau lien rapport',
+    features: [
+      'FIX — « Utiliser » sur un template de type Rapport ouvre désormais « Nouveau lien rapport » (/sign/rapports/new) avec le template pré-sélectionné, au lieu de la page d\'envoi signature (/sign/new). Les templates d\'enveloppe gardent leur comportement.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.85 — Templates rapport : dupliquer une section entière (jour) en 1 clic
   // ─────────────────────────────────────────────────────────────────────

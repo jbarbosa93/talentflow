@@ -123,10 +123,14 @@ function NewReportLinkPageInner() {
         // Filtre côté client : on n'expose que kind='report' (sécurité côté serveur via POST validation)
         const reportTpls = all.filter(t => (t as { kind?: string }).kind === 'report')
         setTemplates(reportTpls)
-        // v2.7.3 — Auto-sélection du template le plus récent (1er de la liste,
-        // /api/sign/templates trie déjà par created_at DESC). Évite le clic obligatoire
-        // quand un seul template existe ou que le plus récent est généralement le bon.
-        if (reportTpls.length > 0) {
+        // v2.9.86 — Pré-sélection via ?template= (bouton « Utiliser » depuis la liste des templates).
+        const qpTpl = searchParams.get('template')
+        const qpMatch = qpTpl && reportTpls.some(t => t.id === qpTpl) ? qpTpl : null
+        // v2.7.3 — Sinon auto-sélection du template le plus récent (1er de la liste,
+        // /api/sign/templates trie déjà par created_at DESC). Évite le clic obligatoire.
+        if (qpMatch) {
+          setTemplateId(qpMatch)
+        } else if (reportTpls.length > 0) {
           setTemplateId(prev => prev || reportTpls[0].id)
         }
       })
