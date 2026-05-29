@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.83'
+export const APP_VERSION = '2.9.84'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.84 — Fix : pointeuses sélectionnables comme sources de formule (Total semaine)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.84',
+    date: '2026-05-29',
+    label: 'Fix : pointeuses sélectionnables dans une formule (Total semaine)',
+    features: [
+      'FIX — Les champs « Pointeuse » apparaissent désormais dans la liste des sources d\'une formule. Le « Total semaine » se fait via Formule → Somme → sources = les pointeuses des jours (la Somme additionne le total d\'heures de chaque pointeuse).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.83 — Pointeuse : la case posée sur le tableau affiche le total calculé
   // ─────────────────────────────────────────────────────────────────────

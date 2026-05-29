@@ -53,7 +53,7 @@ export default function FieldFormulaOptions({ field, allRecipientFields, onUpdat
   // Inclut checkbox (compte true=1, false=0) en plus de number/text/formula.
   const eligibleFields = allRecipientFields.filter(f =>
     f.id !== field.id &&
-    (f.type === 'number' || f.type === 'text' || f.type === 'formula' || f.type === 'checkbox' || f.type === 'time')
+    (f.type === 'number' || f.type === 'text' || f.type === 'formula' || f.type === 'checkbox' || f.type === 'time' || f.type === 'pointage')
   )
   const sourceIds = field.formulaSourceIds || []
   const op = field.formulaOp || 'sum'
