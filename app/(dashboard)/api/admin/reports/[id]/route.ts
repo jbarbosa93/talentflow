@@ -124,6 +124,23 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       update.mission_id = body.mission_id || null
     }
 
+    // v2.9.79 — Changer le template du lien rapport (les nouveaux rapports utiliseront ce
+    // template ; les soumissions déjà signées conservent leur ancien template, c'est voulu).
+    if (typeof body.template_id === 'string' && body.template_id.trim()) {
+      const { data: tpl } = await supabase
+        .from('sign_templates' as any)
+        .select('id, kind')
+        .eq('id', body.template_id.trim())
+        .maybeSingle()
+      if (!tpl) {
+        return NextResponse.json({ error: 'Template introuvable' }, { status: 400 })
+      }
+      if ((tpl as any).kind !== 'report') {
+        return NextResponse.json({ error: 'Ce template n\'est pas un template de rapport' }, { status: 400 })
+      }
+      update.template_id = body.template_id.trim()
+    }
+
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })
     }

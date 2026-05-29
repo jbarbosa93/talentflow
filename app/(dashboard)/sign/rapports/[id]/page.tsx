@@ -439,6 +439,11 @@ export default function ReportLinkDetailPage({
         />
       )}
 
+      {/* v2.9.79 — Card "Template du rapport" : changer le modèle utilisé pour les PROCHAINS rapports */}
+      {link && (
+        <ReportTemplateCard link={link} onChanged={fetchData} />
+      )}
+
       {/* v2.4.3 — InfoCards CANDIDAT uniquement (les coords client vivent désormais
           dans la section "Entreprises autorisées" en bas de page). */}
       <div style={{
@@ -658,6 +663,129 @@ function UseClientPortalToggle({ link, onChanged }: {
       >
         {saving ? '…' : enabled ? 'Désactiver' : 'Activer'}
       </button>
+    </div>
+  )
+}
+
+// v2.9.79 — Card permettant de changer le template du lien rapport.
+// Les soumissions DÉJÀ signées conservent leur template d'origine ; seuls les
+// PROCHAINS rapports utiliseront le nouveau modèle.
+function ReportTemplateCard({ link, onChanged }: { link: ReportLink; onChanged: () => void }) {
+  const [templates, setTemplates] = useState<{ id: string; name: string }[]>([])
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const currentId = (link as any).template_id as string | null | undefined
+  const [selected, setSelected] = useState<string>(currentId || '')
+
+  useEffect(() => {
+    fetch('/api/sign/templates?limit=100')
+      .then(r => r.json())
+      .then(d => {
+        const all = (d.templates || []) as any[]
+        setTemplates(all.filter(t => t.kind === 'report').map(t => ({ id: t.id, name: t.name || 'Sans nom' })))
+      })
+      .catch(() => { /* silencieux */ })
+  }, [])
+
+  const currentName = templates.find(t => t.id === currentId)?.name
+
+  const save = async () => {
+    if (!selected || selected === currentId) { setEditing(false); return }
+    setSaving(true)
+    try {
+      const r = await fetch(`/api/admin/reports/${link.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: selected }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Erreur')
+      toast.success('Template du rapport mis à jour — les prochains rapports utiliseront ce modèle')
+      setEditing(false)
+      onChanged()
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{
+      marginTop: 12, padding: 14, borderRadius: 10,
+      border: '1px solid var(--border)', background: 'var(--surface)',
+      display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap',
+    }}>
+      <div style={{ fontSize: 22, lineHeight: 1 }}>📄</div>
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+          Template du rapport
+        </div>
+        {!editing ? (
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
+            Modèle actuel : <strong style={{ color: 'var(--foreground)' }}>{currentName || (currentId ? '(template introuvable)' : '—')}</strong>
+            <br />Changer le modèle n&apos;affecte que les <strong>prochains</strong> rapports ; les rapports déjà signés gardent leur template.
+          </div>
+        ) : (
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <select
+              value={selected}
+              onChange={e => setSelected(e.target.value)}
+              style={{
+                width: '100%', padding: '8px 10px', borderRadius: 8,
+                border: '1px solid var(--border)', background: 'var(--card)',
+                color: 'var(--foreground)', fontSize: 13, fontFamily: 'inherit',
+              }}
+            >
+              <option value="">— Choisir un template —</option>
+              {templates.map(t => (
+                <option key={t.id} value={t.id}>{t.name}{t.id === currentId ? ' (actuel)' : ''}</option>
+              ))}
+            </select>
+            {templates.length === 0 && (
+              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>Aucun template de rapport disponible.</span>
+            )}
+          </div>
+        )}
+      </div>
+      {!editing ? (
+        <button
+          onClick={() => { setSelected(currentId || ''); setEditing(true) }}
+          style={{
+            padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border)',
+            background: 'var(--surface)', color: 'var(--foreground)',
+            fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          Modifier
+        </button>
+      ) : (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={save}
+            disabled={saving || !selected || selected === currentId}
+            style={{
+              padding: '8px 14px', borderRadius: 8, border: '1.5px solid #EAB308',
+              background: '#EAB308', color: '#1c1a14', fontSize: 12.5, fontWeight: 700,
+              cursor: (saving || !selected || selected === currentId) ? 'not-allowed' : 'pointer',
+              opacity: (saving || !selected || selected === currentId) ? 0.6 : 1, fontFamily: 'inherit',
+            }}
+          >
+            {saving ? '…' : 'Enregistrer'}
+          </button>
+          <button
+            onClick={() => setEditing(false)}
+            disabled={saving}
+            style={{
+              padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border)',
+              background: 'transparent', color: 'var(--foreground)', fontSize: 12.5, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Annuler
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -105,7 +105,13 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.9.78** — 29/05/2026 (Pack 13 correctifs UX — notes, badges, photo, envois, mail, modaux)
+**v2.9.79** — 29/05/2026 (Rapports : changer le template d'un lien existant)
+
+### v2.9.79 (29/05) — Rapports : changer le template d'un lien rapport
+
+Nouvelle card « Template du rapport » sur `/sign/rapports/[id]` (`ReportTemplateCard`) : bouton Modifier → `<select>` des templates `kind='report'` → PATCH `template_id`. Non-destructif : les soumissions déjà signées gardent leur template ; seuls les prochains rapports utilisent le nouveau (flux public `getTemplateForLink(link.template_id)` chargé dynamiquement). Route PATCH `/api/admin/reports/[id]` accepte `template_id` (valide existence + `kind='report'`). Use-case : modèle de rapport dédié par entreprise sans recréer le lien.
+
+### v2.9.78 (29/05) — Pack 13 correctifs UX (13 bugs)
 
 ### v2.9.78 (29/05) — Pack correctifs UX (13 bugs)
 

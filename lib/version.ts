@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.78'
+export const APP_VERSION = '2.9.79'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.79 — Rapports : changer le template d'un lien existant
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.79',
+    date: '2026-05-29',
+    label: 'Rapports : changer le template d\'un lien rapport existant',
+    features: [
+      'CHANGER LE TEMPLATE D\'UN LIEN RAPPORT — Sur la fiche d\'un lien rapport (/sign/rapports/[id]), nouvelle card « Template du rapport » avec bouton Modifier → sélection d\'un autre template de rapport. Permet d\'avoir des rapports différents par entreprise (ex. un modèle dédié) sans recréer le lien.',
+      'NON-DESTRUCTIF — Les soumissions déjà signées/validées conservent leur template d\'origine ; seuls les PROCHAINS rapports utilisent le nouveau modèle (le flux public charge dynamiquement link.template_id à l\'ouverture).',
+      'Route PATCH /api/admin/reports/[id] accepte désormais template_id (validation : le template doit exister et être de type « report »).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.78 — Pack correctifs UX : notes candidat, badges, photo, envois, mail, divers
   // ─────────────────────────────────────────────────────────────────────
