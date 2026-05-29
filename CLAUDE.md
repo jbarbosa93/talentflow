@@ -105,7 +105,11 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.9.79** — 29/05/2026 (Rapports : changer le template d'un lien existant)
+**v2.9.80** — 29/05/2026 (Portails : copier le lien d'invitation pour WhatsApp)
+
+### v2.9.80 (29/05) — Portails clients : copier le lien d'invitation
+
+`PortalAccountsPanel` : bouton « Copier lien » à côté de « Renvoyer » (statut `invited`) → copie le lien set-password que le client reçoit par email (envoi WhatsApp). Nouvelle route `POST /api/admin/portal-accounts/[id]/invitation-link` : retourne le lien (`/client-portal/set-password?token=` ou `/report/set-password?token=`) sans envoyer d'email, en réutilisant le token invitation valide existant (sinon en crée un). Utilisé sur Missions → Portails clients + fiche lien rapport.
 
 ### v2.9.79 (29/05) — Rapports : changer le template d'un lien rapport
 

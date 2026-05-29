@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.79'
+export const APP_VERSION = '2.9.80'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.80 — Portails : copier le lien d'invitation (pour WhatsApp)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.80',
+    date: '2026-05-29',
+    label: 'Portails clients : copier le lien d\'invitation (envoi WhatsApp)',
+    features: [
+      'COPIER LE LIEN D\'INVITATION — Dans la gestion des accès portail (Missions → Portails clients, et lien rapport), un bouton « Copier lien » à côté de « Renvoyer » copie le lien d\'invitation (création de mot de passe) que le client reçoit par email → pratique pour l\'envoyer par WhatsApp.',
+      'Réutilise le token d\'invitation valide existant (ne casse pas le lien déjà envoyé par email) ; en génère un nouveau seulement si aucun n\'est encore valable. N\'envoie PAS d\'email. Nouvelle route POST /api/admin/portal-accounts/[id]/invitation-link.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.79 — Rapports : changer le template d'un lien existant
   // ─────────────────────────────────────────────────────────────────────

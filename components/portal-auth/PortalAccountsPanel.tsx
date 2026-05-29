@@ -184,6 +184,20 @@ export default function PortalAccountsPanel({ portalId, reportLinkId, accountTyp
     else toast.error(d.error || 'Erreur')
   }
 
+  // v2.9.80 — Copie le lien d'invitation (set-password) pour l'envoyer par WhatsApp/autre.
+  // Réutilise le token valide existant côté serveur (ne casse pas le lien déjà envoyé par email).
+  const handleCopyLink = async (id: string) => {
+    try {
+      const r = await fetch(`/api/admin/portal-accounts/${id}/invitation-link`, { method: 'POST' })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.link) { toast.error(d.error || 'Erreur'); return }
+      await navigator.clipboard.writeText(d.link)
+      toast.success('Lien d\'invitation copié — prêt à coller (WhatsApp, etc.)')
+    } catch {
+      toast.error('Impossible de copier le lien')
+    }
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -263,7 +277,10 @@ export default function PortalAccountsPanel({ portalId, reportLinkId, accountTyp
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {a.status === 'invited' && (
-                  <button onClick={() => handleResend(a.id)} style={btnStyle('#F3F4F6', '#1F2937')}>Renvoyer</button>
+                  <>
+                    <button onClick={() => handleResend(a.id)} style={btnStyle('#F3F4F6', '#1F2937')}>Renvoyer</button>
+                    <button onClick={() => handleCopyLink(a.id)} style={btnStyle('#E0E7FF', '#3730A3')} title="Copier le lien d'invitation (pour l'envoyer par WhatsApp, etc.)">Copier lien</button>
+                  </>
                 )}
                 {a.status === 'active' && (
                   <button onClick={() => handleRevoke(a.id, true)} style={btnStyle('#FEF3C7', '#B45309')}>Révoquer</button>
