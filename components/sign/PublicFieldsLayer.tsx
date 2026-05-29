@@ -24,6 +24,7 @@ import { formatDate } from '@/lib/sign/pdf-stamp'
 import { effectiveCheckedState, effectiveFieldState, computeFormulaValue, formatFormulaValue, looksLikePhoneField, isCandidatePhoneField } from '@/lib/sign/field-helpers'
 import AttachmentField from './AttachmentField'
 import PointageField, { pointageFilled } from './PointageField'
+import { pointageHours } from '@/lib/sign/pointage'
 
 interface Props {
   page: number
@@ -275,6 +276,14 @@ function FieldInput({
       if (t === 'formula') {
         const c = allValues ? computeFormulaValue(field, allValues) : null
         return <span>{formatFormulaValue(field, c) || '0'}</span>
+      }
+      // v2.9.87 — Pointeuse (signataire précédent) : afficher le TOTAL d'heures
+      // calculé (Début/pauses/Fin) — sinon String(objet) = "[object Object]".
+      // Même format que le PDF stampé : "9" (entier) ou "7.08" (décimal/centièmes).
+      if (t === 'pointage') {
+        if (!pointageFilled(value)) return null
+        const h = pointageHours(value)
+        return <span>{Math.abs(h % 1) < 1e-9 ? h.toFixed(0) : h.toFixed(2)}</span>
       }
       // v2.9.23 — Pièce jointe (signataire précédent) : nombre de fichiers chargés
       if (t === 'attachment') {

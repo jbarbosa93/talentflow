@@ -13,7 +13,7 @@ import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import {
-  AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, Clock, Download, FileText,
+  AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, Clock, Download, Eye, FileText,
   Loader2, Lock, RotateCw, Save, Send, ChevronLeft,
 } from 'lucide-react'
 import WeekSelector from '@/components/report/WeekSelector'
@@ -1125,10 +1125,10 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
               </button>
               <button
                 type="button"
-                onClick={() => window.open(`/api/reports/${slug}/submissions/${submissionForWeek.id}/download`, '_blank', 'noopener,noreferrer')}
+                onClick={() => window.open(`/api/reports/${slug}/submissions/${submissionForWeek.id}/download?inline=1`, '_blank', 'noopener,noreferrer')}
                 style={bannerBtnStyle('#A16207')}
               >
-                <Download size={12} />
+                <Eye size={12} />
                 Aperçu
               </button>
             </div>

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.86'
+export const APP_VERSION = '2.9.87'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.87 — Fix pointeuse : « Object » côté client + aperçu PDF candidat
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.87',
+    date: '2026-05-29',
+    label: 'Fix pointeuse : heures visibles côté client + aperçu rapport candidat',
+    features: [
+      'FIX critique — Côté client à signer, la ligne « Heures normales » affichait « Object Object… » au lieu des heures. Le total pointeuse (Début/pauses/Fin) s\'affiche désormais correctement dans chaque case (ex. 9, 7.08).',
+      'FIX — Bouton « Aperçu » du portail candidat ouvrait un téléchargement au lieu d\'afficher le PDF. Ajout de ?inline=1 → le rapport s\'affiche désormais dans le navigateur (iPhone inclus), téléchargement possible ensuite.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.86 — Fix : « Utiliser » sur un template Rapport ouvre le bon écran
   // ─────────────────────────────────────────────────────────────────────
