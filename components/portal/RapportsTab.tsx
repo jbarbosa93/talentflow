@@ -170,8 +170,9 @@ export default function RapportsTab({ slug }: { slug: string }) {
     }
   }
 
-  // v2.9.91 — « Envoyer au chef » : partage le lien de validation (Web Share / presse-papier),
-  // pour qu'un collègue (chef de secteur) ouvre et valide le rapport.
+  // v2.9.96 — « Envoyer au responsable » : ouvre WhatsApp DIRECTEMENT (wa.me sans numéro
+  // → l'utilisateur choisit le responsable dans ses contacts) avec un message tutoyé,
+  // simple et direct + le lien de validation.
   const handleTransfer = async (rapport: Rapport) => {
     let token = rapport.client_token && !rapport.client_token_expired ? rapport.client_token : null
     if (!token) {
@@ -189,25 +190,9 @@ export default function RapportsTab({ slug }: { slug: string }) {
       setRefreshingId(null)
     }
     const url = `${window.location.origin}/report/client/${token}`
-    const shareData = {
-      title: `Rapport à valider — ${rapport.candidat_name || ''}`.trim(),
-      text: `Rapport d'heures à valider (semaine ${isoWeek(rapport.week_start)}). Merci d'ouvrir le lien pour vérifier et valider les heures :`,
-      url,
-    }
-    try {
-      if (typeof navigator !== 'undefined' && (navigator as any).share) {
-        await (navigator as any).share(shareData)
-        return
-      }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return
-    }
-    try {
-      await navigator.clipboard.writeText(url)
-      toast.success('Lien copié — à transmettre par WhatsApp ou email au responsable')
-    } catch {
-      toast.error('Partage non supporté — copie le lien manuellement')
-    }
+    const name = (rapport.candidat_name || 'le collaborateur').trim()
+    const msg = `Salut, peux-tu valider les heures de ${name} (semaine ${isoWeek(rapport.week_start)}) ? Ouvre le lien, vérifie et signe en bas : ${url}`
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
   }
 
   if (loading) {

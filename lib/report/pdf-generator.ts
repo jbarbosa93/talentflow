@@ -375,13 +375,12 @@ async function appendTimbrageAnnex(
     page.drawText(safePdfText(txt), { x, y, size, font: f, color })
   const newPageIfNeeded = (min = 70) => { if (y < min) { page = pdf.addPage([595, 842]); y = 800 } }
   // v2.9.89 — Affiche l'adresse lisible (rue + localité) si résolue au pointage,
-  // sinon repli sur les coordonnées brutes. Précision GPS en mètres entre ().
+  // sinon repli sur les coordonnées brutes. v2.9.96 — précision (±m) retirée.
   const fmtGps = (g?: { lat?: number; lng?: number; acc?: number; address?: string }) => {
     if (!g || typeof g.lat !== 'number' || typeof g.lng !== 'number') return ''
-    const acc = `(+/-${g.acc ?? '?'} m)`
     return g.address
-      ? `${g.address} ${acc}`
-      : `GPS ${g.lat.toFixed(5)}, ${g.lng.toFixed(5)} ${acc}`
+      ? g.address
+      : `GPS ${g.lat.toFixed(5)}, ${g.lng.toFixed(5)}`
   }
 
   draw('Détail des pointages', 40, 16, bold); y -= 10

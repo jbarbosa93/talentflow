@@ -127,7 +127,7 @@ export default function PointageField({
   )
   const gpsLine = (g?: GpsPoint) => g ? (
     <div style={{ fontSize: 10.5, color: GREEN, marginTop: 3 }}>
-      📍 {g.address ? <>{g.address} </> : 'Position enregistrée '}(±{g.acc ?? '?'} m)
+      📍 {g.address || 'Position enregistrée'}
     </div>
   ) : (captureGps ? <div style={{ fontSize: 10.5, color: '#9CA3AF', marginTop: 3 }}>📍 GPS au clic « Maintenant »</div> : null)
 

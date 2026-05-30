@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.95'
+export const APP_VERSION = '2.9.96'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.96 — « Envoyer au responsable » → WhatsApp direct + GPS sans (±m)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.96',
+    date: '2026-05-30',
+    label: '« Envoyer au responsable » ouvre WhatsApp direct + adresse GPS sans précision (±m)',
+    features: [
+      'ENVOYER AU RESPONSABLE → WHATSAPP — Le bouton ouvrait le menu de partage natif (AirDrop/Messages…). Il ouvre désormais WhatsApp directement (wa.me, choix du contact) avec un message tutoyé, simple et direct + le lien de validation : « Salut, peux-tu valider les heures de … (semaine N) ? Ouvre le lien, vérifie et signe en bas : … ».',
+      'GPS SANS (±m) — La précision « (±12 m) » est retirée de l\'adresse partout (widget pointeuse + annexe PDF + détail). On affiche juste l\'adresse (ex. « Route de Brin 4A, 1870 Monthey »).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.95 — Portail client : total heures pointeuse + infos mission en-tête
   // ─────────────────────────────────────────────────────────────────────
