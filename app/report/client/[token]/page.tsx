@@ -14,6 +14,7 @@ import {
   AlertTriangle, CheckCircle2, ClipboardList, Clock, Edit3, FileText, Loader2, Lock, ListChecks, Save, X as XIcon,
 } from 'lucide-react'
 import PublicFieldsLayer, { areAllRequiredFieldsFilled } from '@/components/sign/PublicFieldsLayer'
+import PointageSummary from '@/components/sign/PointageSummary'
 import LogoLAgence from '@/components/report/LogoLAgence'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { SignDocument, SignField } from '@/lib/sign/types'
@@ -622,6 +623,10 @@ export default function PublicClientReportPage({
           <div>{data.submission.notes_candidat}</div>
         </div>
       )}
+
+      {/* v2.9.89 — Détail des pointages (timbrage) : le client valide les heures
+          en connaissance de cause (Début/pauses/Fin + adresse GPS), repli par défaut. */}
+      <PointageSummary fields={allFields} values={values} />
 
       {/* Vue principale */}
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>

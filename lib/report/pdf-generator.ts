@@ -374,9 +374,15 @@ async function appendTimbrageAnnex(
   const draw = (txt: string, x: number, size: number, f = helv, color = ink) =>
     page.drawText(safePdfText(txt), { x, y, size, font: f, color })
   const newPageIfNeeded = (min = 70) => { if (y < min) { page = pdf.addPage([595, 842]); y = 800 } }
-  const fmtGps = (g?: { lat?: number; lng?: number; acc?: number }) =>
-    (g && typeof g.lat === 'number' && typeof g.lng === 'number')
-      ? `GPS ${g.lat.toFixed(5)}, ${g.lng.toFixed(5)} (+/-${g.acc ?? '?'} m)` : ''
+  // v2.9.89 — Affiche l'adresse lisible (rue + localité) si résolue au pointage,
+  // sinon repli sur les coordonnées brutes. Précision GPS en mètres entre ().
+  const fmtGps = (g?: { lat?: number; lng?: number; acc?: number; address?: string }) => {
+    if (!g || typeof g.lat !== 'number' || typeof g.lng !== 'number') return ''
+    const acc = `(+/-${g.acc ?? '?'} m)`
+    return g.address
+      ? `${g.address} ${acc}`
+      : `GPS ${g.lat.toFixed(5)}, ${g.lng.toFixed(5)} ${acc}`
+  }
 
   draw('Détail des pointages', 40, 16, bold); y -= 10
   page.drawLine({ start: { x: 40, y }, end: { x: 555, y }, thickness: 1, color: rgb(0.9, 0.78, 0.3) }); y -= 22
@@ -396,17 +402,15 @@ async function appendTimbrageAnnex(
       draw(`Absent${reason ? ` — ${reason}` : ''}`, 52, 10, helv, rgb(0.63, 0.38, 0.03)); y -= 14
       draw('Total : 0.00 h', 52, 10, bold, green); y -= 20
     } else {
-      draw(`Debut : ${v.start || '—'}`, 52, 10, helv)
-      const sg = fmtGps(v.startGps); if (sg) draw(sg, 300, 9, helv, grey)
-      y -= 14
+      draw(`Debut : ${v.start || '—'}`, 52, 10, helv); y -= 14
+      const sg = fmtGps(v.startGps); if (sg) { draw(`  ${sg}`, 60, 8.5, helv, grey); y -= 12; newPageIfNeeded(60) }
       for (let i = 0; i < (v.pauses || []).length; i++) {
         const pz = v.pauses![i]
         draw(`Pause ${i + 1} : ${pz.from || '—'} -> ${pz.to || '—'}`, 52, 10, helv); y -= 14
         newPageIfNeeded(60)
       }
-      draw(`Fin : ${v.end || '—'}`, 52, 10, helv)
-      const eg = fmtGps(v.endGps); if (eg) draw(eg, 300, 9, helv, grey)
-      y -= 14
+      draw(`Fin : ${v.end || '—'}`, 52, 10, helv); y -= 14
+      const eg = fmtGps(v.endGps); if (eg) { draw(`  ${eg}`, 60, 8.5, helv, grey); y -= 12; newPageIfNeeded(60) }
       const h = pointageHours(v); grandTotal += h
       draw(`Total : ${h.toFixed(2)} h`, 52, 10, bold, green); y -= 20
     }

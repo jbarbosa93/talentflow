@@ -233,14 +233,16 @@ export async function POST(
     notifs.admin_email = { ok: false, error: 'creatorEmail empty (no created_by, no ADMIN_EMAIL)' }
   } else {
     try {
-      // v2.3.9 Bug 11b — Le créateur reçoit RAPPORT + CERTIFICAT
+      // v2.9.89 — Le créateur reçoit UNIQUEMENT le rapport signé (plus le certificat
+      // en pièce jointe). Le certificat reste stocké (signed_pdf_paths) et accessible
+      // sur la page Envois (téléchargement). Décision João : ne pas envoyer le cert par mail.
       // v2.4.0 — Notes candidat + client affichées en bandeau dans l'email créateur uniquement
       notifs.admin_email = await sendCompletedEmailToAdmin({
         to: creatorEmail,
         candidateName,
         clientName: link.client_name || link.client_email || '',
         weekLabel: weekDates.label,
-        attachments: allAttachments,
+        attachments: reportAttachments,
         downloadUrl: pdfDownloadUrl,
         notesCandidat: (submission as any).notes_candidat || null,
         notesClient: (submission as any).notes_client || null,
@@ -252,7 +254,7 @@ export async function POST(
       if (!notifs.admin_email.ok) {
         console.error('[REPORT SIGN] admin email FAILED — to:', creatorEmail, '— err:', notifs.admin_email.error)
       } else {
-        console.log('[REPORT SIGN] admin email sent OK to', creatorEmail, '— Resend id:', (notifs.admin_email as any).id, '— attachments:', allAttachments.map(a => a.filename))
+        console.log('[REPORT SIGN] admin email sent OK to', creatorEmail, '— Resend id:', (notifs.admin_email as any).id, '— attachments:', reportAttachments.map(a => a.filename))
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erreur admin email'

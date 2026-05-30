@@ -88,6 +88,36 @@ async function nominatim(query: string, timeoutMs = 3000): Promise<GeoEntry | nu
   }
 }
 
+// ─── Reverse geocoding (lat/lng → adresse lisible) ────────────────────
+// v2.9.89 — Utilisé par la pointeuse (timbrage) : transforme les coordonnées
+// GPS captées au pointage en une adresse courte affichable (rue + localité).
+// Appelé côté serveur (User-Agent imposable) via /api/geocode/reverse.
+export async function reverseGeocode(lat: number, lng: number, timeoutMs = 4000): Promise<string | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&lat=${lat}&lon=${lng}`
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': NOMINATIM_UA, 'Accept-Language': 'fr' }, signal: ctrl.signal })
+    if (!r.ok) return null
+    const data = (await r.json()) as { display_name?: string; address?: Record<string, string> }
+    const a = data.address || {}
+    // Adresse courte : « Rue Numéro, CP Localité » (sans pays ni détails superflus).
+    const road = a.road || a.pedestrian || a.footway || a.path || ''
+    const num = a.house_number || ''
+    const locality = a.city || a.town || a.village || a.municipality || a.hamlet || a.suburb || ''
+    const postcode = a.postcode || ''
+    const street = [road, num].filter(Boolean).join(' ')
+    const place = [postcode, locality].filter(Boolean).join(' ')
+    const short = [street, place].filter(Boolean).join(', ')
+    return short || data.display_name || null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 // ─── API publique ─────────────────────────────────────────────────────
 
 /**

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.88'
+export const APP_VERSION = '2.9.89'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.89 — Pointeuse : adresse GPS + détail côté client + cert non emailé
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.89',
+    date: '2026-05-30',
+    label: 'Pointeuse : adresse GPS lisible + détail côté client + certificat non envoyé par mail',
+    features: [
+      'GPS → ADRESSE — Au timbrage, la position est résolue en adresse lisible (rue + localité, ex. « Avenue de l\'Europe, 1870 Monthey ») au lieu de coordonnées brutes. Affichée dans le widget, l\'annexe « Détail des pointages » et le récap client. Proxy serveur /api/geocode/reverse (Nominatim).',
+      'DÉTAIL CÔTÉ CLIENT — Nouveau panneau « 🕓 Détail des pointages » (repliable) sur la page de signature client : par jour, Début/pauses/Fin + total + adresse GPS. Le client valide les heures en connaissance de cause (avant l\'annexe page 2 du PDF).',
+      'CERTIFICAT — N\'est plus envoyé en pièce jointe par email au consultant. Il reste stocké et téléchargeable sur la page Envois (bouton « Certificat ») — décision João.',
+      'Rappel : le client reçoit le rapport signé par email (si email + canal configurés) et accède à tous ses rapports validés via le portail client (Aperçu + Télécharger, annexe incluse).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.88 — Pointeuse : copier un jour + bouton Absent/Congé
   // ─────────────────────────────────────────────────────────────────────

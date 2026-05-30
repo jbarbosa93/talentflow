@@ -5,7 +5,7 @@
 // Saisie manuelle possible à tout moment (le bouton « Maintenant » est un raccourci).
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { pointageHours, formatHours, type PointageValue, type PointagePause, type GpsPoint } from '@/lib/sign/pointage'
 
 // Re-export pour ne pas casser les imports existants (`from './PointageField'`)
@@ -24,6 +24,7 @@ export default function PointageField({
   captureGps?: boolean
 }) {
   const v: PointageValue = (value && typeof value === 'object') ? value as PointageValue : {}
+  const vRef = useRef(v); vRef.current = v // toujours la valeur à jour (callbacks async GPS)
   const [gpsBusy, setGpsBusy] = useState<null | 'start' | 'end'>(null)
   const update = (patch: Partial<PointageValue>) => onChange({ ...v, ...patch })
 
@@ -57,10 +58,26 @@ export default function PointageField({
     if (!captureGps || typeof navigator === 'undefined' || !navigator.geolocation) return
     setGpsBusy(which)
     navigator.geolocation.getCurrentPosition(
-      pos => {
+      async pos => {
         const g: GpsPoint = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy), ts: new Date().toISOString() }
-        onChange({ ...v, [which === 'start' ? 'startGps' : 'endGps']: g, [which]: v[which] || nowHHMM() })
+        const key = which === 'start' ? 'startGps' : 'endGps'
+        // Stocke immédiatement la position (l'adresse arrive juste après).
+        onChange({ ...v, [key]: g, [which]: v[which] || nowHHMM() })
         setGpsBusy(null)
+        // v2.9.89 — Résout l'adresse lisible (rue + localité) via notre proxy serveur.
+        try {
+          const r = await fetch(`/api/geocode/reverse?lat=${g.lat}&lng=${g.lng}`)
+          if (r.ok) {
+            const d = await r.json() as { address?: string | null }
+            if (d.address) {
+              // Re-lit la valeur la plus à jour : patch l'adresse sur le point GPS,
+              // sans toucher au reste (heure déjà posée, autre point, pauses…).
+              const cur = vRef.current
+              const prevG = (cur[key] as GpsPoint | undefined) || g
+              onChange({ ...cur, [key]: { ...prevG, address: d.address } })
+            }
+          }
+        } catch { /* adresse best-effort : on garde les coordonnées */ }
       },
       () => setGpsBusy(null),
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
@@ -109,7 +126,9 @@ export default function PointageField({
     </button>
   )
   const gpsLine = (g?: GpsPoint) => g ? (
-    <div style={{ fontSize: 10.5, color: GREEN, marginTop: 3 }}>📍 Position enregistrée (±{g.acc ?? '?'} m)</div>
+    <div style={{ fontSize: 10.5, color: GREEN, marginTop: 3 }}>
+      📍 {g.address ? <>{g.address} </> : 'Position enregistrée '}(±{g.acc ?? '?'} m)
+    </div>
   ) : (captureGps ? <div style={{ fontSize: 10.5, color: '#9CA3AF', marginTop: 3 }}>📍 GPS au clic « Maintenant »</div> : null)
 
   const rowLabel: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 4 }

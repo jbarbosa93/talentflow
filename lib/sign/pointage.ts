@@ -4,7 +4,7 @@
 // Valeur d'un champ `pointage` (stockée dans field_values[field.id]) :
 //   { start?: 'HH:MM', end?: 'HH:MM', pauses?: [{from,to}], startGps?, endGps? }
 
-export interface GpsPoint { lat: number; lng: number; acc?: number; ts?: string }
+export interface GpsPoint { lat: number; lng: number; acc?: number; ts?: string; address?: string }
 export interface PointagePause { from?: string; to?: string }
 export interface PointageValue {
   start?: string
