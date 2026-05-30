@@ -90,6 +90,14 @@ export default function PublicClientReportPage({
   const [notesModalOpen, setNotesModalOpen] = useState(false)
   const [notesDraft, setNotesDraft] = useState<string>('')
   const [savingNotes, setSavingNotes] = useState(false)
+  // v2.9.94 — URL de retour (?back=) si on arrive depuis le portail client (lien non-portail).
+  const [backUrl, setBackUrl] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      const b = new URLSearchParams(window.location.search).get('back')
+      if (b && b.startsWith('/client-portal/')) setBackUrl(b)
+    } catch { /* ignore */ }
+  }, [])
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 900)
@@ -378,10 +386,12 @@ export default function PublicClientReportPage({
         display: 'flex', alignItems: 'center', gap: 12,
         flexShrink: 0,
       }}>
-        {/* v2.7.3 — Bouton retour vers le portail client (visible UNIQUEMENT si lien en mode portail) */}
-        {data.portal_slug && (
+        {/* v2.7.3 + v2.9.94 — Bouton retour vers le portail client.
+            Visible si lien en mode portail (portal_slug) OU si on arrive depuis le
+            portail via ?back= (lien non-portail ouvert depuis l'onglet Rapports). */}
+        {(data.portal_slug || backUrl) && (
           <a
-            href={`/client-portal/${data.portal_slug}?tab=rapports`}
+            href={data.portal_slug ? `/client-portal/${data.portal_slug}?tab=rapports` : (backUrl || '#')}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '6px 10px', borderRadius: 8,
@@ -601,7 +611,7 @@ export default function PublicClientReportPage({
             color: '#6B7280', background: '#F0FDF4', border: '1px solid #BBF7D0',
             borderRadius: 8, padding: '8px 10px',
           }}>
-            💡 Le bouton <strong style={{ color: '#15803D' }}>WhatsApp</strong> sert à <strong>transférer ce rapport à un collègue de votre entreprise</strong> (ex. le chef de secteur) pour qu&apos;il valide les heures. <strong>Pour valider, signez en bas de la page.</strong>
+            💡 Le bouton <strong style={{ color: '#15803D' }}>WhatsApp</strong> sert à <strong>transmettre ce rapport au responsable concerné</strong> (responsable de secteur ou responsable du collaborateur) pour qu&apos;il valide les heures. <strong>Pour valider, signez en bas de la page.</strong>
           </p>
         </div>
       )}

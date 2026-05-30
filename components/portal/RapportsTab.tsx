@@ -145,10 +145,13 @@ export default function RapportsTab({ slug }: { slug: string }) {
     return Array.from(map.entries()).map(([key, v]) => ({ key, ...v }))
   }, [filtered])
 
+  // v2.9.94 — Param retour vers le portail (bouton « Retour » sur la page de validation)
+  const backParam = `?back=${encodeURIComponent(`/client-portal/${slug}?tab=rapports`)}`
+
   // Action "Valider →" : si token expiré → refresh, sinon ouvrir direct
   const handleValidate = async (rapport: Rapport) => {
     if (rapport.client_token && !rapport.client_token_expired) {
-      window.location.href = `/report/client/${rapport.client_token}`
+      window.location.href = `/report/client/${rapport.client_token}${backParam}`
       return
     }
     // Token expiré ou absent → régénère
@@ -159,7 +162,7 @@ export default function RapportsTab({ slug }: { slug: string }) {
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Erreur')
-      window.location.href = `/report/client/${d.client_token}`
+      window.location.href = `/report/client/${d.client_token}${backParam}`
     } catch (e: any) {
       toast.error(e.message || 'Impossible de régénérer le lien. Contactez L-Agence SA : +41 24 552 18 70')
       setRefreshingId(null)
@@ -187,7 +190,7 @@ export default function RapportsTab({ slug }: { slug: string }) {
     const url = `${window.location.origin}/report/client/${token}`
     const shareData = {
       title: `Rapport à valider — ${rapport.candidat_name || ''}`.trim(),
-      text: `Rapport d'heures à valider (semaine ${isoWeek(rapport.week_start)}). Ouvre le lien pour vérifier et signer :`,
+      text: `Rapport d'heures à valider (semaine ${isoWeek(rapport.week_start)}). Merci d'ouvrir le lien pour vérifier et valider les heures :`,
       url,
     }
     try {
@@ -200,7 +203,7 @@ export default function RapportsTab({ slug }: { slug: string }) {
     }
     try {
       await navigator.clipboard.writeText(url)
-      toast.success('Lien copié — colle-le dans WhatsApp / email pour ton chef')
+      toast.success('Lien copié — à transmettre par WhatsApp ou email au responsable')
     } catch {
       toast.error('Partage non supporté — copie le lien manuellement')
     }
@@ -248,7 +251,7 @@ export default function RapportsTab({ slug }: { slug: string }) {
 
   return (
     <>
-      {/* v2.9.91 — Banner d'appel à l'action quand des rapports attendent validation */}
+      {/* v2.9.94 — Banner d'appel à l'action (ton formel, portail client) */}
       {data.counts.pending > 0 && (
         <button
           type="button"
@@ -257,24 +260,25 @@ export default function RapportsTab({ slug }: { slug: string }) {
             width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
             display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18,
             padding: '14px 16px', borderRadius: 12,
-            background: filter === 'pending' ? '#FFFBEB' : '#FEF3C7',
-            border: '1.5px solid #FCD34D',
+            background: filter === 'pending' ? '#FFFBEB' : '#FEF9EC',
+            border: '1px solid #FCD34D',
           }}
         >
           <span style={{
-            flexShrink: 0, width: 40, height: 40, borderRadius: 10,
-            background: '#DC2626', color: '#fff', fontSize: 18, fontWeight: 800,
+            flexShrink: 0, width: 38, height: 38, borderRadius: 10,
+            background: '#FEF3C7', color: '#A16207',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          }}>{data.counts.pending}</span>
+          }}>
+            <Clock size={19} />
+          </span>
           <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: 'block', fontSize: 15, fontWeight: 800, color: '#78350F' }}>
+            <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: '#78350F' }}>
               {data.counts.pending} rapport{data.counts.pending > 1 ? 's' : ''} à valider
             </span>
             <span style={{ display: 'block', fontSize: 12.5, color: '#92400E', marginTop: 2 }}>
-              Ouvre, vérifie les heures, puis signe — ou transfère à ton chef.
+              Ouvrez, vérifiez les heures, puis validez — ou transmettez au responsable concerné.
             </span>
           </span>
-          <Clock size={20} style={{ color: '#A16207', flexShrink: 0 }} />
         </button>
       )}
 
@@ -569,7 +573,7 @@ function RapportCard({ rapport: r, onValidate, onTransfer, onView, refreshing, s
               minHeight: 44,
             }}
           >
-            <Share2 size={14} /> Envoyer au chef
+            <Share2 size={14} /> Envoyer au responsable
           </button>
         )}
         {(r.status === 'completed' || r.status === 'client_signed') && (

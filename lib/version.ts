@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.93'
+export const APP_VERSION = '2.9.94'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.94 — Portail client : ton formel + bouton retour + « responsable »
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.94',
+    date: '2026-05-30',
+    label: 'Portail client : ton formel, bouton Retour, « Envoyer au responsable »',
+    features: [
+      'TON FORMEL — Le banner « À valider » du portail client passe au « vous » (« Ouvrez, vérifiez les heures, puis validez… »). Le gros chiffre rouge devient une pastille horloge ambre, plus discrète.',
+      'ENVOYER AU RESPONSABLE — Le bouton « Envoyer au chef » devient « Envoyer au responsable ». Annotation page de validation : « transmettre au responsable concerné (responsable de secteur ou responsable du collaborateur) ».',
+      'BOUTON RETOUR — Quand le client ouvre un rapport depuis le portail, un bouton « ← Portail » apparaît dans l\'en-tête pour revenir au portail sans valider (via ?back=, même pour les liens non-portail).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.93 — Portail client : onglet Rapports ACTIVÉ (était « Bientôt »)
   // ─────────────────────────────────────────────────────────────────────
