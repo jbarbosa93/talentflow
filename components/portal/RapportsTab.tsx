@@ -31,6 +31,7 @@ interface Rapport {
   client_contact_name: string | null
   client_name: string
   mission_metier_display: string | null
+  mission_start: string | null
   totals: {
     heures_normales: number
     heures_sup: number
@@ -322,6 +323,7 @@ export default function RapportsTab({ slug }: { slug: string }) {
                 photo={group.photo}
                 count={group.items.length}
                 metier={group.items[0]?.mission_metier_display || null}
+                missionStart={group.items[0]?.mission_start || null}
               />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
                 {group.items.map(r => (
@@ -377,11 +379,12 @@ function FilterChip({ active, onClick, highlight, children }: {
   )
 }
 
-function CandidatHeader({ name, photo, count, metier }: {
+function CandidatHeader({ name, photo, count, metier, missionStart }: {
   name: string
   photo: string | null
   count: number
   metier?: string | null
+  missionStart?: string | null
 }) {
   const [imgError, setImgError] = useState(false)
   // v2.7.3 — Photo TOUJOURS affichée. Si pas de photo (ou erreur), fallback initiales
@@ -415,10 +418,12 @@ function CandidatHeader({ name, photo, count, metier }: {
         }}>
           {name}
         </div>
-        {/* v2.7.3 — Métier affiché en sous-titre (toujours présent si dispo) */}
-        {metier && (
+        {/* v2.7.3 + v2.9.95 — Métier + date de début de mission (si disponibles) */}
+        {(metier || missionStart) && (
           <div style={{ fontSize: 13, color: '#4B5563', fontWeight: 500, marginTop: 3 }}>
             {metier}
+            {metier && missionStart && <span style={{ color: '#D1D5DB' }}> · </span>}
+            {missionStart && <span>En mission depuis le {frDateShort(missionStart)}</span>}
           </div>
         )}
         <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: 4 }}>

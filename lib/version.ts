@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.94'
+export const APP_VERSION = '2.9.95'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.95 — Portail client : total heures pointeuse + infos mission en-tête
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.95',
+    date: '2026-05-30',
+    label: 'Portail client : total heures (pointeuse) + métier/début de mission dans l\'en-tête',
+    features: [
+      'TOTAL HEURES — Les rapports à base de pointeuse affichaient « — » sous la semaine (le total ne lisait que les champs « number »). sumSubmissionMetrics additionne désormais les heures pointeuse (Fin−Début−pauses) dans les heures normales → ex. « 18.08h normales ».',
+      'EN-TÊTE CANDIDAT — Sous le nom du collaborateur : métier + « En mission depuis le JJ.MM.AAAA » (date de début de la mission liée). Pour un candidat sans mission liée (cas de test), ces infos restent vides — normal.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.94 — Portail client : ton formel + bouton retour + « responsable »
   // ─────────────────────────────────────────────────────────────────────

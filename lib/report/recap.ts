@@ -13,6 +13,7 @@
 
 import type { SignField } from '@/lib/sign/types'
 import type { ReportSubmission } from './types'
+import { pointageHours } from '@/lib/sign/pointage'
 
 export type RecapCategory = 'heures_normales' | 'heures_sup' | 'repas' | 'deplacement' | 'autre'
 
@@ -75,10 +76,16 @@ export function sumSubmissionMetrics(
   const values = submission.field_values || {}
 
   for (const f of templateFields) {
+    const raw = (values as Record<string, unknown>)[f.id]
+
+    // v2.9.95 — Pointeuse : ses heures (Fin−Début−pauses) comptent comme heures normales.
+    if (f.type === 'pointage') {
+      totals.heures_normales += pointageHours(raw)
+      continue
+    }
+
     const cat = detectFieldCategory(f)
     if (cat === 'autre') continue
-
-    const raw = (values as Record<string, unknown>)[f.id]
 
     if (cat === 'repas') {
       // checkbox : compte 1 par true

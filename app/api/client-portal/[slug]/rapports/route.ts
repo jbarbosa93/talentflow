@@ -34,6 +34,8 @@ interface RapportPayload {
   client_contact_name: string | null
   client_name: string
   mission_metier_display: string | null
+  /** v2.9.95 — Date de début de la mission liée (ISO) — affichée dans l'en-tête candidat. */
+  mission_start: string | null
   /** Totaux calculés (heures normales, repas, etc.) */
   totals: {
     heures_normales: number
@@ -151,16 +153,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       }
     }
 
-    // 6. Métier affiché (via mission liée si présente)
+    // 6. Métier + date de début (via mission liée si présente)
     const missionIds = Array.from(new Set(links.map(l => l.mission_id).filter(Boolean) as string[]))
     const metierByMission = new Map<string, string | null>()
+    const startByMission = new Map<string, string | null>()
     if (missionIds.length > 0) {
       const { data: missions } = await (admin as any)
         .from('missions')
-        .select('id, metier, metier_display')
+        .select('id, metier, metier_display, date_debut')
         .in('id', missionIds)
       for (const m of (missions ?? []) as any[]) {
         metierByMission.set(m.id, m.metier_display || m.metier || null)
+        startByMission.set(m.id, m.date_debut || null)
       }
     }
 
@@ -218,6 +222,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
         client_contact_name: rlc?.client_contact_name || null,
         client_name: rlc?.client_name || '',
         mission_metier_display: link.mission_id ? (metierByMission.get(link.mission_id) || null) : null,
+        mission_start: link.mission_id ? (startByMission.get(link.mission_id) || null) : null,
         totals,
         notes_candidat: sub.notes_candidat ?? null,
         notes_client: (sub as any).notes_client ?? null,
