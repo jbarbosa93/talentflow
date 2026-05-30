@@ -331,7 +331,7 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
             onClick={() => switchTab('rapports')}
             icon={<ClipboardList size={16} />}
             label="Rapports"
-            badge="Bientôt"
+            badge={pendingCount ?? undefined}
           />
         </div>
       </nav>
@@ -373,41 +373,9 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
             </>
           )
         )}
+        {/* v2.9.93 — Onglet Rapports ACTIVÉ (était « Bientôt disponible » depuis v2.8.8) */}
         {tab === 'rapports' && (
-          /* v2.8.8 — Onglet Rapports affiché comme « Bientôt disponible »
-             pour éviter qu'un client tombe sur un module pas encore finalisé.
-             Pour réactiver : remplacer le bloc par <RapportsTab slug={slug} /> */
-          <div style={{
-            padding: '60px 24px', textAlign: 'center',
-            background: '#fff', border: '1px dashed #E5E7EB', borderRadius: 14,
-            maxWidth: 540, margin: '0 auto',
-          }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '5px 12px', borderRadius: 999,
-              background: '#FEF3C7', color: '#A16207',
-              fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-              letterSpacing: '0.06em', marginBottom: 18,
-            }}>
-              <ClipboardList size={11} />
-              Bientôt disponible
-            </div>
-            <h2 style={{
-              margin: '0 0 10px',
-              fontFamily: 'Georgia, "Times New Roman", serif',
-              fontSize: 22, fontWeight: 400, color: '#1C1A14',
-            }}>
-              Rapports d&apos;heures
-            </h2>
-            <p style={{ margin: 0, fontSize: 14, color: '#6B7280', lineHeight: 1.55 }}>
-              Cette fonctionnalité arrive prochainement. Vous pourrez consulter et valider
-              les rapports d&apos;heures hebdomadaires de vos collaborateurs directement depuis
-              ce portail.
-            </p>
-            <p style={{ margin: '14px 0 0', fontSize: 13, color: '#9CA3AF' }}>
-              En attendant, contactez votre interlocuteur L-Agence pour toute question.
-            </p>
-          </div>
+          <RapportsTab slug={slug} />
         )}
       </main>
 

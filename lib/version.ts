@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.92'
+export const APP_VERSION = '2.9.93'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.93 — Portail client : onglet Rapports ACTIVÉ (était « Bientôt »)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.93',
+    date: '2026-05-30',
+    label: 'Portail client : onglet Rapports activé (validation des heures)',
+    features: [
+      'PORTAIL RAPPORTS ACTIVÉ — L\'onglet « Rapports » du portail client affichait « Bientôt disponible » (placeholder posé en v2.8.8). Il est désormais ACTIF : le client voit ses rapports à valider (banner + cartes), peut ouvrir/valider/transférer au chef, et consulter/télécharger les rapports validés. Badge rouge = nombre de rapports en attente sur l\'onglet.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.92 — Aperçu de lien WhatsApp (image OG L-Agence) + WhatsApp invitation portail
   // ─────────────────────────────────────────────────────────────────────
