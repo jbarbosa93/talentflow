@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Download, Share2, X as XIcon, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import PublicPdfViewer from '@/components/sign/PublicPdfViewer'
 
 interface Props {
   open: boolean
@@ -129,14 +130,11 @@ export default function SubmissionViewerModal({ open, onClose, pdfUrl, title, su
           </div>
         </div>
 
-        {/* v2.4.7 — PDF iframe avec ?inline=1 pour forcer Content-Disposition: inline
-            (au lieu d'attachment qui déclenche le téléchargement). Permet l'aperçu réel. */}
+        {/* v2.9.90 — Rendu via pdf.js (canvas) au lieu d'un iframe : iOS Safari ne sait
+            pas afficher un PDF en iframe et déclenche un téléchargement. pdf.js récupère
+            les octets lui-même et dessine sur canvas → aperçu fiable iOS + Android + desktop. */}
         <div style={{ flex: 1, overflow: 'hidden', background: '#F3F4F6' }}>
-          <iframe
-            src={`${pdfUrl}${pdfUrl.includes('?') ? '&' : '?'}inline=1`}
-            title={title}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-          />
+          <PublicPdfViewer key={pdfUrl} url={`${pdfUrl}${pdfUrl.includes('?') ? '&' : '?'}inline=1`} />
         </div>
 
         {/* Footer actions */}

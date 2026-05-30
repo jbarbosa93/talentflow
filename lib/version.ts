@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.89'
+export const APP_VERSION = '2.9.90'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.90 — Rapports : email réception interne à la création + aperçu PDF iOS
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.90',
+    date: '2026-05-30',
+    label: 'Rapports : email de réception interne à la création + aperçu PDF fiable iOS',
+    features: [
+      'EMAIL INTERNE — Nouveau champ « Email réception interne (L-Agence) » sur le formulaire Nouveau lien rapport (défaut info@l-agence.ch). Détermine qui reçoit la copie signée côté agence (au lieu du créateur du lien). Modifiable ensuite via la carte dédiée.',
+      'APERÇU PDF iOS — Le modal d\'aperçu rapport (portail candidat) utilisait un iframe → iOS Safari déclenchait un téléchargement au lieu d\'afficher. Remplacé par un rendu pdf.js (canvas) : aperçu fiable sur iPhone, Android et desktop. Bouton « Télécharger » conservé pour récupérer le fichier.',
+      'ANNEXE — Le détail des pointages libelle désormais chaque jour par son nom (Lundi, Mardi…) au lieu du libellé du champ.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.89 — Pointeuse : adresse GPS + détail côté client + cert non emailé
   // ─────────────────────────────────────────────────────────────────────

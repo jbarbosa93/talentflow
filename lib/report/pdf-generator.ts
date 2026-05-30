@@ -392,7 +392,8 @@ async function appendTimbrageAnnex(
   // ── Pointeuses (1 champ = 1 jour) ──
   for (const f of pointageFields) {
     newPageIfNeeded(110)
-    const day = (f.tooltip || f.label || f.wizardSection || 'Jour').toString()
+    // v2.9.90 — Priorité à la section (= jour : Lundi/Mardi…) plutôt qu'au libellé du champ.
+    const day = (f.wizardSection || f.tooltip || f.label || 'Jour').toString()
     const v = (fieldValues[f.id] && typeof fieldValues[f.id] === 'object')
       ? fieldValues[f.id] as PointageValue : {} as PointageValue
     draw(day, 40, 12, bold); y -= 16

@@ -49,6 +49,9 @@ function NewReportLinkPageInner() {
   // v2.3.x Feature 5 — Nom du contact client (texte libre, optionnel)
   const [clientContactName, setClientContactName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
+  // v2.9.90 — Email de réception INTERNE du rapport final (qui reçoit la copie signée
+  // côté L-Agence). Vide = créateur du lien. Choisi à la création (et modifiable après).
+  const [notifyEmail, setNotifyEmail] = useState('info@l-agence.ch')
   // v2.3.8 Bug 2 — Client lié en DB (id) pour rappel visuel + cohérence
   const [clientId, setClientId] = useState<string | null>(null)
   // v2.3.10 Bug 3 — Dialog "Enregistrer ce contact ?" + état saving
@@ -271,6 +274,7 @@ function NewReportLinkPageInner() {
           client_name: clientName.trim(),
           client_contact_name: clientContactName.trim() || null,
           client_email: clientEmail.trim() || null,
+          notify_email: notifyEmail.trim() || null,
           delivery_channel: 'email',
           // v2.7.3 — Lie le rapport à la mission d'origine (si créé depuis /missions)
           mission_id: missionId,
@@ -701,6 +705,17 @@ function NewReportLinkPageInner() {
                 )}
               </div>
             )}
+          </Field>
+          {/* v2.9.90 — Email de réception interne (copie L-Agence du rapport signé) */}
+          <Field label="Email réception interne (L-Agence)" hint="Qui reçoit la copie signée côté agence. Vide = ton email.">
+            <input
+              type="email"
+              value={notifyEmail}
+              onChange={e => setNotifyEmail(e.target.value)}
+              placeholder="info@l-agence.ch"
+              className="neo-input"
+              style={{ height: 42 }}
+            />
           </Field>
         </Section>
 

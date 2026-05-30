@@ -162,6 +162,12 @@ export async function POST(req: NextRequest) {
         ? body.client_contact_name.trim()
         : null,
       client_email: body.client_email?.toLowerCase().trim() || null,
+      // v2.9.90 — Email de réception interne (copie L-Agence du rapport signé).
+      // Validé comme email ; sinon null → fallback créateur côté sign route.
+      notify_email: (typeof body.notify_email === 'string'
+        && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.notify_email.trim()))
+        ? body.notify_email.toLowerCase().trim()
+        : null,
       client_phone: clientPhone,
       candidat_email: candidatEmailNorm,
       status: 'active' as const,
