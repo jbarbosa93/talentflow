@@ -37,20 +37,20 @@ export const metadata: Metadata = {
     siteName: 'TalentFlow Sign',
     images: [
       {
-        url: 'https://www.talent-flow.ch/email-logo.png',
-        width: 800,
-        height: 800,
-        alt: 'L-Agence SA',
+        url: 'https://www.talent-flow.ch/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'L-Agence SA — Rapports & Signatures',
       },
     ],
     locale: 'fr_CH',
     type: 'website',
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'Rapport hebdomadaire — L-Agence SA',
     description: 'Soumettez votre rapport d\'heures hebdomadaire en toute sécurité',
-    images: ['https://www.talent-flow.ch/email-logo.png'],
+    images: ['https://www.talent-flow.ch/og-image.png'],
   },
 }
 

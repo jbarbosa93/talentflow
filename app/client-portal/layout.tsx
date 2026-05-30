@@ -30,6 +30,21 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
+  // v2.9.92 — Aperçu de lien (WhatsApp/iMessage) : carte L-Agence
+  openGraph: {
+    title: 'Portail Collaborateurs — L-Agence SA',
+    description: 'Validez les rapports d\'heures de vos collaborateurs en mission',
+    siteName: 'TalentFlow',
+    images: [{ url: 'https://www.talent-flow.ch/og-image.png', width: 1200, height: 630, alt: 'L-Agence SA' }],
+    locale: 'fr_CH',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Portail Collaborateurs — L-Agence SA',
+    description: 'Validez les rapports d\'heures de vos collaborateurs en mission',
+    images: ['https://www.talent-flow.ch/og-image.png'],
+  },
 }
 
 export const viewport: Viewport = {

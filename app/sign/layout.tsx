@@ -22,6 +22,21 @@ export const metadata: Metadata = {
   },
   themeColor: '#EAB308',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=5',
+  // v2.9.92 — Aperçu de lien (WhatsApp/iMessage) : carte L-Agence au lieu d'un fallback moche
+  openGraph: {
+    title: 'Signature électronique — L-Agence SA',
+    description: 'Signez votre document en toute sécurité',
+    siteName: 'TalentFlow Sign',
+    images: [{ url: 'https://www.talent-flow.ch/og-image.png', width: 1200, height: 630, alt: 'L-Agence SA' }],
+    locale: 'fr_CH',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Signature électronique — L-Agence SA',
+    description: 'Signez votre document en toute sécurité',
+    images: ['https://www.talent-flow.ch/og-image.png'],
+  },
 }
 
 export default function SignPublicLayout({ children }: { children: React.ReactNode }) {

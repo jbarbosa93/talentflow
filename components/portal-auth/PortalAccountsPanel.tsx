@@ -198,6 +198,20 @@ export default function PortalAccountsPanel({ portalId, reportLinkId, accountTyp
     }
   }
 
+  // v2.9.92 — Envoie le lien d'invitation directement par WhatsApp (deeplink wa.me).
+  // Pas de numéro pré-rempli → l'utilisateur choisit le contact dans WhatsApp.
+  const handleWhatsApp = async (id: string) => {
+    try {
+      const r = await fetch(`/api/admin/portal-accounts/${id}/invitation-link`, { method: 'POST' })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.link) { toast.error(d.error || 'Erreur'); return }
+      const msg = `Bonjour,\n\nVoici votre lien d'accès au portail L-Agence (créez votre mot de passe) :\n${d.link}\n\nÀ bientôt,\nL-Agence SA`
+      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
+    } catch {
+      toast.error('Impossible de préparer le lien WhatsApp')
+    }
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -279,7 +293,8 @@ export default function PortalAccountsPanel({ portalId, reportLinkId, accountTyp
                 {a.status === 'invited' && (
                   <>
                     <button onClick={() => handleResend(a.id)} style={btnStyle('#F3F4F6', '#1F2937')}>Renvoyer</button>
-                    <button onClick={() => handleCopyLink(a.id)} style={btnStyle('#E0E7FF', '#3730A3')} title="Copier le lien d'invitation (pour l'envoyer par WhatsApp, etc.)">Copier lien</button>
+                    <button onClick={() => handleWhatsApp(a.id)} style={btnStyle('#DCFCE7', '#128C7E')} title="Envoyer le lien d'invitation par WhatsApp">WhatsApp</button>
+                    <button onClick={() => handleCopyLink(a.id)} style={btnStyle('#E0E7FF', '#3730A3')} title="Copier le lien d'invitation">Copier lien</button>
                   </>
                 )}
                 {a.status === 'active' && (

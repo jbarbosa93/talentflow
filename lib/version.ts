@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.91'
+export const APP_VERSION = '2.9.92'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.92 — Aperçu de lien WhatsApp (image OG L-Agence) + WhatsApp invitation portail
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.92',
+    date: '2026-05-30',
+    label: 'Aperçu de lien WhatsApp branded L-Agence + envoi WhatsApp invitation portail',
+    features: [
+      'APERÇU DE LIEN (WhatsApp/iMessage) — Nouvelle image Open Graph 1200×630 brandée L-Agence (au lieu de l\'image 76×76 cassée qui affichait un aperçu moche/Vercel). Appliquée à TOUS les liens publics : rapport, signature, portail client (les 2 derniers n\'avaient aucune image OG).',
+      'WHATSAPP INVITATION PORTAIL — Bouton « WhatsApp » sur les invitations portail client (à côté de « Copier lien ») → ouvre wa.me avec le lien d\'accès pré-rempli. Complète les boutons WhatsApp déjà présents (lien rapport, lien client, lien signataire enveloppe, « Envoyer au chef »).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.91 — Portail client Rapports Phase 1 : Zone de travail + écran « À valider »
   // ─────────────────────────────────────────────────────────────────────
