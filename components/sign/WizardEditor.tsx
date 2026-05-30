@@ -82,6 +82,7 @@ const FIELD_TYPE_OPTIONS: { value: SignFieldType; label: string }[] = [
   { value: 'text',     label: 'Texte libre' },
   { value: 'number',   label: 'Nombre' },
   { value: 'pointage', label: '⏱ Pointeuse (timbrage jour : début/pauses/fin)' },
+  { value: 'zone',     label: '📍 Zone de travail (chantier / lieu)' },
   { value: 'time',     label: 'Heure simple (HH:MM)' },
   { value: 'date',     label: 'Date' },
   { value: 'checkbox', label: 'Case Oui/Non' },

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.90'
+export const APP_VERSION = '2.9.91'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.91 — Portail client Rapports Phase 1 : Zone de travail + écran « À valider »
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.91',
+    date: '2026-05-30',
+    label: 'Portail client Rapports — Zone de travail + écran « À valider » plus clair',
+    features: [
+      'ZONE DE TRAVAIL — Nouveau type de champ « Zone de travail » (texte) posable sur le template rapport, rempli par le candidat. Par jour (1 par section) ou pour la semaine (sans section jour). Affichée dans le rapport PDF, l\'annexe « Détail des pointages » et le détail timbrages côté client/portail.',
+      'PORTAIL « À VALIDER » — Banner d\'appel à l\'action en haut du portail client : « X rapports à valider » (clic → filtre). Le client voit immédiatement combien de rapports l\'attendent.',
+      'ENVOYER AU CHEF — Bouton « Envoyer au chef » sur chaque rapport à valider : partage le lien de validation (WhatsApp / presse-papier) pour qu\'un collègue (chef de secteur) ouvre, vérifie et signe.',
+      'APERÇU PDF iOS (portail) — Le modal d\'aperçu du portail client utilise désormais pdf.js (canvas) au lieu d\'un iframe → aperçu fiable sur iPhone.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.90 — Rapports : email réception interne à la création + aperçu PDF iOS
   // ─────────────────────────────────────────────────────────────────────

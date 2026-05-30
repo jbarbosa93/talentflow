@@ -387,6 +387,19 @@ async function appendTimbrageAnnex(
   draw('Détail des pointages', 40, 16, bold); y -= 10
   page.drawLine({ start: { x: 40, y }, end: { x: 555, y }, thickness: 1, color: rgb(0.9, 0.78, 0.3) }); y -= 22
 
+  // v2.9.91 — Zone de travail : par section (jour) ou hebdo (sans section de jour).
+  const amber = rgb(0.57, 0.25, 0.05)
+  const zoneFields = (doc.fields || []).filter(f => f.type === 'zone')
+  const zoneFor = (sec: string): string => {
+    const z = zoneFields.find(f => (f.wizardSection || '').trim() === sec.trim() && String(fieldValues[f.id] || '').trim())
+    return z ? String(fieldValues[z.id]).trim() : ''
+  }
+  const daySectionsSet = new Set(pointageFields.map(p => (p.wizardSection || '').trim()))
+  const weekZoneField = zoneFields.find(f => !daySectionsSet.has((f.wizardSection || '').trim()) && String(fieldValues[f.id] || '').trim())
+  if (weekZoneField) {
+    draw(`Zone de travail : ${String(fieldValues[weekZoneField.id]).trim()}`, 40, 11, bold, amber); y -= 18
+  }
+
   let grandTotal = 0
 
   // ── Pointeuses (1 champ = 1 jour) ──
@@ -394,9 +407,11 @@ async function appendTimbrageAnnex(
     newPageIfNeeded(110)
     // v2.9.90 — Priorité à la section (= jour : Lundi/Mardi…) plutôt qu'au libellé du champ.
     const day = (f.wizardSection || f.tooltip || f.label || 'Jour').toString()
+    const zoneVal = zoneFor(f.wizardSection || '')
     const v = (fieldValues[f.id] && typeof fieldValues[f.id] === 'object')
       ? fieldValues[f.id] as PointageValue : {} as PointageValue
     draw(day, 40, 12, bold); y -= 16
+    if (zoneVal) { draw(`Zone : ${zoneVal}`, 52, 9.5, helv, amber); y -= 13; newPageIfNeeded(60) }
     if (v.absent) {
       // v2.9.88 — Jour d'absence : motif affiché ici (certificat), 0h dans le rapport.
       const reason = (v.absenceReason || '').trim()

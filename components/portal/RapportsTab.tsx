@@ -13,9 +13,10 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import {
-  Loader2, FileText, Download, CheckCircle2, Clock, Edit3, AlertTriangle, RefreshCw, X,
+  Loader2, FileText, Download, CheckCircle2, Clock, Edit3, AlertTriangle, RefreshCw, X, Share2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import PublicPdfViewer from '@/components/sign/PublicPdfViewer'
 
 interface Rapport {
   id: string
@@ -165,6 +166,46 @@ export default function RapportsTab({ slug }: { slug: string }) {
     }
   }
 
+  // v2.9.91 — « Envoyer au chef » : partage le lien de validation (Web Share / presse-papier),
+  // pour qu'un collègue (chef de secteur) ouvre et valide le rapport.
+  const handleTransfer = async (rapport: Rapport) => {
+    let token = rapport.client_token && !rapport.client_token_expired ? rapport.client_token : null
+    if (!token) {
+      setRefreshingId(rapport.id)
+      try {
+        const r = await fetch(`/api/client-portal/${slug}/rapports/${rapport.id}/refresh-token`, { method: 'POST' })
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.error || 'Erreur')
+        token = d.client_token as string
+      } catch (e: any) {
+        toast.error(e.message || 'Impossible de préparer le lien.')
+        setRefreshingId(null)
+        return
+      }
+      setRefreshingId(null)
+    }
+    const url = `${window.location.origin}/report/client/${token}`
+    const shareData = {
+      title: `Rapport à valider — ${rapport.candidat_name || ''}`.trim(),
+      text: `Rapport d'heures à valider (semaine ${isoWeek(rapport.week_start)}). Ouvre le lien pour vérifier et signer :`,
+      url,
+    }
+    try {
+      if (typeof navigator !== 'undefined' && (navigator as any).share) {
+        await (navigator as any).share(shareData)
+        return
+      }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success('Lien copié — colle-le dans WhatsApp / email pour ton chef')
+    } catch {
+      toast.error('Partage non supporté — copie le lien manuellement')
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ padding: 60, textAlign: 'center' }}>
@@ -207,6 +248,36 @@ export default function RapportsTab({ slug }: { slug: string }) {
 
   return (
     <>
+      {/* v2.9.91 — Banner d'appel à l'action quand des rapports attendent validation */}
+      {data.counts.pending > 0 && (
+        <button
+          type="button"
+          onClick={() => setFilter('pending')}
+          style={{
+            width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18,
+            padding: '14px 16px', borderRadius: 12,
+            background: filter === 'pending' ? '#FFFBEB' : '#FEF3C7',
+            border: '1.5px solid #FCD34D',
+          }}
+        >
+          <span style={{
+            flexShrink: 0, width: 40, height: 40, borderRadius: 10,
+            background: '#DC2626', color: '#fff', fontSize: 18, fontWeight: 800,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          }}>{data.counts.pending}</span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 15, fontWeight: 800, color: '#78350F' }}>
+              {data.counts.pending} rapport{data.counts.pending > 1 ? 's' : ''} à valider
+            </span>
+            <span style={{ display: 'block', fontSize: 12.5, color: '#92400E', marginTop: 2 }}>
+              Ouvre, vérifie les heures, puis signe — ou transfère à ton chef.
+            </span>
+          </span>
+          <Clock size={20} style={{ color: '#A16207', flexShrink: 0 }} />
+        </button>
+      )}
+
       {/* Filtres */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
         <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>
@@ -254,6 +325,7 @@ export default function RapportsTab({ slug }: { slug: string }) {
                     key={r.id}
                     rapport={r}
                     onValidate={() => handleValidate(r)}
+                    onTransfer={() => handleTransfer(r)}
                     onView={() => setPdfOpen({ rapport: r, mode: 'view' })}
                     refreshing={refreshingId === r.id}
                     slug={slug}
@@ -353,9 +425,10 @@ function CandidatHeader({ name, photo, count, metier }: {
   )
 }
 
-function RapportCard({ rapport: r, onValidate, onView, refreshing, slug }: {
+function RapportCard({ rapport: r, onValidate, onTransfer, onView, refreshing, slug }: {
   rapport: Rapport
   onValidate: () => void
+  onTransfer: () => void
   onView: () => void
   refreshing: boolean
   slug: string
@@ -480,6 +553,25 @@ function RapportCard({ rapport: r, onValidate, onView, refreshing, slug }: {
             )}
           </button>
         )}
+        {/* v2.9.91 — Transférer au chef de secteur pour validation */}
+        {r.status === 'candidate_signed' && (
+          <button
+            onClick={onTransfer}
+            disabled={refreshing}
+            style={{
+              flex: '0 1 auto',
+              padding: '10px 14px', borderRadius: 8,
+              border: '1.5px solid #128C7E',
+              background: '#25D366', color: '#fff',
+              fontWeight: 700, fontSize: 13,
+              cursor: refreshing ? 'wait' : 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              minHeight: 44,
+            }}
+          >
+            <Share2 size={14} /> Envoyer au chef
+          </button>
+        )}
         {(r.status === 'completed' || r.status === 'client_signed') && (
           <>
             <button
@@ -587,11 +679,11 @@ function PdfModal({ rapport: r, slug, onClose }: { rapport: Rapport; slug: strin
             </button>
           </div>
         </header>
-        <div style={{ flex: 1, overflow: 'hidden' }}>
-          <iframe
-            src={`/api/client-portal/${slug}/rapports/${r.id}/document?inline=1#zoom=page-width`}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title={`Rapport ${r.candidat_name} semaine ${week}`}
+        {/* v2.9.91 — pdf.js (canvas) au lieu d'iframe : aperçu fiable iOS Safari. */}
+        <div style={{ flex: 1, overflow: 'hidden', background: '#F3F4F6' }}>
+          <PublicPdfViewer
+            key={r.id}
+            url={`/api/client-portal/${slug}/rapports/${r.id}/document?inline=1`}
           />
         </div>
       </div>

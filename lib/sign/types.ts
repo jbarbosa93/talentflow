@@ -41,6 +41,7 @@ export type SignFieldType =
   | 'number'      // NumberTab — champ numérique avec min/max/décimales
   | 'time'        // v2.9.82 — Heure simple HH:MM (+ bouton Maintenant / GPS optionnel)
   | 'pointage'    // v2.9.82 — Pointeuse jour : Début/Fin + pauses dynamiques + total auto + GPS
+  | 'zone'        // v2.9.91 — Zone de travail (texte libre) : par jour (section) ou semaine
   | 'checkbox'    // CheckboxTab
   | 'select'      // ListTab — liste déroulante
   | 'annotation'  // NoteTab — aide contextuelle (pas un champ à remplir)
@@ -629,6 +630,7 @@ export const FIELD_TYPE_LABELS: Record<SignFieldType, string> = {
   number:     'Numéro',
   time:       'Heure (HH:MM)',
   pointage:   'Pointeuse (timbrage)',
+  zone:       'Zone de travail',
   checkbox:   'Case à cocher',
   select:     'Liste',
   annotation: 'Annotation',
@@ -643,7 +645,7 @@ export const FIELD_TYPE_CATEGORIES: { key: string; label: string; types: SignFie
   // dans la majorité des cas, ex: rapports d'heures jour par jour).
   { key: 'signature',  label: 'Signature',   types: ['signature', 'initial'] },
   { key: 'identity',   label: 'Coordonnées', types: ['firstname', 'lastname', 'fullname', 'email', 'company', 'title'] },
-  { key: 'entries',    label: 'Entrées',     types: ['text', 'number', 'date', 'checkbox', 'select', 'annotation'] },
+  { key: 'entries',    label: 'Entrées',     types: ['text', 'number', 'zone', 'date', 'checkbox', 'select', 'annotation'] },
   { key: 'other',      label: 'Autre',       types: ['formula', 'attachment'] },
 ]
 

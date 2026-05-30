@@ -394,6 +394,7 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
           }
           break
         }
+        case 'zone': // v2.9.91 — Zone de travail : stampée comme du texte libre
         case 'text':
         case 'number': {
           const v = opts.fieldValues[f.id]
