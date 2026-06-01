@@ -635,8 +635,16 @@ export default function PublicClientReportPage({
       )}
 
       {/* v2.9.89 — Détail des pointages (timbrage) : le client valide les heures
-          en connaissance de cause (Début/pauses/Fin + adresse GPS), repli par défaut. */}
-      <PointageSummary fields={allFields} values={values} />
+          en connaissance de cause (Début/pauses/Fin + adresse GPS), repli par défaut.
+          v2.9.98 — En mode édition, le panneau devient le lieu de correction des
+          pointeuses (widget par jour + zone) → résout l'impossibilité de modifier
+          les pointeuses dans la grille document. */}
+      <PointageSummary
+        fields={allFields}
+        values={values}
+        editable={editMode}
+        onChange={handleFieldChange}
+      />
 
       {/* Vue principale */}
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>

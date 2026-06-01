@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.97'
+export const APP_VERSION = '2.9.98'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.98 — Fix : le client peut corriger les pointeuses (panneau éditable)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.98',
+    date: '2026-06-01',
+    label: 'Fix : le client peut corriger les heures pointeuse (panneau éditable)',
+    features: [
+      'FIX — Quand le client cliquait « Modifier les heures », il ne pouvait PAS corriger les pointeuses (type `pointage` absent de CLIENT_EDITABLE_TYPES → rendues read-only). Le panneau « Détail des pointages » devient désormais ÉDITABLE en mode correction : widget pointeuse par jour (Début/pauses/Fin/Absent) + zone de travail, écrits dans les corrections client. Panneau défilable (maxHeight) pour ne pas pousser la grille.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.97 — Champ « annexe seulement » + couleurs rôles Document↔Wizard
   // ─────────────────────────────────────────────────────────────────────

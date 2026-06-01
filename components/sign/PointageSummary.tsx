@@ -1,12 +1,14 @@
-// v2.9.89 — Récapitulatif lisible des pointages (timbrage), read-only.
-// Affiché sur la page de signature CLIENT (avant de signer) pour qu'il valide
-// les heures en connaissance de cause : par jour → Début / pauses / Fin / total
-// + adresse GPS résolue. Replié par défaut (n'encombre pas le flux de signature).
+// v2.9.89 — Récapitulatif lisible des pointages (timbrage).
+// v2.9.98 — Mode `editable` : le CLIENT peut corriger les heures (widget par jour)
+// quand il clique « Modifier les heures » → écrit dans editValues via onChange.
+// Affiché sur la page de signature CLIENT pour valider/corriger les heures :
+// par jour → Début / pauses / Fin / total + adresse GPS + zone de travail.
 'use client'
 
 import { useState } from 'react'
 import type { SignField } from '@/lib/sign/types'
 import { pointageHours, pointageFilled, formatHours, type PointageValue } from '@/lib/sign/pointage'
+import PointageField from './PointageField'
 
 const AMBER = '#A16207'
 
@@ -15,32 +17,41 @@ function dayLabel(f: SignField): string {
 }
 
 export default function PointageSummary({
-  fields, values, defaultOpen = false,
+  fields, values, defaultOpen = false, editable = false, onChange,
 }: {
   fields: SignField[]
   values: Record<string, unknown>
   defaultOpen?: boolean
+  /** v2.9.98 — Mode correction : widgets pointeuse + zone éditables. */
+  editable?: boolean
+  /** v2.9.98 — Setter (fieldId, value) → editValues côté client. Requis si editable. */
+  onChange?: (fieldId: string, value: unknown) => void
 }) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [open, setOpen] = useState(defaultOpen || editable)
   const pts = (fields || []).filter(f => f.type === 'pointage')
   if (pts.length === 0) return null
-  // Ne garde que les jours réellement renseignés (heures ou absence).
-  const rows = pts
-    .map(f => ({ f, v: (values[f.id] && typeof values[f.id] === 'object') ? values[f.id] as PointageValue : null }))
-    .filter(r => r.v && (pointageFilled(r.v) || r.v.absent))
-  if (rows.length === 0) return null
 
-  const grand = rows.reduce((s, r) => s + pointageHours(r.v), 0)
-
-  // v2.9.91 — Zone de travail : par section (jour) ou hebdo (sans section de jour).
   const zoneFields = (fields || []).filter(f => f.type === 'zone')
+  const zoneFieldFor = (sec: string): SignField | undefined =>
+    zoneFields.find(f => (f.wizardSection || '').trim() === sec.trim())
   const zoneFor = (sec: string): string => {
-    const z = zoneFields.find(f => (f.wizardSection || '').trim() === sec.trim() && String(values[f.id] || '').trim())
-    return z ? String(values[z.id]).trim() : ''
+    const z = zoneFieldFor(sec)
+    return z && String(values[z.id] || '').trim() ? String(values[z.id]).trim() : ''
   }
   const daySections = new Set(pts.map(p => (p.wizardSection || '').trim()))
-  const weekZone = zoneFields.find(f => !daySections.has((f.wizardSection || '').trim()) && String(values[f.id] || '').trim())
-  const weekZoneVal = weekZone ? String(values[weekZone.id]).trim() : ''
+  const weekZone = zoneFields.find(f => !daySections.has((f.wizardSection || '').trim()))
+  const weekZoneVal = weekZone && String(values[weekZone.id] || '').trim() ? String(values[weekZone.id]).trim() : ''
+
+  // En lecture : seulement les jours renseignés. En édition : tous les jours (pour pouvoir corriger/ajouter).
+  const dayFields = editable
+    ? pts
+    : pts.filter(f => {
+        const v = (values[f.id] && typeof values[f.id] === 'object') ? values[f.id] as PointageValue : null
+        return v && (pointageFilled(v) || v.absent)
+      })
+  if (dayFields.length === 0) return null
+
+  const grand = dayFields.reduce((s, f) => s + pointageHours(values[f.id]), 0)
 
   return (
     <div style={{
@@ -57,7 +68,8 @@ export default function PointageSummary({
         }}
       >
         <span style={{ fontSize: 13.5, fontWeight: 700, color: '#92400E' }}>
-          🕓 Détail des pointages <span style={{ fontWeight: 500 }}>({rows.length} jour{rows.length > 1 ? 's' : ''})</span>
+          {editable ? '✏️ Corriger les pointages' : '🕓 Détail des pointages'}{' '}
+          <span style={{ fontWeight: 500 }}>({dayFields.length} jour{dayFields.length > 1 ? 's' : ''})</span>
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 13, fontWeight: 800, color: AMBER, fontVariantNumeric: 'tabular-nums' }}>{formatHours(grand)}</span>
@@ -66,14 +78,53 @@ export default function PointageSummary({
       </button>
 
       {open && (
-        <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {weekZoneVal && (
+        <div style={{
+          padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: editable ? 16 : 10,
+          ...(editable ? { maxHeight: '58vh', overflowY: 'auto' } : {}),
+        }}>
+          {/* Zone hebdomadaire */}
+          {weekZone && (editable ? (
+            <div>
+              <div style={{ fontSize: 12, color: '#92400E', fontWeight: 600, marginBottom: 4 }}>🏗 Zone de travail (semaine)</div>
+              <input
+                type="text"
+                value={String(values[weekZone.id] || '')}
+                onChange={e => onChange?.(weekZone.id, e.target.value)}
+                placeholder="Zone / chantier"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid #D1D5DB', fontSize: 14, fontFamily: 'inherit' }}
+              />
+            </div>
+          ) : (weekZoneVal && (
             <div style={{ fontSize: 12, color: '#92400E', fontWeight: 600 }}>🏗 Zone de travail : <strong>{weekZoneVal}</strong></div>
-          )}
-          {rows.map(({ f, v }) => {
-            const pv = v as PointageValue
+          )))}
+
+          {dayFields.map(f => {
+            const pv = (values[f.id] && typeof values[f.id] === 'object') ? values[f.id] as PointageValue : {} as PointageValue
             const total = pointageHours(pv)
+            const zField = zoneFieldFor(f.wizardSection || '')
             const zone = zoneFor(f.wizardSection || '')
+
+            if (editable) {
+              return (
+                <div key={f.id} style={{ borderTop: '1px solid #FDE68A', paddingTop: 10 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1C1A14', marginBottom: 6 }}>{dayLabel(f)}</div>
+                  <PointageField value={pv} onChange={v => onChange?.(f.id, v)} captureGps={f.captureGps} />
+                  {zField && zField.wizardSection?.trim() === (f.wizardSection || '').trim() && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 11.5, color: '#92400E', fontWeight: 600, marginBottom: 3 }}>🏗 Zone du jour</div>
+                      <input
+                        type="text"
+                        value={String(values[zField.id] || '')}
+                        onChange={e => onChange?.(zField.id, e.target.value)}
+                        placeholder="Zone / chantier"
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid #D1D5DB', fontSize: 14, fontFamily: 'inherit' }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
             return (
               <div key={f.id} style={{ borderTop: '1px solid #FDE68A', paddingTop: 9 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
