@@ -14,12 +14,10 @@ const AMBER = '#A16207'
 type Step = { n: number; color: string; title: string; body: React.ReactNode }
 
 const STEPS: Step[] = [
-  { n: 1, color: AMBER, title: 'Crée ton compte', body: <>Tu reçois un <strong>e-mail de L-Agence</strong> avec un lien. Clique dessus, puis choisis ton <strong>mot de passe</strong> (identifiant = ton e-mail). À faire une seule fois.</> },
-  { n: 2, color: GREEN, title: 'Ouvre ton rapport', body: <>Chaque semaine, tu reçois ton lien par <strong>WhatsApp</strong> ou e-mail. Clique sur <strong>« Nouveau rapport »</strong> pour la semaine en cours.</> },
-  { n: 3, color: BLUE, title: 'Saisis tes heures, jour par jour', body: <>Indique <strong>Début</strong> et <strong>Fin</strong>, ou clique <strong>« Maintenant »</strong> (met l’heure exacte + ta position GPS). Ajoute tes <strong>pauses</strong>, et la <strong>Zone de travail</strong> (chantier).</> },
-  { n: 4, color: BLUE, title: 'Timbreuse LIVE (si activée)', body: <>Un gros bouton <strong>« Démarrer ma journée »</strong> → le chrono tourne en direct → <strong>Pause / Reprendre</strong> → <strong>Terminer</strong>. Encore plus simple sur le chantier.</> },
-  { n: 5, color: AMBER, title: 'Absent ou en congé ?', body: <>Clique <strong>« Absent / Congé »</strong> et choisis le motif (Vacances, Jour férié…). Le jour compte 0 h.</> },
-  { n: 6, color: GREEN, title: 'Vérifie et signe', body: <>Le <strong>total</strong> se calcule tout seul. À la dernière étape, clique <strong>« Signer ici »</strong>, dessine ta signature au doigt, puis <strong>« Confirmer et envoyer »</strong>. Terminé !</> },
+  { n: 1, color: GREEN, title: 'Accède à ton rapport', body: <>Ton lien est <strong>permanent</strong> : garde-le, ou <strong>installe l’app</strong> sur ton téléphone (« Ajouter à l’écran d’accueil ») pour y accéder en 1 tap, tout le temps. Clique <strong>« Nouveau rapport »</strong> pour la semaine en cours.</> },
+  { n: 2, color: BLUE, title: 'Saisis tes heures, jour par jour', body: <>Avec la <strong>Timbreuse LIVE</strong> : clique <strong>« Démarrer ma journée »</strong> → le chrono tourne en direct → <strong>Pause / Reprendre</strong> → <strong>Terminer</strong>. (Ou tape Début / Fin à la main.) Ajoute tes <strong>pauses</strong> et la <strong>Zone de travail</strong> (chantier). Le <strong>total</strong> se calcule tout seul.</> },
+  { n: 3, color: AMBER, title: 'Absent ou en congé ?', body: <>Clique <strong>« Absent / Congé »</strong> et choisis le motif (Vacances, Jour férié…). Le jour compte 0 h.</> },
+  { n: 4, color: GREEN, title: 'Vérifie et signe', body: <>À la dernière étape, clique <strong>« Signer ici »</strong>, dessine ta signature au doigt, puis <strong>« Confirmer et envoyer »</strong>. C’est envoyé à L-Agence. Terminé !</> },
 ]
 
 export default function HelpGuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -90,13 +88,17 @@ export default function HelpGuideModal({ open, onClose }: { open: boolean; onClo
             background: '#F0FDF4', border: '1px solid #BBF7D0',
             fontSize: 12.5, color: '#15803D', lineHeight: 1.5,
           }}>
-            📍 <strong>Pourquoi le GPS ?</strong> Le bouton « Maintenant » prouve que tu étais sur le chantier. Autorise simplement la localisation quand ton téléphone le demande.
+            📍 <strong>Pourquoi le GPS ?</strong> Quand tu démarres et termines ta journée, ta position est enregistrée — ça prouve que tu étais bien sur le chantier. Autorise simplement la localisation quand ton téléphone le demande.
           </div>
         </div>
 
         {/* Footer */}
-        <div style={{ flexShrink: 0, padding: '12px 18px', borderTop: '1px solid #E5E7EB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <span style={{ fontSize: 12, color: '#6B7280' }}>Besoin d’aide ? <strong style={{ color: '#1C1A14' }}>+41 76 297 97 95</strong></span>
+        <div style={{ flexShrink: 0, padding: '12px 18px', borderTop: '1px solid #E5E7EB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <a
+            href="https://wa.me/41762979795?text=Bonjour%2C%20j%27ai%20une%20question%20sur%20mon%20rapport%20d%27heures."
+            target="_blank" rel="noopener noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 14px', borderRadius: 10, background: '#25D366', color: '#fff', fontSize: 13.5, fontWeight: 800, textDecoration: 'none' }}
+          >📱 Besoin d’aide ? WhatsApp</a>
           <button
             type="button" onClick={onClose}
             style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: '#EAB308', color: '#1C1A14', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}

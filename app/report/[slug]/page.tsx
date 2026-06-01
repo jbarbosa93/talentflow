@@ -1065,7 +1065,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
           }}
           title="Comment remplir mon rapport ?"
-        >❓ {isMobile ? 'Aide' : 'Comment ça marche ?'}</button>
+        >📖 {isMobile ? 'Guide' : 'Comment remplir ?'}</button>
         {/* v2.4.2 — Bouton Contacter L-Agence COMPACT en haut à droite du header */}
         <ContactAgenceButton variant="compact" />
         {/* v2.9.7 — Mon compte + Déconnexion à droite de l'Aide (au lieu d'un bandeau sticky moche) */}

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.4'
+export const APP_VERSION = '2.10.5'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.5 — Guide d'aide candidat corrigé (contenu + bouton)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.5',
+    date: '2026-06-01',
+    label: 'Guide d\'aide candidat : contenu corrigé + bouton WhatsApp',
+    features: [
+      'GUIDE CORRIGÉ — Étape « Crée ton compte » retirée (déjà fait à l\'entrée du portail). « Ouvre ton rapport » → lien PERMANENT / installer l\'app (plus de « lien par semaine »). « Saisis tes heures » → décrit la Timbreuse LIVE (plus de bouton « Maintenant »). Encadré GPS reformulé (démarrage/fin).',
+      'BOUTON & PIED — Le bouton d\'aide passe de « Aide » (doublon) à « 📖 Guide » / « Comment remplir ? » (responsive, ne casse pas l\'affichage). Pied du guide : bouton vert « 📱 Besoin d\'aide ? WhatsApp » → ouvre la conversation WhatsApp L-Agence.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.4 — Pointeuse : blocage de la saisie d'un jour futur
   // ─────────────────────────────────────────────────────────────────────
