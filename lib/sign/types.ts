@@ -186,6 +186,11 @@ export interface SignField {
   // le candidat n'a pas besoin de saisir (ex: adresse déjà connue).
   wizardHidden?: boolean
 
+  // v2.9.97 — Champ rempli dans le wizard + visible dans l'annexe « Détail des
+  // pointages », mais NON tamponné sur le rapport PDF brut. Cas d'usage : Zone de
+  // travail / pointeuse qu'on ne veut pas imprimer dans la grille du rapport.
+  excludeFromPdf?: boolean
+
   // v2.9.28 — Lien hypertexte affiché à côté du champ dans le wizard. Le clic
   // ouvre `linkUrl` dans un nouvel onglet ; `linkLabel` est le texte affiché
   // (ex: « QUIZ »). Si le champ est une checkbox, le clic coche aussi la case.

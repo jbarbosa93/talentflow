@@ -2522,6 +2522,20 @@ function SelectedFieldsPanel({
                 le voit pas dans le wizard — pour un champ rempli via une clé
                 partagée ou un auto-remplissage.
               </div>
+              {/* v2.9.97 — Annexe seulement (ne pas imprimer sur le rapport brut) */}
+              <label style={checkboxLabelStyle}>
+                <input
+                  type="checkbox"
+                  checked={!!f.excludeFromPdf}
+                  onChange={e => onPatch(f.id, { excludeFromPdf: e.target.checked || undefined })}
+                />
+                Afficher seulement dans l&apos;annexe (ne pas imprimer sur le rapport)
+              </label>
+              <div style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5, marginTop: -2 }}>
+                Le champ est rempli dans le wizard et apparaît dans l&apos;annexe
+                « Détail des pointages », mais n&apos;est PAS tamponné sur la grille
+                du rapport. Idéal pour la Zone de travail.
+              </div>
             </>
           )}
 

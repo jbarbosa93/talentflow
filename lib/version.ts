@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.96'
+export const APP_VERSION = '2.9.97'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.97 — Champ « annexe seulement » + couleurs rôles Document↔Wizard
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.97',
+    date: '2026-05-30',
+    label: 'Champ « afficher seulement dans l\'annexe » + couleurs rôles cohérentes Document/Wizard',
+    features: [
+      'ANNEXE SEULEMENT — Nouvelle case « Afficher seulement dans l\'annexe (ne pas imprimer sur le rapport) » sur les champs Zone de travail / pointeuse / heure (éditeur Document + Wizard). Coché (flag excludeFromPdf) : le champ est rempli dans le wizard et apparaît dans l\'annexe « Détail des pointages » page 2, mais n\'est PAS tamponné sur la grille du rapport brut. Idéal pour la Zone de travail.',
+      'COULEURS RÔLES — Incohérence corrigée : le Mode Wizard colorait les rôles avec (order−1) alors que le Mode Document utilisait order (+ colorIdx). Un même rôle (candidat/client) apparaissait dans 2 couleurs différentes selon le mode. Les deux modes utilisent désormais getRecipientPalette (colorIdx ?? order) → couleurs identiques partout.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.96 — « Envoyer au responsable » → WhatsApp direct + GPS sans (±m)
   // ─────────────────────────────────────────────────────────────────────

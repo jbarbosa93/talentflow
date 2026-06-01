@@ -41,7 +41,7 @@ import {
 const WizardPreview = dynamic(() => import('./WizardPreview'), { ssr: false })
 import { toast } from 'sonner'
 import type { SignDocument, SignField, SignFieldType, SignFieldCondition, SignRecipientSchema } from '@/lib/sign/types'
-import { RECIPIENT_COLORS } from '@/lib/sign/types'
+import { getRecipientPalette } from '@/lib/sign/types'
 import type { WizardStep, WizardStepAttachment } from '@/lib/sign/wizard-builder'
 // v2.7.8 — Helpers pour dropdowns conditions lisibles
 import { getFieldDisplayLabel, groupFieldsBySection } from '@/lib/sign/field-helpers'
@@ -931,7 +931,8 @@ export default function WizardEditor({
             Édition pour :
           </span>
           {allRoles.map(r => {
-            const palette = RECIPIENT_COLORS[(r.order - 1) % RECIPIENT_COLORS.length]
+            // v2.9.97 — Aligné sur le Mode Document (getRecipientPalette = colorIdx ?? order)
+            const palette = getRecipientPalette(r)
             const isActive = activeRole === r.order
             const label = r.roleName?.trim() || `Rôle ${r.order}`
             return (
@@ -2401,6 +2402,19 @@ function FieldEditor({
             Champ obligatoire
           </label>
 
+          {/* v2.9.97 — Annexe seulement (ne pas imprimer sur le rapport brut) */}
+          {(field.type === 'zone' || field.type === 'pointage' || field.type === 'time') && (
+            <label style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--foreground)' }}>
+              <input
+                type="checkbox"
+                checked={!!field.excludeFromPdf}
+                onChange={e => onUpdate({ excludeFromPdf: e.target.checked || undefined })}
+                style={{ width: 14, height: 14, marginTop: 2, accentColor: '#A16207', cursor: 'pointer' }}
+              />
+              <span>Afficher seulement dans l&apos;annexe<br/><span style={{ fontSize: 10.5, color: 'var(--muted)' }}>(rempli ici, visible dans l&apos;annexe page 2, pas imprimé sur le rapport)</span></span>
+            </label>
+          )}
+
           {/* v2.7.6 — Le consultant peut compléter si le candidat laisse vide */}
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--foreground)' }}>
             <input
@@ -3306,7 +3320,7 @@ function RolesManagerPopover({
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto' }}>
         {allRoles.map(r => {
-          const palette = RECIPIENT_COLORS[(r.order - 1) % RECIPIENT_COLORS.length] || RECIPIENT_COLORS[0]
+          const palette = getRecipientPalette(r) // v2.9.97 — aligné Mode Document
           const schemaItem = schema.find(s => s.order === r.order)
           const fieldCount = fieldCountsByOrder.get(r.order) || 0
           return (

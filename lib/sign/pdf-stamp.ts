@@ -254,6 +254,9 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
       })
     }
     for (const f of pageFields) {
+      // v2.9.97 — Champ « annexe seulement » : rempli dans le wizard + affiché dans
+      // l'annexe « Détail des pointages », mais jamais tamponné sur le rapport brut.
+      if (f.excludeFromPdf) continue
       const xPts = f.x * pw
       const yPtsTL = f.y * ph
       const wPts = f.width * pw
