@@ -191,6 +191,11 @@ export interface SignField {
   // travail / pointeuse qu'on ne veut pas imprimer dans la grille du rapport.
   excludeFromPdf?: boolean
 
+  // v2.10.0 — Pointeuse : active le mode « Timbreuse LIVE » (chrono temps réel).
+  // Gros bouton Démarrer → Pause/Reprendre → Terminer (au lieu de taper Début/Fin).
+  // Écrit dans la même valeur pointage (start/pauses/end). Saisie manuelle conservée.
+  liveTimer?: boolean
+
   // v2.9.28 — Lien hypertexte affiché à côté du champ dans le wizard. Le clic
   // ouvre `linkUrl` dans un nouvel onglet ; `linkLabel` est le texte affiché
   // (ex: « QUIZ »). Si le champ est une checkbox, le clic coche aussi la case.

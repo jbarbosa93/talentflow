@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.99'
+export const APP_VERSION = '2.10.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.0 — Aide in-app + Timbreuse LIVE + Validations groupées
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.0',
+    date: '2026-06-01',
+    label: 'Guide d\'aide in-app + Timbreuse LIVE (chrono) + validations groupées portail',
+    features: [
+      'AIDE IN-APP — Bouton « Comment ça marche ? » (« Aide » sur mobile) dans l\'en-tête du portail rapport → modal guide branded (compte → rapport → heures → signer), version HTML du PDF candidat. + Guide PDF « whaou » avec captures annotées (Bureau).',
+      'TIMBREUSE LIVE — Option « Timbreuse LIVE (chrono) » sur les champs pointeuse (éditeur). Le candidat clique « Démarrer ma journée » → le chrono tourne en direct → Pause / Reprendre → Terminer (GPS au démarrage/fin). Écrit dans la même valeur pointage ; saisie manuelle conservée.',
+      'VALIDATIONS GROUPÉES — Sur le portail client : bouton « Valider plusieurs rapports » → coche les rapports à valider → barre « Valider la sélection (N) » → une seule signature appliquée à tous (réutilise la signature électronique existante). Token rafraîchi automatiquement si besoin.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.99 — Jour pointeuse renseigné à 0h → « 0 » stampé (cohérence)
   // ─────────────────────────────────────────────────────────────────────

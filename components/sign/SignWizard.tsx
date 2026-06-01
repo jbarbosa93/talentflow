@@ -1298,7 +1298,7 @@ function FieldRow({ field, value, onChange, onChangeRaw, autoFill, allValues, hi
       <div>
         {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
-        <PointageField value={value} onChange={v => onChange(v)} captureGps={field.captureGps} />
+        <PointageField value={value} onChange={v => onChange(v)} captureGps={field.captureGps} liveTimer={field.liveTimer} />
         {hasValue && otherPointages.length > 0 && onChangeRaw && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 600 }}>⧉ Copier ces heures vers :</span>

@@ -32,6 +32,7 @@ import RecapPeriode from '@/components/report/RecapPeriode'
 import ContactAgenceButton from '@/components/report/ContactAgenceButton'
 import SubmissionViewerModal from '@/components/report/SubmissionViewerModal'
 import LogoLAgence from '@/components/report/LogoLAgence'
+import HelpGuideModal from '@/components/report/HelpGuideModal'
 // v2.4.4 — toWhatsAppSafe + waMeUrl retirés : plus de bouton WhatsApp côté candidat
 // (sécurité — un candidat malhonnête pouvait copier le lien et le forwarder à un complice).
 // Le seul canal d'envoi au client est désormais email automatique vers client_email.
@@ -89,6 +90,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   const [selectedClient, setSelectedClient] = useState<ReportLinkClient | null>(null)
   // v2.7.3 — Modal infos mission (clic sur card "Mes missions" en landing)
   const [missionInfoClient, setMissionInfoClient] = useState<ReportLinkClient | null>(null)
+  const [helpOpen, setHelpOpen] = useState(false) // v2.10.0 — modal guide d'aide
   const [phase, setPhase] = useState<'landing' | 'select_client' | 'form'>('landing')
   const [notesCandidat, setNotesCandidat] = useState<string>('')
   // v2.4.1 — Historique + récap (landing)
@@ -1052,11 +1054,26 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           </span>
         )}
 
+        {/* v2.10.0 — Bouton « Comment ça marche ? » → ouvre le guide d'aide */}
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          style={{
+            flexShrink: 0, padding: isMobile ? '7px 10px' : '7px 12px', borderRadius: 8,
+            border: '1.5px solid #E5E7EB', background: '#fff', color: '#374151',
+            fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+          }}
+          title="Comment remplir mon rapport ?"
+        >❓ {isMobile ? 'Aide' : 'Comment ça marche ?'}</button>
         {/* v2.4.2 — Bouton Contacter L-Agence COMPACT en haut à droite du header */}
         <ContactAgenceButton variant="compact" />
         {/* v2.9.7 — Mon compte + Déconnexion à droite de l'Aide (au lieu d'un bandeau sticky moche) */}
         {accountActions}
       </header>
+
+      {/* v2.10.0 — Guide d'aide in-app */}
+      <HelpGuideModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       {/* Mobile : WeekSelector sous le header */}
       {isMobile && (

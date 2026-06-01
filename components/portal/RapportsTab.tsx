@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import PublicPdfViewer from '@/components/sign/PublicPdfViewer'
+import SignaturePad from '@/components/sign/SignaturePad'
 
 interface Rapport {
   id: string
@@ -103,6 +104,14 @@ export default function RapportsTab({ slug }: { slug: string }) {
   const [initialFilterSet, setInitialFilterSet] = useState(false)
   const [pdfOpen, setPdfOpen] = useState<{ rapport: Rapport; mode: 'view' } | null>(null)
   const [refreshingId, setRefreshingId] = useState<string | null>(null)
+  // v2.10.0 — Validations groupées : sélection multiple + signature unique
+  const [batchMode, setBatchMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [padOpen, setPadOpen] = useState(false)
+  const [batchBusy, setBatchBusy] = useState<string | null>(null)
+  const toggleSelect = (id: string) => setSelected(prev => {
+    const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n
+  })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -195,6 +204,43 @@ export default function RapportsTab({ slug }: { slug: string }) {
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
   }
 
+  // v2.10.0 — Récupère un token client valide (rafraîchit si expiré/absent).
+  const ensureToken = async (r: Rapport): Promise<string | null> => {
+    if (r.client_token && !r.client_token_expired) return r.client_token
+    try {
+      const res = await fetch(`/api/client-portal/${slug}/rapports/${r.id}/refresh-token`, { method: 'POST' })
+      const d = await res.json()
+      return res.ok ? (d.client_token as string) : null
+    } catch { return null }
+  }
+
+  // v2.10.0 — Validation groupée : applique LA MÊME signature à tous les rapports
+  // sélectionnés (réutilise la route de signature testée, 1 appel par rapport).
+  const handleBatchValidate = async (signatureDataUrl: string) => {
+    setPadOpen(false)
+    const targets = (data?.rapports || []).filter(r => selected.has(r.id) && r.status === 'candidate_signed')
+    if (targets.length === 0) return
+    let ok = 0, ko = 0
+    for (const r of targets) {
+      setBatchBusy(`Validation ${ok + ko + 1}/${targets.length}…`)
+      const token = await ensureToken(r)
+      if (!token) { ko++; continue }
+      try {
+        const res = await fetch(`/api/reports/client/${token}/sign`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signature_data_url: signatureDataUrl }),
+        })
+        if (res.ok) ok++; else ko++
+      } catch { ko++ }
+    }
+    setBatchBusy(null)
+    setBatchMode(false)
+    setSelected(new Set())
+    if (ok > 0) toast.success(`${ok} rapport${ok > 1 ? 's' : ''} validé${ok > 1 ? 's' : ''}${ko > 0 ? ` · ${ko} échec(s)` : ''}`)
+    else toast.error('Aucun rapport validé. Réessaie ou valide-les un par un.')
+    load()
+  }
+
   if (loading) {
     return (
       <div style={{ padding: 60, textAlign: 'center' }}>
@@ -268,6 +314,25 @@ export default function RapportsTab({ slug }: { slug: string }) {
         </button>
       )}
 
+      {/* v2.10.0 — Validations groupées : activer la sélection multiple */}
+      {data.counts.pending > 1 && (
+        <div style={{ marginBottom: 14 }}>
+          {!batchMode ? (
+            <button
+              type="button"
+              onClick={() => { setBatchMode(true); setFilter('pending') }}
+              style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #1C1A14', background: '#fff', color: '#1C1A14', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >☑️ Valider plusieurs rapports</button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setBatchMode(false); setSelected(new Set()) }}
+              style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #D1D5DB', background: '#F3F4F6', color: '#374151', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+            >✕ Annuler la sélection</button>
+          )}
+        </div>
+      )}
+
       {/* Filtres */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
         <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>
@@ -320,6 +385,9 @@ export default function RapportsTab({ slug }: { slug: string }) {
                     onView={() => setPdfOpen({ rapport: r, mode: 'view' })}
                     refreshing={refreshingId === r.id}
                     slug={slug}
+                    selectable={batchMode && r.status === 'candidate_signed'}
+                    selected={selected.has(r.id)}
+                    onToggleSelect={() => toggleSelect(r.id)}
                   />
                 ))}
               </div>
@@ -332,6 +400,28 @@ export default function RapportsTab({ slug }: { slug: string }) {
       {pdfOpen && (
         <PdfModal rapport={pdfOpen.rapport} slug={slug} onClose={() => setPdfOpen(null)} />
       )}
+
+      {/* v2.10.0 — Barre flottante « Valider la sélection » */}
+      {batchMode && selected.size > 0 && (
+        <div style={{
+          position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50,
+          background: '#1C1A14', color: '#fff', padding: '14px 18px',
+          paddingBottom: 'max(14px, env(safe-area-inset-bottom, 14px))',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          boxShadow: '0 -6px 20px rgba(0,0,0,0.25)',
+        }}>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{selected.size} rapport{selected.size > 1 ? 's' : ''} sélectionné{selected.size > 1 ? 's' : ''}</span>
+          <button
+            type="button"
+            disabled={!!batchBusy}
+            onClick={() => setPadOpen(true)}
+            style={{ padding: '11px 18px', borderRadius: 10, border: 'none', background: '#EAB308', color: '#1C1A14', fontSize: 14, fontWeight: 800, cursor: batchBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}
+          >{batchBusy || `Valider la sélection (${selected.size})`}</button>
+        </div>
+      )}
+
+      {/* v2.10.0 — Signature unique appliquée à tous les rapports sélectionnés */}
+      <SignaturePad open={padOpen} onClose={() => setPadOpen(false)} onAdopt={(dataUrl) => handleBatchValidate(dataUrl)} />
     </>
   )
 }
@@ -419,13 +509,16 @@ function CandidatHeader({ name, photo, count, metier, missionStart }: {
   )
 }
 
-function RapportCard({ rapport: r, onValidate, onTransfer, onView, refreshing, slug }: {
+function RapportCard({ rapport: r, onValidate, onTransfer, onView, refreshing, slug, selectable, selected, onToggleSelect }: {
   rapport: Rapport
   onValidate: () => void
   onTransfer: () => void
   onView: () => void
   refreshing: boolean
   slug: string
+  selectable?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
 }) {
   const week = isoWeek(r.week_start)
   const dateRange = `${frDateShort(r.week_start)} au ${frDateShort(r.week_end)}`
@@ -457,18 +550,29 @@ function RapportCard({ rapport: r, onValidate, onTransfer, onView, refreshing, s
 
   return (
     <article
+      onClick={selectable ? onToggleSelect : undefined}
       style={{
-        background: '#fff',
-        border: `1.5px solid ${borderColor}`,
+        background: selected ? '#FFFBEB' : '#fff',
+        border: `1.5px solid ${selected ? '#EAB308' : borderColor}`,
         borderRadius: 12,
         padding: 16,
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
+        cursor: selectable ? 'pointer' : 'default',
       }}
     >
       {/* Ligne 1 : semaine + statut */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        {selectable && (
+          <span style={{
+            flexShrink: 0, width: 22, height: 22, borderRadius: 6, marginTop: 1,
+            border: `2px solid ${selected ? '#EAB308' : '#D1D5DB'}`,
+            background: selected ? '#EAB308' : '#fff',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            color: '#1C1A14', fontSize: 13, fontWeight: 900,
+          }}>{selected ? '✓' : ''}</span>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1A14' }}>
             Semaine {week} <span style={{ color: '#9CA3AF', fontWeight: 500 }}>· {dateRange} {r.week_start.slice(0, 4)}</span>
@@ -520,7 +624,7 @@ function RapportCard({ rapport: r, onValidate, onTransfer, onView, refreshing, s
       )}
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+      <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
         {r.status === 'candidate_signed' && (
           <button
             onClick={onValidate}

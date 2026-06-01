@@ -42,22 +42,12 @@ try:
 except Exception as e:
     print('logo L-Agence fail', e)
 
-# Metabader (droite) : vrai logo si dispo, sinon wordmark bleu
-if os.path.exists(MB_LOGO):
-    try:
-        mi = ImageReader(MB_LOGO); miw, mih = mi.getSize()
-        tw = 170; th = tw * mih / miw
-        if th > 56: th = 56; tw = th * miw / mih
-        c.drawImage(mi, W - 40 - tw, H - header_h/2 - th/2, width=tw, height=th, mask='auto')
-    except Exception as e:
-        print('logo Metabader fail', e)
-else:
-    setfill(MBLUE); c.setFont('Helvetica-Bold', 20)
-    lbl = 'METABADER SA'; lw = stringWidth(lbl, 'Helvetica-Bold', 20)
-    c.drawString(W - 40 - lw, H - header_h/2 - 1, lbl)
-    setfill((0.45, 0.55, 0.72)); c.setFont('Helvetica', 9)
-    sub = 'RECYCLING'; sw = stringWidth(sub, 'Helvetica', 9)
-    c.drawString(W - 40 - sw, H - header_h/2 - 15, sub)
+# v2.9.99 — Logo Metabader retiré (demande João). En-tête L-Agence seul,
+# avec un libellé discret « Rapport d'heures » à droite pour l'équilibre.
+setfill(MUTED); c.setFont('Helvetica', 11)
+lbl = "Rapport d'heures hebdomadaire"
+lw = stringWidth(lbl, 'Helvetica', 11)
+c.drawString(W - 40 - lw, H - header_h/2 - 3, lbl)
 
 # Titre
 y = H - header_h - 40

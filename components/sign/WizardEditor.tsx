@@ -2508,6 +2508,16 @@ function FieldEditor({
                 />
                 📍 Capturer la position GPS (au Début et à la Fin)
               </label>
+              {/* v2.10.0 — Timbreuse LIVE (chrono temps réel) */}
+              <label style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--foreground)' }}>
+                <input
+                  type="checkbox"
+                  checked={!!field.liveTimer}
+                  onChange={e => onUpdate({ liveTimer: e.target.checked || undefined })}
+                  style={{ width: 14, height: 14, marginTop: 2, accentColor: '#15803D', cursor: 'pointer' }}
+                />
+                <span>⏱ Timbreuse LIVE (chrono)<br/><span style={{ fontSize: 10.5, color: 'var(--muted)' }}>Gros bouton Démarrer → Pause/Reprendre → Terminer, en direct.</span></span>
+              </label>
             </div>
           )}
 

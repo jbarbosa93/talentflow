@@ -5,8 +5,8 @@
 // Saisie manuelle possible à tout moment (le bouton « Maintenant » est un raccourci).
 'use client'
 
-import { useState, useRef } from 'react'
-import { pointageHours, formatHours, type PointageValue, type PointagePause, type GpsPoint } from '@/lib/sign/pointage'
+import { useState, useRef, useEffect } from 'react'
+import { pointageHours, formatHours, hhmmToMin, type PointageValue, type PointagePause, type GpsPoint } from '@/lib/sign/pointage'
 
 // Re-export pour ne pas casser les imports existants (`from './PointageField'`)
 export { pointageHours, pointageFilled, formatHours } from '@/lib/sign/pointage'
@@ -17,15 +17,23 @@ const GREEN = '#15803D'
 const ABSENCE_PRESETS = ['Vacances', 'Jour férié'] as const
 
 export default function PointageField({
-  value, onChange, captureGps,
+  value, onChange, captureGps, liveTimer,
 }: {
   value: unknown
   onChange: (v: PointageValue) => void
   captureGps?: boolean
+  liveTimer?: boolean
 }) {
   const v: PointageValue = (value && typeof value === 'object') ? value as PointageValue : {}
   const vRef = useRef(v); vRef.current = v // toujours la valeur à jour (callbacks async GPS)
   const [gpsBusy, setGpsBusy] = useState<null | 'start' | 'end'>(null)
+  // v2.10.0 — Tick pour rafraîchir le chrono LIVE (toutes les 15 s suffit pour les minutes).
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (!liveTimer) return
+    const id = setInterval(() => setTick(t => t + 1), 15000)
+    return () => clearInterval(id)
+  }, [liveTimer])
   const update = (patch: Partial<PointageValue>) => onChange({ ...v, ...patch })
 
   // v2.9.88 — État d'absence
@@ -87,6 +95,52 @@ export default function PointageField({
   const stampNow = (which: 'start' | 'end') => {
     update({ [which]: nowHHMM() } as Partial<PointageValue>)
     if (captureGps) grabGps(which)
+  }
+
+  // ── v2.10.0 — Timbreuse LIVE (chrono temps réel) ──
+  const pausesNow = v.pauses || []
+  const openPauseIdx = pausesNow.findIndex(p => p.from && !p.to) // pause en cours
+  const liveState: 'idle' | 'running' | 'paused' | 'done' =
+    !v.start ? 'idle' : v.end ? 'done' : (openPauseIdx >= 0 ? 'paused' : 'running')
+
+  const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes() }
+  const span = (a: number, b: number) => { let x = b - a; if (x < 0) x += 1440; return x }
+  const fmtHM = (min: number) => {
+    const m = Math.max(0, Math.round(min)); const h = Math.floor(m / 60)
+    return h > 0 ? `${h}h${String(m % 60).padStart(2, '0')}` : `${m} min`
+  }
+  // Temps travaillé en direct (déduit pauses fermées + pause en cours)
+  const liveWorkedMin = (() => {
+    const st = hhmmToMin(v.start); if (st === null) return 0
+    const n = nowMin()
+    let worked = span(st, n)
+    for (const p of pausesNow) {
+      const f = hhmmToMin(p.from); const t = hhmmToMin(p.to)
+      if (f !== null && t !== null) worked -= span(f, t)
+      else if (f !== null && t === null) worked -= span(f, n) // pause en cours
+    }
+    return Math.max(0, worked)
+  })()
+  const livePauseMin = (() => {
+    if (openPauseIdx < 0) return 0
+    const f = hhmmToMin(pausesNow[openPauseIdx].from!); if (f === null) return 0
+    return span(f, nowMin())
+  })()
+
+  const liveStart = () => stampNow('start')
+  const livePause = () => update({ pauses: [...pausesNow, { from: nowHHMM() }] })
+  const liveResume = () => {
+    if (openPauseIdx < 0) return
+    const next = pausesNow.map((p, i) => i === openPauseIdx ? { ...p, to: nowHHMM() } : p)
+    update({ pauses: next })
+  }
+  const liveStop = () => {
+    // Ferme une éventuelle pause en cours avant de terminer.
+    const closed = openPauseIdx >= 0
+      ? pausesNow.map((p, i) => i === openPauseIdx ? { ...p, to: nowHHMM() } : p)
+      : pausesNow
+    onChange({ ...v, pauses: closed, end: nowHHMM() })
+    if (captureGps) grabGps('end')
   }
 
   const pauses = v.pauses || []
@@ -189,6 +243,52 @@ export default function PointageField({
           </div>
         </div>
       ) : (<>
+      {/* v2.10.0 — Timbreuse LIVE (chrono) */}
+      {liveTimer && (
+        <div style={{ borderRadius: 12, border: '1.5px solid #BBF7D0', background: '#F0FDF4', padding: 12 }}>
+          {liveState === 'idle' && (
+            <button type="button" onClick={liveStart} style={{
+              width: '100%', padding: '16px 12px', borderRadius: 12, border: 'none',
+              background: GREEN, color: '#fff', fontSize: 17, fontWeight: 800,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>▶  Démarrer ma journée</button>
+          )}
+          {liveState === 'running' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 12, color: '#15803D', fontWeight: 700 }}>● En cours depuis {v.start}</div>
+                <div style={{ fontSize: 30, fontWeight: 800, color: '#14532D', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>{fmtHM(liveWorkedMin)}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" onClick={livePause} style={{ flex: 1, padding: '12px', borderRadius: 10, border: '1.5px solid #F59E0B', background: '#FEF3C7', color: '#92400E', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>⏸  Pause</button>
+                <button type="button" onClick={liveStop} style={{ flex: 1, padding: '12px', borderRadius: 10, border: '1.5px solid #B91C1C', background: '#DC2626', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>⏹  Terminer</button>
+              </div>
+            </div>
+          )}
+          {liveState === 'paused' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 12, color: '#92400E', fontWeight: 700 }}>⏸ En pause</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: '#92400E', fontVariantNumeric: 'tabular-nums' }}>{fmtHM(livePauseMin)}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" onClick={liveResume} style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: GREEN, color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>▶  Reprendre</button>
+                <button type="button" onClick={liveStop} style={{ flex: 1, padding: '12px', borderRadius: 10, border: '1.5px solid #B91C1C', background: '#DC2626', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>⏹  Terminer</button>
+              </div>
+            </div>
+          )}
+          {liveState === 'done' && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 13, color: '#15803D', fontWeight: 700 }}>✓ Journée terminée ({v.start} → {v.end})</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: '#14532D', fontVariantNumeric: 'tabular-nums' }}>{formatHours(pointageHours(v))}</div>
+            </div>
+          )}
+          <div style={{ fontSize: 10.5, color: '#6B7280', marginTop: 8, textAlign: 'center' }}>
+            Ou corrige les heures à la main ci-dessous.
+          </div>
+        </div>
+      )}
+
       {/* Début */}
       <div>
         <div style={rowLabel}>Début</div>

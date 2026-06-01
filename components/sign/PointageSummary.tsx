@@ -108,7 +108,7 @@ export default function PointageSummary({
               return (
                 <div key={f.id} style={{ borderTop: '1px solid #FDE68A', paddingTop: 10 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1C1A14', marginBottom: 6 }}>{dayLabel(f)}</div>
-                  <PointageField value={pv} onChange={v => onChange?.(f.id, v)} captureGps={f.captureGps} />
+                  <PointageField value={pv} onChange={v => onChange?.(f.id, v)} captureGps={f.captureGps} liveTimer={f.liveTimer} />
                   {zField && zField.wizardSection?.trim() === (f.wizardSection || '').trim() && (
                     <div style={{ marginTop: 8 }}>
                       <div style={{ fontSize: 11.5, color: '#92400E', fontWeight: 600, marginBottom: 3 }}>🏗 Zone du jour</div>

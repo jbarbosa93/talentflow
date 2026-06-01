@@ -694,7 +694,7 @@ function FieldInput({
   if (t === 'pointage') {
     return (
       <div style={{ position: 'absolute', top: 0, left: 0, width: 300, zIndex: 5 }}>
-        <PointageField value={value} onChange={v => onChange(v)} captureGps={field.captureGps} />
+        <PointageField value={value} onChange={v => onChange(v)} captureGps={field.captureGps} liveTimer={field.liveTimer} />
         {tooltipBubble}
       </div>
     )
