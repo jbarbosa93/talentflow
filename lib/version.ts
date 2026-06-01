@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.9.98'
+export const APP_VERSION = '2.9.99'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.9.99 — Jour pointeuse renseigné à 0h → « 0 » stampé (cohérence)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.9.99',
+    date: '2026-06-01',
+    label: 'Pointeuse : un jour renseigné qui donne 0h affiche « 0 » sur le rapport',
+    features: [
+      'COHÉRENCE — Un jour de pointeuse RENSEIGNÉ (Début + Fin) dont le calcul donne 0h affiche désormais « 0 » dans la case du rapport PDF (avant : case vide). Aligné avec la page client + l\'annexe qui montraient déjà « 0 h ». Un jour NON rempli reste vide ; le TOTAL et les absences affichent toujours « 0 ».',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.9.98 — Fix : le client peut corriger les pointeuses (panneau éditable)
   // ─────────────────────────────────────────────────────────────────────

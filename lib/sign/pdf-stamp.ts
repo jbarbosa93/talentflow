@@ -13,7 +13,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib'
 import type { SignField } from './types'
 import { computeFormulaValue, formatFormulaValue, effectiveCheckedState } from './field-helpers'
-import { pointageHours } from './pointage'
+import { pointageHours, pointageFilled } from './pointage'
 import { safePdfText } from './safe-text'
 
 // ─── Stamp envelopeId (Phase 3) ─────────────────────────────────────────
@@ -391,8 +391,10 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
           if (h > 0) {
             const txt = Math.abs(h % 1) < 1e-9 ? h.toFixed(0) : h.toFixed(2)
             drawTextInBox(page, txt, xPts, yPtsBL, wPts, hPts, helv, f)
-          } else if (absent) {
-            // v2.9.88 — Jour d'absence : « 0 » explicite (motif dans l'annexe).
+          } else if (absent || pointageFilled(pv)) {
+            // v2.9.88 — Jour d'absence → « 0 » (motif en annexe).
+            // v2.9.99 — Jour RENSEIGNÉ (Début+Fin) qui donne 0h → « 0 » explicite
+            // (cohérent avec la page client + l'annexe). Un jour NON rempli reste vide.
             drawTextInBox(page, '0', xPts, yPtsBL, wPts, hPts, helv, f)
           }
           break
