@@ -5,7 +5,7 @@
 
 import { useState, FormEvent, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Eye, EyeOff, Mail, User, CheckCircle2 } from 'lucide-react'
+import { Eye, EyeOff, Mail, User, CheckCircle2, Bookmark, Copy, Check } from 'lucide-react'
 import AuthLayout, { inputStyle, labelStyle, primaryBtnStyle, errorStyle } from './AuthLayout'
 import ClientLogo from '@/components/ClientLogo'
 
@@ -27,6 +27,7 @@ export default function SetPasswordForm({ accountType, basePath }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [missingToken, setMissingToken] = useState(false)
   const [success, setSuccess] = useState<{ targetSlug: string | null } | null>(null)
+  const [copied, setCopied] = useState(false)
   const [tokenInfo, setTokenInfo] = useState<{
     email: string
     accountType: 'client' | 'candidat'
@@ -104,6 +105,19 @@ export default function SetPasswordForm({ accountType, basePath }: Props) {
   // ─── Page succès ────────────────────────────────────────────────────────
   if (success) {
     const targetUrl = success.targetSlug ? `${basePath}/${success.targetSlug}` : basePath
+    const loginPath = `${basePath}/login`
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const loginUrl = `${origin}${loginPath}`
+    const loginUrlDisplay = (origin.replace(/^https?:\/\//, '') || 'talent-flow.ch') + loginPath
+
+    const copyLogin = async () => {
+      try {
+        await navigator.clipboard.writeText(loginUrl)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch { /* clipboard indisponible */ }
+    }
+
     return (
       <AuthLayout>
         <div style={{ textAlign: 'center', padding: '8px 0' }}>
@@ -135,6 +149,48 @@ export default function SetPasswordForm({ accountType, basePath }: Props) {
             }}>
             {accountType === 'client' ? 'Accéder à mon portail' : 'Accéder à mes rapports'}
           </button>
+
+          {/* Encadré : enregistrer la page de connexion pour les prochaines visites */}
+          <div style={{
+            marginTop: 18, padding: '14px 16px', textAlign: 'left',
+            background: '#FEFCE8', border: '1px solid #FDE68A', borderRadius: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Bookmark size={18} style={{ color: '#92400E', flexShrink: 0 }} />
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#1C1A14' }}>
+                Enregistrez votre page de connexion
+              </span>
+            </div>
+            <p style={{ margin: '0 0 10px', fontSize: 13, color: '#6B7280', lineHeight: 1.5 }}>
+              Le lien reçu par message ne fonctionne qu&apos;une seule fois. Pour la prochaine fois, accédez à {accountType === 'client' ? 'votre portail' : 'vos rapports'} depuis cette page&nbsp;: ajoutez-la en favori ou sur votre écran d&apos;accueil pour la retrouver en 1 clic.
+            </p>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 10px', background: '#FFFFFF',
+              border: '1px solid #E5E7EB', borderRadius: 8,
+            }}>
+              <span style={{
+                flex: 1, minWidth: 0, fontSize: 12.5, color: '#1C1A14',
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {loginUrlDisplay}
+              </span>
+              <button
+                type="button" onClick={copyLogin}
+                aria-label="Copier le lien de connexion"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                  padding: '5px 9px', fontSize: 12.5, fontWeight: 600,
+                  background: copied ? '#DCFCE7' : '#F3F4F6',
+                  color: copied ? '#15803D' : '#374151',
+                  border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? 'Copié' : 'Copier'}
+              </button>
+            </div>
+          </div>
         </div>
       </AuthLayout>
     )
