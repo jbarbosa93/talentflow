@@ -33,6 +33,11 @@ export default function PointageField({
   dayDate?: string | null
 }) {
   const isFuture = !!dayDate && dayDate > todayIso()
+  // v2.10.6 — Jour passé : le chrono LIVE n'a plus de sens (on n'est plus dans le présent).
+  // → on cache « Démarrer ma journée » et on laisse la saisie manuelle. La Timbreuse LIVE
+  // ne s'affiche donc QUE pour aujourd'hui (ou si la date du jour est inconnue).
+  const isPast = !!dayDate && dayDate < todayIso()
+  const showLive = !!liveTimer && !isPast
   const v: PointageValue = (value && typeof value === 'object') ? value as PointageValue : {}
   const vRef = useRef(v); vRef.current = v // toujours la valeur à jour (callbacks async GPS)
   const [gpsBusy, setGpsBusy] = useState<null | 'start' | 'end'>(null)
@@ -192,7 +197,7 @@ export default function PointageField({
     <div style={{ fontSize: 10.5, color: GREEN, marginTop: 3 }}>
       📍 {g.address || 'Position enregistrée'}
     </div>
-  ) : (captureGps ? <div style={{ fontSize: 10.5, color: '#9CA3AF', marginTop: 3 }}>📍 {liveTimer ? 'GPS au démarrage / à la fin' : 'GPS au clic « Maintenant »'}</div> : null)
+  ) : (captureGps && (showLive || !liveTimer) ? <div style={{ fontSize: 10.5, color: '#9CA3AF', marginTop: 3 }}>📍 {showLive ? 'GPS au démarrage / à la fin' : 'GPS au clic « Maintenant »'}</div> : null)
 
   const rowLabel: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 4 }
 
@@ -266,8 +271,8 @@ export default function PointageField({
           </div>
         </div>
       ) : (<>
-      {/* v2.10.0 — Timbreuse LIVE (chrono) */}
-      {liveTimer && (
+      {/* v2.10.0 — Timbreuse LIVE (chrono) — uniquement pour AUJOURD'HUI (v2.10.6) */}
+      {showLive && (
         <div style={{ borderRadius: 12, border: '1.5px solid #BBF7D0', background: '#F0FDF4', padding: 12 }}>
           {liveState === 'idle' && (
             <button type="button" onClick={liveStart} style={{

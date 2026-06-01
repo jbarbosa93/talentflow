@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.5'
+export const APP_VERSION = '2.10.6'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.6 — Timbreuse LIVE : « Démarrer ma journée » uniquement aujourd'hui
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.6',
+    date: '2026-06-01',
+    label: 'Timbreuse LIVE : « Démarrer ma journée » seulement pour le jour présent',
+    features: [
+      'CHRONO LIVE — Le bouton « Démarrer ma journée » (et le chrono) ne s\'affiche QUE pour aujourd\'hui (on ne démarre pas en direct un jour déjà passé). Les jours passés gardent tous les champs de saisie manuelle (Début/Fin/pauses/zone) → le candidat complète à la main, sans risque d\'erreur. Les jours futurs restent verrouillés (v2.10.4).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.5 — Guide d'aide candidat corrigé (contenu + bouton)
   // ─────────────────────────────────────────────────────────────────────
