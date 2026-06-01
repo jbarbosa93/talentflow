@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.3'
+export const APP_VERSION = '2.10.4'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.4 — Pointeuse : blocage de la saisie d'un jour futur
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.4',
+    date: '2026-06-01',
+    label: 'Pointeuse : impossible de saisir un jour à venir (futur bloqué)',
+    features: [
+      'JOUR FUTUR BLOQUÉ — Le candidat peut saisir aujourd\'hui et les jours passés de la semaine, mais PAS les jours à venir. Un jour futur affiche « 🔒 Jour à venir — disponible le JJ.MM.AAAA » (bouton « Démarrer ma journée » + saisie désactivés). Les autres champs du jour (Zone, Repas) sont masqués et non exigés à la validation. La date du jour est calculée depuis la section (Lundi/Mardi…) + la semaine sélectionnée.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.3 — Timbreuse LIVE : masque les boutons « Maintenant » (doublon)
   // ─────────────────────────────────────────────────────────────────────

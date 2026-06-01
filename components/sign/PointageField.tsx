@@ -16,14 +16,23 @@ const GREEN = '#15803D'
 // v2.9.88 — Motifs d'absence prédéfinis (cf. choix João). « Autre » = texte libre.
 const ABSENCE_PRESETS = ['Vacances', 'Jour férié'] as const
 
+// v2.10.4 — Date du jour (locale, ISO YYYY-MM-DD) pour bloquer la saisie d'un jour futur.
+function todayIso(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function PointageField({
-  value, onChange, captureGps, liveTimer,
+  value, onChange, captureGps, liveTimer, dayDate,
 }: {
   value: unknown
   onChange: (v: PointageValue) => void
   captureGps?: boolean
   liveTimer?: boolean
+  /** v2.10.4 — Date réelle du jour (ISO). Si dans le futur → saisie bloquée. */
+  dayDate?: string | null
 }) {
+  const isFuture = !!dayDate && dayDate > todayIso()
   const v: PointageValue = (value && typeof value === 'object') ? value as PointageValue : {}
   const vRef = useRef(v); vRef.current = v // toujours la valeur à jour (callbacks async GPS)
   const [gpsBusy, setGpsBusy] = useState<null | 'start' | 'end'>(null)
@@ -202,6 +211,20 @@ export default function PointageField({
       {label}
     </button>
   )
+
+  // v2.10.4 — Jour futur : saisie bloquée (on ne pointe pas une journée pas encore arrivée).
+  if (isFuture) {
+    const [yy, mm, dd] = (dayDate as string).split('-')
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px dashed #D1D5DB', borderRadius: 12, padding: 14, background: '#F9FAFB' }}>
+        <span style={{ fontSize: 18 }}>🔒</span>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#6B7280' }}>Jour à venir</div>
+          <div style={{ fontSize: 12, color: '#9CA3AF' }}>Tu pourras saisir ce jour à partir du {dd}.{mm}.{yy}.</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, border: '1px solid #E5E7EB', borderRadius: 12, padding: 14, background: '#FAFAF7' }}>
