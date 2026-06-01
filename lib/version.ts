@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.6'
+export const APP_VERSION = '2.10.7'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.7 — Portail client : absence en cours (vacances/arrêt) du collaborateur
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.7',
+    date: '2026-06-01',
+    label: 'Portail client : affiche l\'absence en cours (vacances / arrêt) du collaborateur',
+    features: [
+      'PORTAIL — Quand un collaborateur est en vacances / arrêt / absence (noté sur sa mission), le client le voit désormais sur sa carte : badge « 🏖️ En vacances jusqu\'au JJ.MM.AAAA » (bleu), « 🤕 En arrêt… » (rouge) ou « 🚫 Absent… » (orange). Calculé si aujourd\'hui tombe dans une période d\'absence (priorité arrêt > vacances > absence). API portail enrichie (vacances/arrets/absences au select).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.6 — Timbreuse LIVE : « Démarrer ma journée » uniquement aujourd'hui
   // ─────────────────────────────────────────────────────────────────────

@@ -43,8 +43,35 @@ interface PortalCandidatPayload {
     date_fin: string | null
     marge_brute: number | null
   } | null
+  /** v2.10.7 — Absence EN COURS (aujourd'hui dans une période vacances/arrêt/absence). */
+  absence: { type: 'vacances' | 'arret' | 'absence'; debut: string; fin: string } | null
   legacy_documents: { name: string; url: string; type?: string | null; uploaded_at?: string | null }[]
   compliance_documents: CandidatDocumentWithStatus[]
+}
+
+// v2.10.7 — Normalise une date (ISO ou DD/MM/YYYY) en ISO YYYY-MM-DD.
+function toIsoDate(s: string | null | undefined): string | null {
+  if (!s) return null
+  const t = s.trim()
+  const fr = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (fr) return `${fr[3]}-${fr[2]}-${fr[1]}`
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10)
+  return null
+}
+// v2.10.7 — Absence EN COURS aujourd'hui (priorité arrêt > vacances > absence, comme la page Missions).
+function currentAbsence(m: any, todayIso: string): { type: 'vacances' | 'arret' | 'absence'; debut: string; fin: string } | null {
+  const inPeriod = (periods: any): { debut: string; fin: string } | null => {
+    if (!Array.isArray(periods)) return null
+    for (const p of periods) {
+      const d = toIsoDate(p?.debut); const f = toIsoDate(p?.fin)
+      if (d && f && d <= todayIso && todayIso <= f) return { debut: d, fin: f }
+    }
+    return null
+  }
+  const arret = inPeriod(m?.arrets); if (arret) return { type: 'arret', ...arret }
+  const vac = inPeriod(m?.vacances); if (vac) return { type: 'vacances', ...vac }
+  const abs = inPeriod(m?.absences); if (abs) return { type: 'absence', ...abs }
+  return null
 }
 
 function ageFromBirthdate(s: string | null): number | null {
@@ -118,7 +145,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     const todayIso = new Date().toISOString().slice(0, 10)
     const { data: missions } = await (admin as any)
       .from('missions')
-      .select('id, candidat_id, candidat_nom, metier, metier_display, date_debut, date_fin, marge_brute, statut')
+      .select('id, candidat_id, candidat_nom, metier, metier_display, date_debut, date_fin, marge_brute, statut, vacances, arrets, absences')
       .eq('client_id', portal.client_id)
       .eq('statut', 'en_cours')
       .lte('date_debut', todayIso)
@@ -205,6 +232,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
           date_fin: mission.date_fin,
           marge_brute: null, // jamais exposé côté client (sensible)
         } : null,
+        absence: mission ? currentAbsence(mission, todayIso) : null,
         legacy_documents: legacyDocs,
         compliance_documents: compliance,
       })

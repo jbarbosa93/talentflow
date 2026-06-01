@@ -32,6 +32,7 @@ interface PortalCandidat {
   localisation: string | null
   driver_highlights: { name: string; expiry_date: string | null; status: string }[]
   mission: { date_debut: string; date_fin: string | null; metier_display: string | null; metier: string | null } | null
+  absence?: { type: 'vacances' | 'arret' | 'absence'; debut: string; fin: string } | null
   legacy_documents: { name: string; url: string; type?: string | null }[]
   compliance_documents: CandidatDocumentWithStatus[]
 }
@@ -579,6 +580,26 @@ function CandidatCard({ candidat: c, delayMs, slug, notesCount, onOpenDocs, onOp
           </span>
         </div>
       )}
+
+      {/* v2.10.7 — Absence en cours (vacances / arrêt / absence) → visible par le client */}
+      {c.absence && (() => {
+        const cfg = c.absence.type === 'vacances'
+          ? { icon: '🏖️', label: 'En vacances', bg: '#EFF6FF', border: '#BFDBFE', color: '#1E40AF' }
+          : c.absence.type === 'arret'
+            ? { icon: '🤕', label: 'En arrêt', bg: '#FEF2F2', border: '#FECACA', color: '#991B1B' }
+            : { icon: '🚫', label: 'Absent', bg: '#FFF7ED', border: '#FED7AA', color: '#9A3412' }
+        return (
+          <div style={{
+            margin: '0 16px', padding: '7px 12px', borderRadius: 8,
+            background: cfg.bg, border: `1px solid ${cfg.border}`,
+            fontSize: 12, fontWeight: 600, color: cfg.color,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <span>{cfg.icon}</span>
+            <span>{cfg.label} jusqu’au <strong>{formatExpiryDate(c.absence.fin)}</strong></span>
+          </div>
+        )
+      })()}
 
       {/* Highlights chauffeur — v2.7.1 : seuls les permis AVEC date d'échéance.
           Les permis sans date restent visibles dans le modal "Voir tous les documents". */}
