@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.0'
+export const APP_VERSION = '2.10.1'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.1 — Fix : l'aperçu éditeur reflète les flags pointeuse (LIVE/GPS/annexe)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.1',
+    date: '2026-06-01',
+    label: 'Fix : l\'aperçu live de l\'éditeur reflète Timbreuse LIVE / GPS / annexe seulement',
+    features: [
+      'FIX — Cocher « Timbreuse LIVE (chrono) » (ou « GPS » / « annexe seulement ») ne mettait pas à jour l\'aperçu live de l\'éditeur : le hash de rafraîchissement de WizardPreview ne tenait pas compte de ces flags. Ajout de liveTimer/captureGps/excludeFromPdf/timbrageButton/wizardHidden au hash → l\'aperçu se met à jour immédiatement.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.0 — Aide in-app + Timbreuse LIVE + Validations groupées
   // ─────────────────────────────────────────────────────────────────────

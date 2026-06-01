@@ -55,6 +55,10 @@ export default function WizardPreview({ steps, documents, onClose, syncStepIdx, 
           f.autoFillSource, f.wizardSection, f.sectionDescription, f.helpText,
           f.metadata, f.defaultValue, f.maxLength, f.conditions,
           f.groupId, f.groupRule, f.groupMin, f.groupMax, f.groupName,
+          // v2.10.0 — Flags pointeuse/zone qui changent le rendu wizard :
+          // sans eux, cocher « Timbreuse LIVE » / « GPS » / « annexe seulement »
+          // ne rafraîchissait pas l'aperçu (hash identique).
+          f.liveTimer, f.captureGps, f.excludeFromPdf, f.timbrageButton, f.wizardHidden,
         ])),
         s: steps.map(s => [s.id, s.title, s.description, s.fieldIds, s.recipientOrder, s.displayMode,
           // v2.9.13 — Inclut attachments dans le hash pour que le rename d'un
