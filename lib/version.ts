@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.2'
+export const APP_VERSION = '2.10.3'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.3 — Timbreuse LIVE : masque les boutons « Maintenant » (doublon)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.3',
+    date: '2026-06-01',
+    label: 'Timbreuse LIVE : cache les boutons « Maintenant » (doublon avec le chrono)',
+    features: [
+      'TIMBREUSE LIVE — Quand l\'option « Timbreuse LIVE » est activée, les boutons « Maintenant » à côté de Début/Fin sont masqués (le chrono Démarrer/Terminer fait déjà la même chose). Le champ heure reste pour corriger à la main. Si l\'option n\'est PAS activée, les boutons « Maintenant » restent affichés comme avant. Texte GPS adapté (« au démarrage / à la fin »).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.2 — Jour absent masque Zone/Repas + (v2.10.1) aperçu éditeur
   // ─────────────────────────────────────────────────────────────────────

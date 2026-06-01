@@ -183,7 +183,7 @@ export default function PointageField({
     <div style={{ fontSize: 10.5, color: GREEN, marginTop: 3 }}>
       📍 {g.address || 'Position enregistrée'}
     </div>
-  ) : (captureGps ? <div style={{ fontSize: 10.5, color: '#9CA3AF', marginTop: 3 }}>📍 GPS au clic « Maintenant »</div> : null)
+  ) : (captureGps ? <div style={{ fontSize: 10.5, color: '#9CA3AF', marginTop: 3 }}>📍 {liveTimer ? 'GPS au démarrage / à la fin' : 'GPS au clic « Maintenant »'}</div> : null)
 
   const rowLabel: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 4 }
 
@@ -294,7 +294,8 @@ export default function PointageField({
         <div style={rowLabel}>Début</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {timeInput(v.start, s => update({ start: s }))}
-          {nowBtn('start')}
+          {/* v2.10.2 — En mode LIVE, le chrono gère le Début → bouton « Maintenant » masqué (doublon) */}
+          {!liveTimer && nowBtn('start')}
         </div>
         {gpsLine(v.startGps)}
       </div>
@@ -340,7 +341,8 @@ export default function PointageField({
         <div style={rowLabel}>Fin</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {timeInput(v.end, s => update({ end: s }))}
-          {nowBtn('end')}
+          {/* v2.10.2 — En mode LIVE, le chrono gère la Fin → bouton « Maintenant » masqué */}
+          {!liveTimer && nowBtn('end')}
         </div>
         {gpsLine(v.endGps)}
       </div>
