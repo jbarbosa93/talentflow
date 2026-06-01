@@ -308,6 +308,17 @@ export default function PublicClientReportPage({
           Merci ! Le rapport est maintenant signé par les deux parties.<br />
           Une copie vous a été envoyée par email.
         </p>
+        {/* v2.10.8 — Retour au portail si on vient de l'onglet Rapports du portail client */}
+        {(data?.portal_slug || backUrl) && (
+          <a
+            href={data?.portal_slug ? `/client-portal/${data.portal_slug}?tab=rapports` : (backUrl || '#')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 18,
+              padding: '11px 20px', borderRadius: 10, background: '#EAB308',
+              color: '#1C1A14', fontSize: 14, fontWeight: 800, textDecoration: 'none',
+            }}
+          >← Retour au portail</a>
+        )}
       </CenteredCard>
     )
   }
