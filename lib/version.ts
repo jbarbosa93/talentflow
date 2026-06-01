@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.1'
+export const APP_VERSION = '2.10.2'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.2 — Jour absent masque Zone/Repas + (v2.10.1) aperçu éditeur
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.2',
+    date: '2026-06-01',
+    label: 'Jour « Absent / Congé » masque les autres champs (Zone, Repas) + fix aperçu',
+    features: [
+      'JOUR ABSENT — Quand le candidat met un jour en « Absent / Congé », les autres champs de ce jour (Zone de travail, Repas…) sont désormais MASQUÉS dans le wizard (ils n\'ont plus de sens). La validation n\'exige plus ces champs masqués. Seule la pointeuse (avec la bascule + le motif) reste affichée.',
+      'FIX APERÇU (v2.10.1 inclus) — L\'aperçu live de l\'éditeur reflète maintenant immédiatement les flags Timbreuse LIVE / GPS / annexe seulement (ajout au hash de rafraîchissement).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.1 — Fix : l'aperçu éditeur reflète les flags pointeuse (LIVE/GPS/annexe)
   // ─────────────────────────────────────────────────────────────────────

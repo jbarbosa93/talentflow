@@ -265,7 +265,21 @@ export default function SignWizard({
       }
       return true
     }
+    // v2.10.0 — Sections « jour absent » : leurs champs (Zone, Repas…) sont masqués
+    // → ne pas exiger leur remplissage. On collecte les sections dont la pointeuse
+    // est marquée absente.
+    const absentSections = new Set<string>()
     for (const f of stepFields) {
+      if (f.type === 'pointage') {
+        const pv = fieldValues[f.id]
+        if (pv && typeof pv === 'object' && (pv as { absent?: boolean }).absent) {
+          absentSections.add((f.wizardSection || '').trim())
+        }
+      }
+    }
+    for (const f of stepFields) {
+      // Champ non-pointeuse d'une section absente → masqué, on n'exige rien.
+      if (f.type !== 'pointage' && absentSections.has((f.wizardSection || '').trim())) continue
       const eff = effectiveFieldState(f, fieldValues)
       if (!eff.visible) continue            // caché par condition
       if (!eff.required) continue           // pas requis (ou allégé par condition)
@@ -791,6 +805,20 @@ function GroupedFields({
     else groups.push({ name: sec, fields: [f] })
   }
 
+  // v2.10.0 — Jour ABSENT : si la pointeuse d'une section est marquée absente,
+  // les autres champs du jour (Zone de travail, Repas…) n'ont plus de sens → on
+  // ne garde que la pointeuse (qui porte la bascule Présent/Absent + le motif).
+  const groupVisibleFields = (g: { fields: SignField[] }): SignField[] => {
+    const pt = g.fields.find(f => f.type === 'pointage')
+    if (pt) {
+      const pv = values[pt.id]
+      if (pv && typeof pv === 'object' && (pv as { absent?: boolean }).absent) {
+        return g.fields.filter(f => f.type === 'pointage')
+      }
+    }
+    return g.fields
+  }
+
   // Si AUCUN field n'a de wizardSection → fallback rendu plat (pas de groupes du tout)
   const hasAnySection = groups.some(g => g.name !== null)
   if (!hasAnySection) {
@@ -848,16 +876,18 @@ function GroupedFields({
               {/* v2.7.6 — Layout adapté au contenu :
                   - Si tous les fields sont des checkboxes (ex: Oui/Non d'un groupe radio) → grid 2 colonnes
                   - Sinon (mix de select, date, text…) → liste verticale (1 par ligne, plus lisible) */}
+              {(() => { const vf = groupVisibleFields(g); return (
               <div style={{
-                display: g.fields.every(f => f.type === 'checkbox') ? 'grid' : 'flex',
+                display: vf.every(f => f.type === 'checkbox') ? 'grid' : 'flex',
                 flexDirection: 'column',
-                gridTemplateColumns: g.fields.every(f => f.type === 'checkbox') ? 'repeat(2, 1fr)' : undefined,
+                gridTemplateColumns: vf.every(f => f.type === 'checkbox') ? 'repeat(2, 1fr)' : undefined,
                 gap: 12,
               }}>
-                {g.fields.map(f => (
+                {vf.map(f => (
                   <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} hideLabelIfEmpty allDocumentFields={allDocumentFields} />
                 ))}
               </div>
+              ) })()}
             </div>
           ) : (
             // Fields hors-section : empilage vertical normal
@@ -909,7 +939,7 @@ function GroupedFields({
                 )}
               </div>
             )}
-            {g.fields.map(f => (
+            {groupVisibleFields(g).map(f => (
               <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} allDocumentFields={allDocumentFields} />
             ))}
           </div>
