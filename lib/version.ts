@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.8'
+export const APP_VERSION = '2.10.9'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.9 — Guide candidat adaptatif (timbreuse vs total d'heures)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.9',
+    date: '2026-06-01',
+    label: 'Guide « Comment remplir ? » adapté au template du candidat',
+    features: [
+      'GUIDE ADAPTATIF — Le bouton « Comment remplir ? » du portail rapport affichait toujours le guide Timbreuse LIVE, même pour les candidats sur un template simple (total d\'heures par jour, sans Début/Fin/pauses). Désormais la page détecte si le template contient un champ « pointage » (hasTimbreuse) : version Timbreuse LIVE (Démarrer ma journée → Pause/Reprendre → Terminer + encadré GPS) si oui, sinon version « total d\'heures » (inscris ton total du jour + déplacement + n° chantier + repas, jour non travaillé = vide). HelpGuideModal prend un prop hasTimbreuse.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.8 — Bouton « Retour au portail » après validation client
   // ─────────────────────────────────────────────────────────────────────

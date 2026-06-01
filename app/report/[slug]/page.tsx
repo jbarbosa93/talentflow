@@ -882,6 +882,10 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
 
   // ─── État OK ────────────────────────────────────────────────────────
   const activeDoc = data.template.documents[activeDocIdx]
+  // v2.10.9 — Guide adaptatif : timbreuse (champ pointage) vs total d'heures simple
+  const hasTimbreuse = (data.template?.documents || []).some(
+    (doc: any) => (doc?.fields || []).some((f: SignField) => f.type === 'pointage')
+  )
   const candidateFullName = data.candidat
     ? [data.candidat.prenom, data.candidat.nom].filter(Boolean).join(' ').trim()
     : ''
@@ -1073,7 +1077,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       </header>
 
       {/* v2.10.0 — Guide d'aide in-app */}
-      <HelpGuideModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <HelpGuideModal open={helpOpen} onClose={() => setHelpOpen(false)} hasTimbreuse={hasTimbreuse} />
 
       {/* Mobile : WeekSelector sous le header */}
       {isMobile && (

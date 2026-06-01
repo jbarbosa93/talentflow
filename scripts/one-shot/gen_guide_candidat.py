@@ -117,18 +117,18 @@ y -= 18
 setfill(MUTED); c.setFont('Helvetica', 12)
 c.drawString(40, y, "Tout se fait depuis ton téléphone, en quelques minutes.")
 
-# Etape 1 — Créer ton compte (bandeau)
+# Etape 1 — Accède à ton rapport (bandeau)
 y -= 30
 b_h = 64
 setfill((1.0, 0.97, 0.86)); c.roundRect(40, y - b_h, W - 80, b_h, 9, fill=1, stroke=0)
 setstroke(YELLOW); c.setLineWidth(1.2); c.roundRect(40, y - b_h, W - 80, b_h, 9, fill=0, stroke=1)
 num_marker(62, y - 18, 1, color=(0.72, 0.55, 0.05), r=11)
 setfill(INK); c.setFont('Helvetica-Bold', 12.5)
-c.drawString(82, y - 14, "Crée ton compte")
+c.drawString(82, y - 14, "Accède à ton rapport")
 setfill((0.45, 0.34, 0.05)); c.setFont('Helvetica', 10.5)
-c.drawString(82, y - 30, "Tu reçois un e-mail de L-Agence avec un lien. Clique dessus, puis choisis")
-c.drawString(82, y - 44, "ton mot de passe. Ton identifiant = ton e-mail. (À faire une seule fois.)")
-c.drawString(82, y - 58, "Ensuite, chaque semaine, tu reçois ton lien de rapport par WhatsApp ou e-mail.")
+c.drawString(82, y - 30, "Tu reçois ton lien personnel par WhatsApp ou e-mail. C'est un lien permanent :")
+c.drawString(82, y - 44, "le même chaque semaine. Mets-le en favori, ou installe l'app sur ton téléphone")
+c.drawString(82, y - 58, "(menu du navigateur → « Sur l'écran d'accueil ») pour y accéder en 1 clic.")
 
 # Etape 2 — Ouvre ton rapport (capture 3256 à gauche + légende)
 y -= b_h + 24
@@ -161,26 +161,25 @@ header("Guide collaborateur · Rapport d'heures")
 y = H - 78 - 38
 setfill(INK); c.setFont('Helvetica-Bold', 14)
 num_marker(49, y - 4, 3, color=BLUE, r=11)
-setfill(INK); c.drawString(70, y - 8,"Saisis tes heures, jour par jour")
+setfill(INK); c.drawString(70, y - 8,"Saisis tes heures : la Timbreuse LIVE")
 y -= 22
 
-ph_x, ph_w = 40, 176
-ph_h = draw_phone(os.path.join(SHOTS, 'IMG_3257.PNG'), ph_x, y, ph_w)
+ph_x, ph_w = 40, 182
+ph_h = draw_phone(os.path.join(SHOTS, 'POINTAGE_LIVE.PNG'), ph_x, y, ph_w)
 def mk2(frac_y, n, frac_x=0.92, color=RED):
     num_marker(ph_x + frac_x * ph_w, y - frac_y * ph_h, n, color, 8.5)
-mk2(0.31, 1, 0.30, BLUE)   # Présent / Absent
-mk2(0.40, 2, color=BLUE)   # Début + Maintenant
-mk2(0.52, 3, color=BLUE)   # Pauses
-mk2(0.74, 4, 0.88, BLUE)   # Total
-mk2(0.87, 5, color=BLUE)   # Zone
+mk2(0.32, 1, 0.27, BLUE)   # Présent / Absent
+mk2(0.42, 2, 0.50, BLUE)   # Démarrer ma journée
+mk2(0.67, 3, 0.83, BLUE)   # Pauses
+mk2(0.90, 4, 0.86, BLUE)   # Total
 
 lx = ph_x + ph_w + 26
 ly = y - 4
-ly = legend_item(lx, ly, 1, "Présent / Absent", "Choisis « Absent / Congé » si tu n'as pas travaillé (motif : vacances, férié…).", BLUE, 250)
-ly = legend_item(lx, ly, 2, "Début, Fin + « Maintenant »", "Tape l'heure, ou clique « Maintenant » : il met l'heure exacte + ta position GPS.", BLUE, 250)
-ly = legend_item(lx, ly, 3, "Pauses", "Ajoute autant de pauses que nécessaire avec « + Pause ».", BLUE, 250)
-ly = legend_item(lx, ly, 4, "Total travaillé", "Calculé tout seul (Fin − Début − pauses). Rien à faire.", BLUE, 250)
-ly = legend_item(lx, ly, 5, "Zone de travail", "Indique le chantier / lieu du jour (ex. « Budron C »).", BLUE, 250)
+ly = legend_item(lx, ly, 1, "Présent / Absent", "Pas travaillé ? Clique « Absent / Congé » et choisis le motif (vacances, férié…).", BLUE, 250)
+ly = legend_item(lx, ly, 2, "Démarre ta journée", "En arrivant : « Démarrer ma journée ». À la fin : « Terminer ». L'heure + le GPS sont pris tout seuls.", BLUE, 250)
+ly = legend_item(lx, ly, 3, "Pause / Reprendre", "Tu pars en pause ? Clique « Pause », puis « Reprendre » au retour. Autant de fois que besoin.", BLUE, 250)
+ly = legend_item(lx, ly, 4, "Total travaillé", "Calculé tout seul. (Tu peux aussi corriger Début / Fin à la main si besoin.)", BLUE, 250)
+ly = legend_item(lx, ly, 5, "Zone de travail", "Juste en dessous : indique le chantier / lieu du jour (ex. « Budron C »).", BLUE, 250)
 
 # Etape 4 — Signer (2 captures + légende)
 y = y - ph_h - 26
