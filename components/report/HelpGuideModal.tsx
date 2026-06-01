@@ -16,7 +16,7 @@ type Step = { n: number; color: string; title: string; body: React.ReactNode }
 // v2.10.9 — Guide « Timbreuse LIVE » (templates avec champ pointage : Metabader…)
 const STEPS_TIMBREUSE: Step[] = [
   { n: 1, color: GREEN, title: 'Accède à ton rapport', body: <>Ton lien est <strong>permanent</strong> : garde-le, ou <strong>installe l’app</strong> sur ton téléphone (« Ajouter à l’écran d’accueil ») pour y accéder en 1 tap, tout le temps. Clique <strong>« Nouveau rapport »</strong> pour la semaine en cours.</> },
-  { n: 2, color: BLUE, title: 'Saisis tes heures, jour par jour', body: <>Avec la <strong>Timbreuse LIVE</strong> : clique <strong>« Démarrer ma journée »</strong> → le chrono tourne en direct → <strong>Pause / Reprendre</strong> → <strong>Terminer</strong>. (Ou tape Début / Fin à la main.) Ajoute tes <strong>pauses</strong> et la <strong>Zone de travail</strong> (chantier). Le <strong>total</strong> se calcule tout seul.</> },
+  { n: 2, color: BLUE, title: 'Saisis tes heures, jour par jour', body: <>Avec la <strong>Timbreuse LIVE</strong> : clique <strong>« Démarrer ma journée »</strong> → le chrono tourne en direct → <strong>Pause / Reprendre</strong> → <strong>Terminer</strong>. (Ou tape Début / Fin à la main.) Renseigne tes <strong>pauses</strong> et la <strong>Zone de travail</strong> (chantier). Le <strong>total</strong> se calcule tout seul.</> },
   { n: 3, color: AMBER, title: 'Absent ou en congé ?', body: <>Clique <strong>« Absent / Congé »</strong> et choisis le motif (Vacances, Jour férié…). Le jour compte 0 h.</> },
   { n: 4, color: GREEN, title: 'Vérifie et signe', body: <>À la dernière étape, clique <strong>« Signer ici »</strong>, dessine ta signature au doigt, puis <strong>« Confirmer et envoyer »</strong>. C’est envoyé à L-Agence. Terminé !</> },
 ]
@@ -93,6 +93,15 @@ export default function HelpGuideModal({ open, onClose, hasTimbreuse = true }: {
               </div>
             </div>
           ))}
+          {hasTimbreuse && (
+            <div style={{
+              margin: '4px 0 0', padding: '10px 12px', borderRadius: 10,
+              background: '#FFFBEB', border: '1px solid #FDE68A',
+              fontSize: 12.5, color: '#92400E', lineHeight: 1.55,
+            }}>
+              ☕ <strong>Comment noter une pause&nbsp;?</strong> Indique <strong>l’heure</strong> où la pause commence et l’heure où elle finit — par exemple ta pause de midi&nbsp;: <strong>de&nbsp;12:00 à&nbsp;13:00</strong>. Le client veut savoir <em>quand</em> tu as fait la pause, pas seulement combien de temps. Mets bien le <strong>début ET la fin</strong> de chaque pause, sinon elle n’est pas déduite. La durée s’affiche toute seule sous la pause.
+            </div>
+          )}
           {hasTimbreuse && (
             <div style={{
               margin: '4px 0 8px', padding: '10px 12px', borderRadius: 10,
