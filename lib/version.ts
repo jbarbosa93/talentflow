@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.12'
+export const APP_VERSION = '2.10.14'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.14 — FIX email de validation client (mode portail) → bon destinataire
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.14',
+    date: '2026-06-02',
+    label: 'Fix : l\'email de validation va au client défini sur le lien (RH), plus à l\'adresse interne L-Agence',
+    features: [
+      'FIX RAPPORTS (mode portail) — Quand le candidat signait, l\'email de validation partait vers clients.email (adresse principale de l\'entreprise en DB, souvent un placeholder type info@l-agence.ch) au lieu de l\'email du client saisi sur le lien (« Entreprises autorisées », ex: rh@groupe-bader.ch). Désormais on priorise l\'email du client défini sur le lien (report_link_clients.client_email), avec fallback sur clients.email si absent. L\'URL reste le portail permanent. Texte explicatif mis à jour.',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.13 — Retrait du bandeau « Installer l'application » (app native dispo)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.13',
+    date: '2026-06-02',
+    label: 'Portail rapport : bandeau « Installer l\'application » retiré (app native TalentFlow Sign)',
+    features: [
+      'Le bandeau PWA « Installe l\'application » du portail rapport candidat est retiré (débranché du layout /report). L\'app native TalentFlow Sign prend le relais ; le web reste pour les missions ponctuelles. Composant PwaInstallPrompt conservé mais non monté.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.12 — Pièces jointes HEIC iPhone → JPEG (lisibles Windows + assemblées)
   // ─────────────────────────────────────────────────────────────────────

@@ -6,7 +6,6 @@ import type { Metadata, Viewport } from 'next'
 import { DM_Sans } from 'next/font/google'
 import '../globals.css'
 import ServiceWorkerRegister from '@/components/report/ServiceWorkerRegister'
-import PwaInstallPrompt from '@/components/report/PwaInstallPrompt'
 
 const jakarta = DM_Sans({
   subsets: ['latin'],
@@ -76,9 +75,10 @@ export default function ReportPublicLayout({ children }: { children: React.React
         }}
       >
         {children}
-        {/* v2.9.35 — PWA : enregistrement SW + bandeau d'installation */}
+        {/* v2.9.35 — PWA : enregistrement SW. v2.10.13 — Bandeau « Installer
+            l'application » retiré : on a désormais l'app native TalentFlow Sign ;
+            le web reste pour les missions ponctuelles. */}
         <ServiceWorkerRegister />
-        <PwaInstallPrompt />
       </body>
     </html>
   )

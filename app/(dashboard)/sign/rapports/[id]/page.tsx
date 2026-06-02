@@ -646,7 +646,7 @@ function UseClientPortalToggle({ link, onChanged }: {
         </div>
         <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
           {enabled ? (
-            <>L&apos;email de validation va à l&apos;adresse principale de l&apos;entreprise (en DB clients). Le client clique → arrive sur son portail avec <strong>tous</strong> les rapports à valider.</>
+            <>L&apos;email de validation va à l&apos;<strong>email du client défini sur le lien</strong> (Entreprises autorisées), sinon à l&apos;adresse principale de l&apos;entreprise. Le client clique → arrive sur son portail avec <strong>tous</strong> les rapports à valider.</>
           ) : (
             <>Aujourd&apos;hui : les notifications candidate_signed envoient un lien unique <code>/report/client/{'{'}token{'}'}</code> (TTL 7j). Active pour passer en mode portail (lien permanent vers <code>/client-portal/{'{'}slug{'}'}?tab=rapports</code>).</>
           )}

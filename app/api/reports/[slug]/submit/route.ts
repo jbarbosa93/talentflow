@@ -225,8 +225,13 @@ export async function POST(
 
     // URL et destinataire effectifs (portail prioritaire si dispo)
     const signUrl = portalSignUrl || `${appUrl}/report/client/${clientToken}`
-    const emailTarget = portalSignUrl && portalDestEmail ? portalDestEmail : dest.email
-    portalUsed = !!(portalSignUrl && portalDestEmail)
+    // v2.10.14 — FIX : en mode portail, on priorise l'email du client SAISI sur le
+    // lien (report_link_clients.client_email, ex: rh@groupe-bader.ch) plutôt que
+    // l'adresse principale de l'entreprise en DB (clients.email, souvent un
+    // placeholder type info@l-agence.ch). Fallback sur clients.email si le lien
+    // n'a pas d'email client. L'URL reste le portail permanent.
+    const emailTarget = dest.email || portalDestEmail
+    portalUsed = !!portalSignUrl
 
     // v2.3.x Bug 7 — Utilise link.candidat_name (source unique) au lieu de parser title.
     // Plus jamais "Rapport d'heures Joao a soumis..." dans les emails.
