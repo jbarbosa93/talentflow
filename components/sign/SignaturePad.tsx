@@ -22,6 +22,52 @@ interface Props {
   onAdopt: (dataUrl: string, method: 'drawn' | 'typed') => void
 }
 
+/**
+ * v2.10.11 — Rogne un canvas à la bounding box de ses pixels non transparents
+ * (l'encre réellement tracée), avec une petite marge. Retourne un data URL PNG
+ * transparent, ou null si rien n'est tracé (fallback canvas entier côté appelant).
+ * Travaille en pixels physiques (le canvas est déjà à l'échelle DPR).
+ */
+function trimToInk(canvas: HTMLCanvasElement): string | null {
+  try {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    const { width: W, height: H } = canvas
+    if (!W || !H) return null
+    const { data } = ctx.getImageData(0, 0, W, H)
+    let minX = W, minY = H, maxX = -1, maxY = -1
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        // alpha du pixel (RGBA) > seuil → considéré comme encre
+        if (data[(y * W + x) * 4 + 3] > 16) {
+          if (x < minX) minX = x
+          if (x > maxX) maxX = x
+          if (y < minY) minY = y
+          if (y > maxY) maxY = y
+        }
+      }
+    }
+    if (maxX < minX || maxY < minY) return null // rien de tracé
+    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
+    const pad = Math.round(10 * dpr)
+    const sx = Math.max(0, minX - pad)
+    const sy = Math.max(0, minY - pad)
+    const sw = Math.min(W, maxX + pad) - sx
+    const sh = Math.min(H, maxY + pad) - sy
+    if (sw <= 0 || sh <= 0) return null
+    const out = document.createElement('canvas')
+    out.width = sw
+    out.height = sh
+    const octx = out.getContext('2d')
+    if (!octx) return null
+    octx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh)
+    return out.toDataURL('image/png')
+  } catch (e) {
+    console.warn('[SignaturePad] trimToInk failed', e)
+    return null
+  }
+}
+
 export default function SignaturePad({ open, onClose, onAdopt }: Props) {
   const [mounted, setMounted] = useState(false)
   const [hasDrawn, setHasDrawn] = useState(false)
@@ -135,7 +181,12 @@ export default function SignaturePad({ open, onClose, onAdopt }: Props) {
     }
     setSubmitting(true)
     try {
-      const dataUrl = canvasRef.current!.toDataURL('image/png')
+      const canvas = canvasRef.current!
+      // v2.10.11 — Rogne la zone RÉELLEMENT tracée (bounding box des pixels
+      // non transparents) avant l'export. Sinon le PNG contient tout le canvas
+      // (souvent large) avec beaucoup de vide → une fois « contenue » dans la
+      // case PDF, l'encre visible paraît minuscule. On exporte au plus juste.
+      const dataUrl = trimToInk(canvas) || canvas.toDataURL('image/png')
       onAdopt(dataUrl, 'drawn')
     } catch (e) {
       console.error('[SignaturePad] adopt error', e)

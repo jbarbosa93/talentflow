@@ -1,0 +1,17 @@
+{
+  "started_at": "2026-05-27T15:16:12.012432+00:00",
+  "filter": {
+    "only": "image",
+    "limit": null,
+    "single_id": null
+  },
+  "total": 0,
+  "entries": [],
+  "ended_at": "2026-05-27T15:16:12.026507+00:00",
+  "duration_seconds": 0.01,
+  "counts": {
+    "success": 0,
+    "skipped": 0,
+    "failed": 0
+  }
+}

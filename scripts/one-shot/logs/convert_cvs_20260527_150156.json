@@ -1,0 +1,73 @@
+{
+  "started_at": "2026-05-27T15:01:56.085526+00:00",
+  "filter": {
+    "only": "image",
+    "limit": 5,
+    "single_id": null
+  },
+  "total": 5,
+  "entries": [
+    {
+      "id": "ef23ee28-90db-48f8-8691-21ecad5f6ee1",
+      "nom": "Borges",
+      "prenom": "Pereira",
+      "ext_original": "jpg",
+      "storage_path_original": "1774022293334_1774022286983_PEREIRA_BORGES_euclides_23.03.2021.jpg",
+      "storage_path_pdf": "1774022293334_1774022286983_PEREIRA_BORGES_euclides_23.03.2021.pdf",
+      "status": "success",
+      "error": null,
+      "new_cv_url": "https://rdpbqnhwhjkngxxitupg.supabase.co/storage/v1/object/public/cvs/1774022293334_1774022286983_PEREIRA_BORGES_euclides_23.03.2021.pdf"
+    },
+    {
+      "id": "aa41adad-6e3b-4ee3-acb3-205ee3a4c409",
+      "nom": "Coteron",
+      "prenom": "Nicolas",
+      "ext_original": "jpg",
+      "storage_path_original": "1774006568783_SECOND_OEUVRE_sanitaire_qualifie__ou_expe_rience_COTERON_nicolas_09.10.2022.jpg",
+      "storage_path_pdf": "1774006568783_SECOND_OEUVRE_sanitaire_qualifie__ou_expe_rience_COTERON_nicolas_09.10.2022.pdf",
+      "status": "success",
+      "error": null,
+      "new_cv_url": "https://rdpbqnhwhjkngxxitupg.supabase.co/storage/v1/object/public/cvs/1774006568783_SECOND_OEUVRE_sanitaire_qualifie__ou_expe_rience_COTERON_nicolas_09.10.2022.pdf"
+    },
+    {
+      "id": "b78f5ce0-b808-402d-8c44-33fae274f234",
+      "nom": "Serex",
+      "prenom": "Vincent",
+      "ext_original": "jpg",
+      "storage_path_original": "1774055270675_1774055258748_SEREX_vincent_25.04.2024.jpg",
+      "storage_path_pdf": "1774055270675_1774055258748_SEREX_vincent_25.04.2024.pdf",
+      "status": "success",
+      "error": null,
+      "new_cv_url": "https://rdpbqnhwhjkngxxitupg.supabase.co/storage/v1/object/public/cvs/1774055270675_1774055258748_SEREX_vincent_25.04.2024.pdf"
+    },
+    {
+      "id": "4f0fc0a7-5a8d-4b4c-b0ca-6f126876292f",
+      "nom": "Segeral",
+      "prenom": "Laurent",
+      "ext_original": "png",
+      "storage_path_original": "1774055879523_SEGERAL_laurent_10.10.2023.png",
+      "storage_path_pdf": "1774055879523_SEGERAL_laurent_10.10.2023.pdf",
+      "status": "success",
+      "error": null,
+      "new_cv_url": "https://rdpbqnhwhjkngxxitupg.supabase.co/storage/v1/object/public/cvs/1774055879523_SEGERAL_laurent_10.10.2023.pdf"
+    },
+    {
+      "id": "542d572d-bd8a-484b-a220-eb6bb551e24a",
+      "nom": "Gonçalves Santos",
+      "prenom": "Ana Maria",
+      "ext_original": "jpeg",
+      "storage_path_original": "1775634067904_IMG_3910.jpeg",
+      "storage_path_pdf": "1775634067904_IMG_3910.pdf",
+      "status": "success",
+      "error": null,
+      "new_cv_url": "https://rdpbqnhwhjkngxxitupg.supabase.co/storage/v1/object/public/cvs/1775634067904_IMG_3910.pdf"
+    }
+  ],
+  "ended_at": "2026-05-27T15:02:01.412354+00:00",
+  "duration_seconds": 5.33,
+  "counts": {
+    "success": 5,
+    "skipped": 0,
+    "failed": 0
+  }
+}

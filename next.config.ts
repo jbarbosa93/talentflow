@@ -13,7 +13,9 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
   // Accès mobile depuis le réseau local en dev
   allowedDevOrigins: ['172.22.22.145', '172.22.22.63'],
-  serverExternalPackages: ['mupdf'],
+  // v2.10.12 — heic-convert + libheif-js (asm.js volumineux) externalisés pour
+  // qu'ils restent en require() runtime (Node) au lieu d'être bundlés.
+  serverExternalPackages: ['mupdf', 'heic-convert', 'libheif-js'],
   // v2.2.0 Phase 2 — Force Next à transpiler ces modules ESM via swc.
   // Sans ça, webpack dev (`next dev --webpack`) interprète mal les exports
   // de `pdfjs-dist v5` chargé via `react-pdf` → "Object.defineProperty called on non-object"

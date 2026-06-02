@@ -1,0 +1,78 @@
+{
+  "started_at": "2026-05-27T15:09:40.600992+00:00",
+  "filter": {
+    "only": "image",
+    "limit": 5,
+    "single_id": null
+  },
+  "total": 5,
+  "entries": [
+    {
+      "id": "580793ab-6322-475a-bed7-a36f1d803f61",
+      "nom": "Iúri",
+      "prenom": "Paulino",
+      "ext_original": "jpg",
+      "storage_path_original": "1774632485396_IURI_paulino_23.09.2024.jpg",
+      "storage_path_pdf": "1774632485396_IURI_paulino_23.09.2024.pdf",
+      "status": "success",
+      "error": null,
+      "new_cv_url": "https://rdpbqnhwhjkngxxitupg.supabase.co/storage/v1/object/sign/cvs/1774632485396_IURI_paulino_23.09.2024.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xMTE2NTEzMi0xMzRlLTQ2NDgtOGVlMS0yNzc3MWNkMGE0YWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjdnMvMTc3NDYzMjQ4NTM5Nl9JVVJJX3BhdWxpbm9fMjMuMDkuMjAyNC5wZGYiLCJpYXQiOjE3Nzk4OTQ1ODEsImV4cCI6MjA5NTI1NDU4MX0.meZ890zlqhC3VRgLmFZHo0R-agCASh-vWSXKDHPDQn8",
+      "sha256": "cf9e76d3fea65349e0b4efa89ef45bf31d994585162df9ee530b50df995e5c25"
+    },
+    {
+      "id": "38f3cc72-fe5d-4211-a425-ddae3d17dee4",
+      "nom": "Kermaniche",
+      "prenom": "Lamri",
+      "ext_original": "png",
+      "storage_path_original": "1774053488192_KERMICHE_lamri_01.06.2024.png",
+      "storage_path_pdf": "1774053488192_KERMICHE_lamri_01.06.2024.pdf",
+      "status": "success",
+      "error": null,
+      "new_cv_url": "https://rdpbqnhwhjkngxxitupg.supabase.co/storage/v1/object/sign/cvs/1774053488192_KERMICHE_lamri_01.06.2024.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xMTE2NTEzMi0xMzRlLTQ2NDgtOGVlMS0yNzc3MWNkMGE0YWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjdnMvMTc3NDA1MzQ4ODE5Ml9LRVJNSUNIRV9sYW1yaV8wMS4wNi4yMDI0LnBkZiIsImlhdCI6MTc3OTg5NDU4MiwiZXhwIjoyMDk1MjU0NTgyfQ.x50IX-MrcCGRWstiA7m4Pk4wRtCHhtpQ1vf50xRVpaI",
+      "sha256": "aa173db9a5304f3897d210b055ea4c848a017c29a3d3f1871997da11002be798"
+    },
+    {
+      "id": "37889a38-d5df-4870-891c-a61da3534baa",
+      "nom": "Fiorani",
+      "prenom": "Emiliano",
+      "ext_original": "jpg",
+      "storage_path_original": "1774631565851_FIORANI_emiliano_23.09.2022.jpg",
+      "storage_path_pdf": "1774631565851_FIORANI_emiliano_23.09.2022.pdf",
+      "status": "success",
+      "error": null,
+      "new_cv_url": "https://rdpbqnhwhjkngxxitupg.supabase.co/storage/v1/object/sign/cvs/1774631565851_FIORANI_emiliano_23.09.2022.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xMTE2NTEzMi0xMzRlLTQ2NDgtOGVlMS0yNzc3MWNkMGE0YWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjdnMvMTc3NDYzMTU2NTg1MV9GSU9SQU5JX2VtaWxpYW5vXzIzLjA5LjIwMjIucGRmIiwiaWF0IjoxNzc5ODk0NTgzLCJleHAiOjIwOTUyNTQ1ODN9.cKftQCbuLcoafru593PI5jtq_NGcOnJ3fvL8YUXAI2Y",
+      "sha256": "37823a2ac6be30f6fdd659267adaa84e1dd221df904563abe75e5b5b5865e682"
+    },
+    {
+      "id": "0df7f656-8b19-4eb6-86a9-b1dd2fc50ec7",
+      "nom": "Da Silva",
+      "prenom": "Leandro",
+      "ext_original": "jpg",
+      "storage_path_original": "1774054767980_DA_SILVA_leandro_21.09.2022_fils_a_shwarzenegger.jpg",
+      "storage_path_pdf": "1774054767980_DA_SILVA_leandro_21.09.2022_fils_a_shwarzenegger.pdf",
+      "status": "success",
+      "error": null,
+      "new_cv_url": "https://rdpbqnhwhjkngxxitupg.supabase.co/storage/v1/object/sign/cvs/1774054767980_DA_SILVA_leandro_21.09.2022_fils_a_shwarzenegger.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xMTE2NTEzMi0xMzRlLTQ2NDgtOGVlMS0yNzc3MWNkMGE0YWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjdnMvMTc3NDA1NDc2Nzk4MF9EQV9TSUxWQV9sZWFuZHJvXzIxLjA5LjIwMjJfZmlsc19hX3Nod2FyemVuZWdnZXIucGRmIiwiaWF0IjoxNzc5ODk0NTg0LCJleHAiOjIwOTUyNTQ1ODR9.8wsK0RuGYbhY5jqdhTJ0MM_54STZq28J0PB72h4WNgw",
+      "sha256": "40669b10b1e13a653f80ff729ef39bc11045f7e0b8a818355bec7542daa35596"
+    },
+    {
+      "id": "782886ac-9f94-4c22-9110-a5d15e4f900a",
+      "nom": "Rodrigues",
+      "prenom": "Pedro Miguel Freitas",
+      "ext_original": "jpg",
+      "storage_path_original": "1774035957107_CONSTRUCTION_maneouvre_chantier_C_FREITAS_RODRIGUES_pedro_miguel_05.02.2021.jpg",
+      "storage_path_pdf": "1774035957107_CONSTRUCTION_maneouvre_chantier_C_FREITAS_RODRIGUES_pedro_miguel_05.02.2021.pdf",
+      "status": "success",
+      "error": null,
+      "new_cv_url": "https://rdpbqnhwhjkngxxitupg.supabase.co/storage/v1/object/sign/cvs/1774035957107_CONSTRUCTION_maneouvre_chantier_C_FREITAS_RODRIGUES_pedro_miguel_05.02.2021.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xMTE2NTEzMi0xMzRlLTQ2NDgtOGVlMS0yNzc3MWNkMGE0YWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjdnMvMTc3NDAzNTk1NzEwN19DT05TVFJVQ1RJT05fbWFuZW91dnJlX2NoYW50aWVyX0NfRlJFSVRBU19ST0RSSUdVRVNfcGVkcm9fbWlndWVsXzA1LjAyLjIwMjEucGRmIiwiaWF0IjoxNzc5ODk0NTg1LCJleHAiOjIwOTUyNTQ1ODV9.o9NM0Z6MMREDzsBDIfrpH1aQ4ezcrPzJH46NdUMQW5A",
+      "sha256": "2c1687d98c8941f11aebd3222e537bffb3468260e351447537d012f4367bb2da"
+    }
+  ],
+  "ended_at": "2026-05-27T15:09:45.553983+00:00",
+  "duration_seconds": 4.95,
+  "counts": {
+    "success": 5,
+    "skipped": 0,
+    "failed": 0
+  }
+}

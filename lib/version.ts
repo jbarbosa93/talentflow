@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.10'
+export const APP_VERSION = '2.10.12'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.12 — Pièces jointes HEIC iPhone → JPEG (lisibles Windows + assemblées)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.12',
+    date: '2026-06-02',
+    label: 'Pièces jointes HEIC (iPhone) converties en JPEG : lisibles sur Windows + assemblées recto/verso',
+    features: [
+      'FIX PIÈCES JOINTES — Les photos iPhone en HEIC (carte bancaire, etc.) arrivaient par email en fichiers bruts illisibles sur Windows et non assemblées recto/verso. Désormais converties en JPEG côté serveur (heic-convert) avant l\'assemblage → 1 PDF propre par champ, lisible partout. Helpers isHeic + convertHeicToJpeg (lib/sign/compose-attachment-pdf.ts), branchés dans processCandidateUploads (finalize). Secours : si la conversion échoue, le fichier d\'origine reste joint. heic-convert + libheif-js externalisés (serverExternalPackages).',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.11 — Signature rognée à l'encre (ne paraît plus minuscule)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.11',
+    date: '2026-06-02',
+    label: 'Signature : rognée au tracé réel avant export (remplit la case au lieu de paraître minuscule)',
+    features: [
+      'FIX SIGNATURE — SignaturePad exportait tout le canvas (souvent large) avec beaucoup de transparent autour du tracé → une fois « contenue » dans la case du PDF, la signature paraissait minuscule. Nouveau helper trimToInk : rogne la bounding box des pixels réellement tracés (+ petite marge) avant toDataURL. La signature remplit désormais correctement la case sur tous les documents. Travaille en pixels physiques (échelle DPR). Fallback canvas entier si rien à rogner.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.10 — Pauses pointeuse expliquées + garde-fous + page de connexion portail
   // ─────────────────────────────────────────────────────────────────────

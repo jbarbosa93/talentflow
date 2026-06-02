@@ -28,7 +28,7 @@ import { triggerNextSigner } from '@/lib/sign/sequential'
 import { downloadSignDocument } from '@/lib/sign/storage'
 import { uploadComplianceFile } from '@/lib/compliance/storage'
 import { safeContentType } from '@/lib/utils/mime'
-import { composeImagesToPdf, isComposableImage, type ComposableImage } from '@/lib/sign/compose-attachment-pdf'
+import { composeImagesToPdf, isComposableImage, isHeic, convertHeicToJpeg, type ComposableImage } from '@/lib/sign/compose-attachment-pdf'
 
 export const runtime = 'nodejs'
 // v2.9.23 — Marge pour le traitement des pièces jointes candidat (download +
@@ -778,8 +778,11 @@ async function processCandidateUploads(args: {
     // 1 seule image (CV photo → CV.pdf) + nom de fichier basé sur le champ.
     const attachments: { filename: string; content: string }[] = []
     for (const c of collected) {
-      const imgFiles = c.files.filter(f => isComposableImage(f.mimeType, f.name))
-      const otherFiles = c.files.filter(f => !isComposableImage(f.mimeType, f.name))
+      // v2.10.12 — HEIC iPhone : illisibles sur Windows + non assemblés. On les
+      // traite comme des images composables (conversion JPEG juste après le
+      // téléchargement, plus bas). Seuls PDF/webp/etc. restent en fichiers bruts.
+      const imgFiles = c.files.filter(f => isComposableImage(f.mimeType, f.name) || isHeic(f.mimeType, f.name))
+      const otherFiles = c.files.filter(f => !isComposableImage(f.mimeType, f.name) && !isHeic(f.mimeType, f.name))
       // v2.9.67 — Filename safe pour email PJ. Avant : `[^\w\s.-]+` strippait
       // accents (é, à…) et apostrophes → « Carte d'identité » devenait
       // « Carte d identit ». Désormais on enlève UNIQUEMENT les caractères
@@ -797,24 +800,37 @@ async function processCandidateUploads(args: {
         for (const f of imgFiles) {
           const blob = await fetchBlob(f.path)
           if (!blob) continue
-          composable.push({
-            buffer: Buffer.from(await blob.arrayBuffer()),
-            mimeType: f.mimeType || blob.type || '',
-            name: f.name || 'image',
-          })
+          let buf: Buffer = Buffer.from(await blob.arrayBuffer())
+          let mime = f.mimeType || blob.type || ''
+          let name = f.name || 'image'
+          // v2.10.12 — HEIC → JPEG (lisible Windows + assemblable). Si la
+          // conversion échoue, on saute ce fichier de l'assemblage et on le
+          // remet en pièce jointe brute (secours) plus bas.
+          if (isHeic(mime, name)) {
+            const jpeg = await convertHeicToJpeg(buf)
+            if (jpeg) {
+              buf = jpeg
+              mime = 'image/jpeg'
+              name = name.replace(/\.(heic|heif)$/i, '.jpg')
+            } else {
+              otherFiles.push(f)
+              continue
+            }
+          }
+          composable.push({ buffer: buf, mimeType: mime, name })
         }
         const composed = composable.length >= 1 ? await composeImagesToPdf(composable) : null
         if (composed) {
           attachments.push({ filename: `${baseName}.pdf`, content: composed.toString('base64') })
-        } else {
-          // Composition échouée → fichiers bruts, nommés d'après le champ
+        } else if (composable.length >= 1) {
+          // v2.10.12 — Composition échouée → on attache les images DÉJÀ traitées
+          // (HEIC déjà converties en JPEG), pas les fichiers d'origine, pour
+          // éviter de renvoyer un HEIC illisible. Pas de re-téléchargement.
           let idx = 1
-          for (const f of imgFiles) {
-            const blob = await fetchBlob(f.path)
-            if (!blob) continue
+          for (const ci of composable) {
             attachments.push({
-              filename: namedFile(baseName, f.name, imgFiles.length > 1 ? idx++ : 0),
-              content: Buffer.from(await blob.arrayBuffer()).toString('base64'),
+              filename: namedFile(baseName, ci.name, composable.length > 1 ? idx++ : 0),
+              content: ci.buffer.toString('base64'),
             })
           }
         }

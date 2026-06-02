@@ -38,6 +38,34 @@ export function isComposableImage(mimeType: string | undefined, name: string | u
 }
 
 /**
+ * v2.10.12 — True si l'image est un HEIC/HEIF (photo iPhone par défaut).
+ * Windows ne sait PAS ouvrir les HEIC reçus par email → on les convertit en
+ * JPEG avant assemblage pour qu'ils soient lisibles partout.
+ */
+export function isHeic(mimeType: string | undefined, name: string | undefined): boolean {
+  const m = (mimeType || '').toLowerCase()
+  if (m === 'image/heic' || m === 'image/heif' || m === 'image/heic-sequence' || m === 'image/heif-sequence') return true
+  return /\.(heic|heif)$/i.test(name || '')
+}
+
+/**
+ * v2.10.12 — Convertit un buffer HEIC/HEIF en JPEG (lisible Windows + composable
+ * en PDF). Utilise heic-convert (pur JS/WASM, server-only). Retourne null si la
+ * conversion échoue → le caller garde le fichier d'origine en secours.
+ */
+export async function convertHeicToJpeg(buffer: Buffer): Promise<Buffer | null> {
+  try {
+    const mod = await import('heic-convert')
+    const convert = (mod as any).default || mod
+    const out = await convert({ buffer, format: 'JPEG', quality: 0.85 })
+    return Buffer.from(out)
+  } catch (e) {
+    console.warn('[compose-attachment] HEIC→JPEG conversion failed', e)
+    return null
+  }
+}
+
+/**
  * Lit le tag d'orientation EXIF (0x0112) d'un buffer JPEG.
  * Retourne 1 (= normal) si absent / illisible. Parser autonome, sans dépendance.
  */
