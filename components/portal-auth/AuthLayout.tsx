@@ -85,7 +85,9 @@ export default function AuthLayout({ children, title, subtitle }: Props) {
 export const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '11px 14px',
-  fontSize: 15,
+  // v2.10.15 — 16px minimum : en dessous, iOS zoome automatiquement sur le champ
+  // au focus (gênant dans l'app + sur mobile). 16px supprime ce zoom auto.
+  fontSize: 16,
   border: '1px solid #E5E7EB',
   borderRadius: 10,
   background: '#FFFFFF',

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.14'
+export const APP_VERSION = '2.10.15'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.15 — Champs de connexion 16px (plus de zoom auto iOS au focus)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.15',
+    date: '2026-06-02',
+    label: 'Connexion portail : champs en 16px → plus de zoom automatique iOS au focus',
+    features: [
+      'FIX UX — Les champs de connexion (portails candidat/client) faisaient 15px, ce qui déclenchait le zoom automatique d\'iOS au focus (gênant dans l\'app native et sur mobile). Passés à 16px (seuil iOS) : plus de zoom intempestif. inputStyle (AuthLayout).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.14 — FIX email de validation client (mode portail) → bon destinataire
   // ─────────────────────────────────────────────────────────────────────
