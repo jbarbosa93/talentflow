@@ -45,6 +45,40 @@ export function pointageHours(value: unknown): number {
   return Math.max(0, span(st, en) - pause) / 60
 }
 
+/** Durée d'une pause en minutes (Début + Fin valides), sinon null. */
+export function pauseMinutes(p: PointagePause): number | null {
+  const f = hhmmToMin(p?.from); const t = hhmmToMin(p?.to)
+  if (f === null || t === null) return null
+  return span(f, t)
+}
+
+/**
+ * Avertissements de cohérence d'une pointeuse (liste vide = tout est OK).
+ * Sert de garde-fou visuel avant signature (côté widget) et reste pur/réutilisable.
+ */
+export function pointageWarnings(value: unknown): string[] {
+  const p = (value && typeof value === 'object') ? value as PointageValue : null
+  if (!p || p.absent) return []
+  const st = hhmmToMin(p.start); const en = hhmmToMin(p.end)
+  const warns: string[] = []
+  let pauseTotal = 0
+  let hasIncomplete = false
+  for (const pz of (p.pauses || [])) {
+    const someFilled = !!(pz.from || pz.to)
+    const f = hhmmToMin(pz.from); const t = hhmmToMin(pz.to)
+    if (someFilled && (f === null || t === null)) hasIncomplete = true
+    if (f !== null && t !== null) pauseTotal += span(f, t)
+  }
+  // Une pause à moitié remplie n'est PAS déduite du total → erreur silencieuse à signaler.
+  if (hasIncomplete) warns.push('Une pause est incomplète : indique l’heure de début ET de fin.')
+  if (st !== null && en !== null) {
+    const worked = span(st, en) - pauseTotal
+    if (worked < 0) warns.push('Les pauses dépassent le temps travaillé — vérifie les heures.')
+    else if (worked === 0) warns.push('Le total est de 0 h — vérifie le Début, la Fin et les pauses.')
+  }
+  return warns
+}
+
 /** Vrai si la pointeuse a au moins Début + Fin renseignés. */
 export function pointageFilled(value: unknown): boolean {
   const p = (value && typeof value === 'object') ? value as PointageValue : null

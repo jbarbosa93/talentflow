@@ -6,7 +6,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { pointageHours, formatHours, hhmmToMin, type PointageValue, type PointagePause, type GpsPoint } from '@/lib/sign/pointage'
+import { pointageHours, formatHours, hhmmToMin, pauseMinutes, pointageWarnings, type PointageValue, type PointagePause, type GpsPoint } from '@/lib/sign/pointage'
 
 // Re-export pour ne pas casser les imports existants (`from './PointageField'`)
 export { pointageHours, pointageFilled, formatHours } from '@/lib/sign/pointage'
@@ -166,6 +166,10 @@ export default function PointageField({
   const removePause = (i: number) => update({ pauses: pauses.filter((_, idx) => idx !== i) })
 
   const total = pointageHours(v)
+  // v2.10.x — Récap du calcul + garde-fous (cohérence pauses / total)
+  const warns = pointageWarnings(v)
+  const pauseTotalMin = (v.pauses || []).reduce((acc, p) => acc + (pauseMinutes(p) || 0), 0)
+  const hasStartEnd = hhmmToMin(v.start) !== null && hhmmToMin(v.end) !== null
 
   const timeInput = (val: string | undefined, on: (s: string) => void) => (
     <input
@@ -340,26 +344,38 @@ export default function PointageField({
             + Pause
           </button>
         </div>
+        {/* v2.10.x — Consigne claire : on veut l'HEURE de la pause (pas la durée). Le client l'exige. */}
+        <div style={{ fontSize: 11, color: '#6B7280', lineHeight: 1.45, marginBottom: 8 }}>
+          ⏰ Indique <strong>l’heure</strong> de début et de fin de chaque pause — par exemple <strong>de&nbsp;12:00 à&nbsp;13:00</strong> pour la pause de midi. (Pas la durée.)
+        </div>
         {pauses.length === 0 ? (
           <div style={{ fontSize: 11.5, color: '#9CA3AF' }}>Aucune pause — clique « + Pause » si besoin.</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {pauses.map((p, i) => (
-              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: '#9CA3AF', width: 14 }}>{i + 1}</span>
-                {timeInput(p.from, s => setPause(i, { from: s }))}
-                <span style={{ fontSize: 12, color: '#9CA3AF' }}>→</span>
-                {timeInput(p.to, s => setPause(i, { to: s }))}
-                <button
-                  type="button"
-                  onClick={() => removePause(i)}
-                  title="Retirer cette pause"
-                  style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, border: '1px solid #FCA5A5', background: '#fff', color: '#B91C1C', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {pauses.map((p, i) => {
+              const dur = pauseMinutes(p)
+              return (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: '#6B7280', flexShrink: 0, width: 20 }}>De</span>
+                    {timeInput(p.from, s => setPause(i, { from: s }))}
+                    <span style={{ fontSize: 12, color: '#6B7280', flexShrink: 0 }}>à</span>
+                    {timeInput(p.to, s => setPause(i, { to: s }))}
+                    <button
+                      type="button"
+                      onClick={() => removePause(i)}
+                      title="Retirer cette pause"
+                      style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, border: '1px solid #FCA5A5', background: '#fff', color: '#B91C1C', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  {dur !== null && dur > 0 && (
+                    <div style={{ fontSize: 10.5, color: '#9CA3AF', marginLeft: 26 }}>= {fmtHM(dur)} de pause</div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -380,6 +396,24 @@ export default function PointageField({
         <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>Total travaillé</span>
         <span style={{ fontSize: 18, fontWeight: 800, color: GREEN, fontVariantNumeric: 'tabular-nums' }}>{formatHours(total)}</span>
       </div>
+
+      {/* v2.10.x — Récap du calcul en clair : le candidat voit ce qu'il signe */}
+      {hasStartEnd && (
+        <div style={{ fontSize: 11.5, color: '#6B7280', marginTop: -6, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+          {v.end} − {v.start}{pauseTotalMin > 0 ? ` − ${fmtHM(pauseTotalMin)} de pause` : ''} = {formatHours(total)}
+        </div>
+      )}
+
+      {/* v2.10.x — Avertissements de cohérence (pause incomplète, total nul/négatif) */}
+      {warns.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {warns.map((w, i) => (
+            <div key={i} style={{ fontSize: 12, color: '#B91C1C', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 10px', lineHeight: 1.4 }}>
+              ⚠️ {w}
+            </div>
+          ))}
+        </div>
+      )}
       </>)}
     </div>
   )
