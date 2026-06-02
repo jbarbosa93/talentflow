@@ -69,6 +69,10 @@ export default function ReportPublicLayout({ children }: { children: React.React
           margin: 0,
           minHeight: '100vh',
           background: '#FAFAF7',
+          // v2.10.17 — Portail conçu en clair uniquement : empêche Android Chrome
+          // (Auto Dark Theme) / iOS d'inverser les couleurs (sinon signature au
+          // doigt invisible, champs assombris, etc.).
+          colorScheme: 'light',
           fontFamily: 'var(--font-jakarta), system-ui, -apple-system, sans-serif',
           WebkitFontSmoothing: 'antialiased',
           MozOsxFontSmoothing: 'grayscale',

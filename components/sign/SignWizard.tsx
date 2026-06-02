@@ -152,11 +152,20 @@ export default function SignWizard({
   // v2.2.4 — Lecture initiale depuis sessionStorage : si le candidat avait été à
   // l'étape 3 et a toggle vers Mode Document puis revient → reprend à l'étape 3
   // (au lieu de revenir au début à chaque remount du wizard).
+  // v2.10.17 — Clé de mémorisation de l'étape SCOPÉE PAR SEMAINE (rapports).
+  // Avant : `sign:${token}:currentStepIdx` → le token est identique d'une semaine
+  // à l'autre, donc après avoir signé une semaine (= dernière étape), un nouveau
+  // rapport sur une autre semaine reprenait à la dernière étape au lieu de l'étape 1.
+  // Le scope par weekStartDate isole chaque semaine ; le toggle Wizard↔Document
+  // dans la MÊME semaine continue de restaurer l'étape.
+  const stepStorageKey = token
+    ? `sign:${token}:${contextData?.weekStartDate || '_'}:currentStepIdx`
+    : null
   const initialIdx = (() => {
     if (forceStepIdx !== undefined) return forceStepIdx
-    if (typeof window === 'undefined' || !token) return 0
+    if (typeof window === 'undefined' || !stepStorageKey) return 0
     try {
-      const raw = window.sessionStorage.getItem(`sign:${token}:currentStepIdx`)
+      const raw = window.sessionStorage.getItem(stepStorageKey)
       if (raw) {
         const n = Number(raw)
         if (Number.isFinite(n) && n >= 0 && n <= steps.length) return n
@@ -180,11 +189,11 @@ export default function SignWizard({
   // Pas de persist en mode preview admin (forceStepIdx contrôlé par l'éditeur).
   useEffect(() => {
     if (forceStepIdx !== undefined) return
-    if (typeof window === 'undefined' || !token) return
+    if (typeof window === 'undefined' || !stepStorageKey) return
     try {
-      window.sessionStorage.setItem(`sign:${token}:currentStepIdx`, String(currentIdx))
+      window.sessionStorage.setItem(stepStorageKey, String(currentIdx))
     } catch { /* silent */ }
-  }, [currentIdx, forceStepIdx, token])
+  }, [currentIdx, forceStepIdx, stepStorageKey])
 
   // Map fieldId → field (résolution rapide)
   const fieldsByStepMap = useMemo(() => fieldsByStep(steps, documents), [steps, documents])

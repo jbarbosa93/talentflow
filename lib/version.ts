@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.15'
+export const APP_VERSION = '2.10.17'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.17 — FIX : nouveau rapport repart à l'étape 1 (plus à la dernière)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.17',
+    date: '2026-06-02',
+    label: 'Fix : un nouveau rapport repart à l\'étape 1 (avant : reprenait la dernière étape de la semaine précédente)',
+    features: [
+      'FIX RAPPORTS — Après avoir signé/validé un rapport, en cliquant « Nouveau rapport » sur une autre semaine, le wizard s\'ouvrait à la DERNIÈRE étape au lieu de l\'étape 1. Cause : la mémorisation de l\'étape (sessionStorage) utilisait seulement le token (identique d\'une semaine à l\'autre). Désormais la clé est scopée par semaine (weekStartDate) + remontage propre du wizard par semaine/entreprise (key). Le toggle Wizard↔Document dans la même semaine continue de restaurer l\'étape.',
+      'FIX SIGNATURE MODE SOMBRE — Sur Android (Chrome Auto Dark Theme) et iOS, le mode sombre assombrissait le fond blanc de la zone de signature alors que le trait (dessiné sur canvas) restait foncé → signature au doigt invisible. Ajout de color-scheme: light sur la zone de signature + le portail rapport (conçu en clair uniquement) → fond reste blanc, trait bien visible.',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.16 — Portail candidat : annonce « application à venir » + remerciement
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.16',
+    date: '2026-06-02',
+    label: 'Portail candidat : bandeau « application TalentFlow à venir » + remerciement',
+    features: [
+      'Bandeau d\'annonce en haut du portail candidat (/report) : « 📱 Bientôt : l\'application TalentFlow ! Une application à télécharger est en cours de développement… Merci de votre confiance 🙏 ». Refermable et mémorisé (localStorage) — ne réapparaît plus une fois fermé par le collaborateur. Composant AppComingSoonBanner.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.15 — Champs de connexion 16px (plus de zoom auto iOS au focus)
   // ─────────────────────────────────────────────────────────────────────

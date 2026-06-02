@@ -33,6 +33,7 @@ import ContactAgenceButton from '@/components/report/ContactAgenceButton'
 import SubmissionViewerModal from '@/components/report/SubmissionViewerModal'
 import LogoLAgence from '@/components/report/LogoLAgence'
 import HelpGuideModal from '@/components/report/HelpGuideModal'
+import AppComingSoonBanner from '@/components/report/AppComingSoonBanner'
 // v2.4.4 — toWhatsAppSafe + waMeUrl retirés : plus de bouton WhatsApp côté candidat
 // (sécurité — un candidat malhonnête pouvait copier le lien et le forwarder à un complice).
 // Le seul canal d'envoi au client est désormais email automatique vers client_email.
@@ -678,6 +679,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         paddingBottom: 100,
       }}>
         <CandidatWelcomeHeader prenom={candidatePrenomLanding} actions={accountActions} />
+        <AppComingSoonBanner />
         <div style={{ padding: '6px 16px 18px' }}>
           <button
             type="button"
@@ -1193,6 +1195,10 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         {viewMode === 'wizard' && wizardAvailable ? (
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <SignWizard
+              /* v2.10.17 — remontage propre par semaine + entreprise : un nouveau
+                 rapport repart à l'étape 1 (l'étape n'est plus héritée de la
+                 semaine précédente). */
+              key={`wz-${weekStart}-${selectedClient?.id || 'na'}`}
               steps={wizardStepsForCandidat}
               documents={data.template.documents}
               fieldValues={values}

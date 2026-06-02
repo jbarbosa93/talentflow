@@ -309,6 +309,10 @@ export default function SignaturePad({ open, onClose, onAdopt }: Props) {
               border: '2px dashed #E5E7EB',
               borderRadius: 12,
               background: '#fff',
+              // v2.10.17 — Empêche Android Chrome (Auto Dark Theme) d'assombrir le
+              // fond blanc : sinon le trait de signature (#0a0a0a, dessiné sur le
+              // canvas) devient invisible sur un fond foncé. La zone reste blanche.
+              colorScheme: 'light',
               height: isMobile ? 280 : 220,
               overflow: 'hidden',
             }}
