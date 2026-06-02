@@ -51,6 +51,24 @@ function isFutureSection(section: string | undefined | null, weekStartDate?: str
   const dd = dateForDayOfWeek(weekStartDate, off)
   return !!dd && dd > todayIsoStr()
 }
+/** v2.10.x — Raison de verrouillage d'un jour : futur OU hors de la période de mission.
+ *  null = jour saisissable. Sert à griser la pointeuse + ne pas exiger le jour. */
+function sectionLockReason(
+  section: string | undefined | null,
+  weekStartDate?: string | null,
+  missionStart?: string | null,
+  missionEnd?: string | null,
+): 'future' | 'after-mission' | 'before-mission' | null {
+  if (!weekStartDate) return null
+  const off = getDayOffsetFromSection(section)
+  if (off === null) return null
+  const dd = dateForDayOfWeek(weekStartDate, off)
+  if (!dd) return null
+  if (dd > todayIsoStr()) return 'future'
+  if (missionEnd && dd > missionEnd) return 'after-mission'
+  if (missionStart && dd < missionStart) return 'before-mission'
+  return null
+}
 
 /** Enrichit un wizardSection si c'est un jour de la semaine et qu'on a une weekStartDate
  *  Ex: ("Lundi", "2026-05-04") → "Lundi 04.05.2026"
@@ -110,8 +128,9 @@ interface Props {
   token?: string
   /** Mode preview : index d'étape à forcer (sync avec sélection éditeur). */
   forceStepIdx?: number
-  /** v2.2.1 — Contexte enveloppe (ex: weekStartDate pour rapports heures). */
-  contextData?: { weekStartDate?: string | null } | null
+  /** v2.2.1 — Contexte enveloppe (ex: weekStartDate pour rapports heures).
+   *  v2.10.x — missionStartDate/missionEndDate : borne la saisie aux dates de mission. */
+  contextData?: { weekStartDate?: string | null; missionStartDate?: string | null; missionEndDate?: string | null } | null
   /** v2.2.3 Pack 1 — Valeurs déjà remplies par les signers précédents (lecture seule). */
   previousFieldValues?: Record<string, unknown>
   /** v2.2.3 Pack 1 — Map fieldId → nom du signataire qui l'a rempli (tooltip/récap). */
@@ -292,11 +311,13 @@ export default function SignWizard({
       }
     }
     const wsd = contextData?.weekStartDate || null
+    const mStart = contextData?.missionStartDate || null
+    const mEnd = contextData?.missionEndDate || null
     for (const f of stepFields) {
       // Champ non-pointeuse d'une section absente → masqué, on n'exige rien.
       if (f.type !== 'pointage' && absentSections.has((f.wizardSection || '').trim())) continue
-      // v2.10.4 — Jour FUTUR : aucun champ du jour n'est exigé (saisie bloquée).
-      if (isFutureSection(f.wizardSection, wsd)) continue
+      // v2.10.4 / v2.10.x — Jour FUTUR ou HORS MISSION : aucun champ du jour n'est exigé (saisie bloquée).
+      if (sectionLockReason(f.wizardSection, wsd, mStart, mEnd)) continue
       const eff = effectiveFieldState(f, fieldValues)
       if (!eff.visible) continue            // caché par condition
       if (!eff.required) continue           // pas requis (ou allégé par condition)
@@ -516,6 +537,8 @@ export default function SignWizard({
             token={token}
             onOpenAttachment={setOpenAttachment}
             weekStartDate={contextData?.weekStartDate || null}
+            missionStart={contextData?.missionStartDate || null}
+            missionEnd={contextData?.missionEndDate || null}
             allDocumentFields={allDocumentFields}
           />
         ) : null}
@@ -610,12 +633,14 @@ interface StepContentProps {
   token?: string
   onOpenAttachment: (a: { url: string; filename: string; label: string }) => void
   weekStartDate?: string | null
+  missionStart?: string | null
+  missionEnd?: string | null
   allDocumentFields?: SignField[]
 }
 
 function StepContent({
   step, fields, values, onChange, signatureDataUrl, onRequestSignature, autoFill,
-  documents, token, onOpenAttachment, weekStartDate, allDocumentFields,
+  documents, token, onOpenAttachment, weekStartDate, missionStart, missionEnd, allDocumentFields,
 }: StepContentProps) {
   // Filtre les fields cachés par les conditions (action='hide' satisfaite)
   // v2.9.28 — Exclut aussi les champs marqués « Masquer dans le wizard »
@@ -779,6 +804,8 @@ function StepContent({
         onChange={onChange}
         autoFill={autoFill}
         weekStartDate={weekStartDate}
+        missionStart={missionStart}
+        missionEnd={missionEnd}
         signatureDataUrl={signatureDataUrl}
         onRequestSignature={onRequestSignature}
         token={token}
@@ -790,7 +817,7 @@ function StepContent({
 
 // ─── GroupedFields — rendu list (sub-titres) ou cards (1 carte / section) ───
 function GroupedFields({
-  fields, displayMode, values, onChange, autoFill, weekStartDate,
+  fields, displayMode, values, onChange, autoFill, weekStartDate, missionStart, missionEnd,
   signatureDataUrl, onRequestSignature, token, allDocumentFields,
 }: {
   fields: SignField[]
@@ -799,6 +826,8 @@ function GroupedFields({
   onChange: (fieldId: string, value: unknown) => void
   autoFill: AutoFill
   weekStartDate?: string | null
+  missionStart?: string | null
+  missionEnd?: string | null
   signatureDataUrl: string | null
   onRequestSignature: (force?: boolean) => void
   token?: string
@@ -830,8 +859,8 @@ function GroupedFields({
     if (pt) {
       const pv = values[pt.id]
       const absent = pv && typeof pv === 'object' && (pv as { absent?: boolean }).absent
-      // Absent OU jour futur → ne garder que la pointeuse (verrou / motif). Zone/Repas masqués.
-      if (absent || isFutureSection(pt.wizardSection || g.name, weekStartDate)) {
+      // Absent OU jour futur/hors mission → ne garder que la pointeuse (verrou / motif). Zone/Repas masqués.
+      if (absent || sectionLockReason(pt.wizardSection || g.name, weekStartDate, missionStart, missionEnd)) {
         return g.fields.filter(f => f.type === 'pointage')
       }
     }
@@ -844,7 +873,7 @@ function GroupedFields({
     return (
       <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {fields.map(f => (
-          <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} allDocumentFields={allDocumentFields} weekStartDate={weekStartDate} />
+          <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} allDocumentFields={allDocumentFields} weekStartDate={weekStartDate} missionStart={missionStart} missionEnd={missionEnd} />
         ))}
       </div>
     )
@@ -903,7 +932,7 @@ function GroupedFields({
                 gap: 12,
               }}>
                 {vf.map(f => (
-                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} hideLabelIfEmpty allDocumentFields={allDocumentFields} weekStartDate={weekStartDate} />
+                  <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} hideLabelIfEmpty allDocumentFields={allDocumentFields} weekStartDate={weekStartDate} missionStart={missionStart} missionEnd={missionEnd} />
                 ))}
               </div>
               ) })()}
@@ -912,7 +941,7 @@ function GroupedFields({
             // Fields hors-section : empilage vertical normal
             <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {g.fields.map(f => (
-                <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} allDocumentFields={allDocumentFields} weekStartDate={weekStartDate} />
+                <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} allDocumentFields={allDocumentFields} weekStartDate={weekStartDate} missionStart={missionStart} missionEnd={missionEnd} />
               ))}
             </div>
           )
@@ -959,7 +988,7 @@ function GroupedFields({
               </div>
             )}
             {groupVisibleFields(g).map(f => (
-              <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} allDocumentFields={allDocumentFields} weekStartDate={weekStartDate} />
+              <FieldRow key={f.id} field={f} value={values[f.id]} onChange={v => onChange(f.id, v)} onChangeRaw={onChange} autoFill={autoFill} allValues={values} signatureDataUrl={signatureDataUrl} onRequestSignature={onRequestSignature} token={token} allDocumentFields={allDocumentFields} weekStartDate={weekStartDate} missionStart={missionStart} missionEnd={missionEnd} />
             ))}
           </div>
         )
@@ -1065,9 +1094,12 @@ interface FieldRowProps {
   allDocumentFields?: SignField[]
   /** v2.10.4 — Début de semaine ISO (pour calculer la date d'un jour → bloquer le futur). */
   weekStartDate?: string | null
+  /** v2.10.x — Bornes mission (ISO) : bloquer la saisie hors période de mission. */
+  missionStart?: string | null
+  missionEnd?: string | null
 }
 
-function FieldRow({ field, value, onChange, onChangeRaw, autoFill, allValues, hideLabelIfEmpty, signatureDataUrl, onRequestSignature, token, allDocumentFields, weekStartDate }: FieldRowProps) {
+function FieldRow({ field, value, onChange, onChangeRaw, autoFill, allValues, hideLabelIfEmpty, signatureDataUrl, onRequestSignature, token, allDocumentFields, weekStartDate, missionStart, missionEnd }: FieldRowProps) {
   const t = field.type as SignFieldType
   // v2.7.6 — Si on est dans une carte ET aucun libellé explicite (tooltip ET label vides
   // ou label = UUID DocuSign), on masque l'étiquette du field (la carte porte déjà le titre).
@@ -1352,7 +1384,7 @@ function FieldRow({ field, value, onChange, onChangeRaw, autoFill, allValues, hi
       <div>
         {renderLabel && <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}<HelpAttachmentButton field={field} token={token} /></label>}
         <HelpText text={field.helpText} />
-        <PointageField value={value} onChange={v => onChange(v)} captureGps={field.captureGps} liveTimer={field.liveTimer} dayDate={dayDate} />
+        <PointageField value={value} onChange={v => onChange(v)} captureGps={field.captureGps} liveTimer={field.liveTimer} dayDate={dayDate} missionStart={missionStart} missionEnd={missionEnd} />
         {hasValue && otherPointages.length > 0 && onChangeRaw && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 600 }}>⧉ Copier ces heures vers :</span>
