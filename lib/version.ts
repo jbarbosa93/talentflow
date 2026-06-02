@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.9'
+export const APP_VERSION = '2.10.10'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.10 — Pauses pointeuse expliquées + garde-fous + page de connexion portail
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.10',
+    date: '2026-06-01',
+    label: 'Pauses pointeuse plus claires (heure début/fin) + garde-fous + « enregistrez votre page de connexion »',
+    features: [
+      'POINTEUSE — Pauses : libellé « De … à … », durée affichée sous chaque pause, et récap du calcul en clair (Fin − Début − pause = total) pour que le candidat voie ce qu\'il signe. Consigne explicite : on veut l\'HEURE de la pause (ex. de 12:00 à 13:00), pas la durée — le client l\'exige.',
+      'POINTEUSE — Garde-fous (pointageWarnings) : avertissement si une pause est incomplète (heure de début OU de fin manquante → non déduite), si les pauses dépassent le temps travaillé, ou si le total tombe à 0 h. Helpers purs pauseMinutes / pointageWarnings dans lib/sign/pointage.ts.',
+      'GUIDE — Encadré « ☕ Comment noter une pause ? » dans le guide Timbreuse (heure début/fin obligatoire).',
+      'PORTAIL — Après la création du mot de passe (client ou candidat), encadré « Enregistrez votre page de connexion » : le lien d\'invitation ne marche qu\'une fois → affiche l\'URL de login permanente + bouton Copier, à mettre en favori / écran d\'accueil.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.9 — Guide candidat adaptatif (timbreuse vs total d'heures)
   // ─────────────────────────────────────────────────────────────────────
