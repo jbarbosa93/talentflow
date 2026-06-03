@@ -8,6 +8,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+// Précharge canvas-confetti UNE fois (mis en cache au niveau module). On lance le
+// téléchargement dès le montage, en parallèle du fetch du message → le module est
+// prêt quand le modal s'affiche (sinon les confettis arrivaient en retard, le temps
+// de télécharger le chunk au moment de l'animation).
+let confettiPromise: Promise<any> | null = null
+function loadConfetti(): Promise<any> {
+  if (!confettiPromise) {
+    confettiPromise = import('canvas-confetti').then(m => m.default).catch(() => null)
+  }
+  return confettiPromise
+}
+
 interface InApp {
   id: string
   title: string
@@ -24,6 +36,7 @@ export default function InAppMessage() {
   // Récupère le message non vu (une fois au montage).
   useEffect(() => {
     let active = true
+    loadConfetti()  // précharge l'animation en parallèle → prête à l'affichage
     fetch('/api/push/inapp')
       .then(r => r.json())
       .then(d => { if (active && d.message) setMsg(d.message) })
@@ -95,10 +108,8 @@ export default function InAppMessage() {
 // ── Animations (canvas-confetti, importé dynamiquement) ──────────────────────
 async function runAnimation(type: string) {
   if (!type || type === 'none') return
-  let confetti: any
-  try {
-    confetti = (await import('canvas-confetti')).default
-  } catch { return }
+  const confetti = await loadConfetti()
+  if (!confetti) return
   const Z = 100000
 
   if (type === 'confetti') {
