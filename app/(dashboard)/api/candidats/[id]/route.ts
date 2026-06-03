@@ -40,7 +40,7 @@ export async function GET(
 
 // Toutes les colonnes modifiables de la table candidats
 const ALLOWED_COLS = new Set([
-  'nom','prenom','email','telephone','localisation','titre_poste',
+  'nom','prenom','email','telephone','telephone_2','localisation','titre_poste',
   'competences','formation','resume_ia','cv_texte_brut','statut_pipeline','tags','notes','source',
   'langues','permis_conduire','date_naissance','experiences','formations_details','photo_url','documents','import_status','rating','genre',
   'cv_url','cv_nom_fichier','cfc','deja_engage',

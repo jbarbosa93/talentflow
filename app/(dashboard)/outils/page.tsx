@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { FolderInput, Camera, Copy, Wrench, ClipboardList, Sparkles } from 'lucide-react'
+import { FolderInput, Camera, Copy, Wrench, ClipboardList, Sparkles, Bell } from 'lucide-react'
 
 // ─── Outils V2 ──────────────────────────────────────────────────────────────
 
@@ -15,6 +15,14 @@ type OutilDef = {
 }
 
 const OUTILS: OutilDef[] = [
+  {
+    href: '/notifications',
+    icon: Bell,
+    title: 'Notifications TalentFlow Sign',
+    description: 'Envoyer une notification push aux candidats qui ont installé l\'app',
+    cta: 'Envoyer une notification',
+    color: '#EAB308', bg: 'rgba(234,179,8,0.12)',
+  },
   {
     href: '/outils/analyser-candidats',
     icon: Sparkles,

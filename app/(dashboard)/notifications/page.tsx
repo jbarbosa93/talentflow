@@ -81,7 +81,7 @@ export default function NotificationsPage() {
         <div>
           <h1 className="d-page-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
             <Bell size={22} color="var(--primary)" />
-            <span>Notifications</span>
+            <span>Notifications TalentFlow Sign</span>
           </h1>
           <p style={{ fontSize: 14, color: 'var(--muted-foreground)', margin: '6px 0 22px' }}>
             Envoyer une notification push aux candidats qui ont installé l&apos;app et accepté les notifications.

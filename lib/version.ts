@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.23'
+export const APP_VERSION = '2.10.24'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.24 — Notifications déplacé dans Outils (« Notifications TalentFlow Sign »)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.24',
+    date: '2026-06-03',
+    label: 'Notifications : déplacé dans Outils, renommé « Notifications TalentFlow Sign »',
+    features: [
+      'UI — L\'onglet « Notifications » est retiré de la sidebar et déplacé dans Outils → carte « Notifications TalentFlow Sign » (jaune, icône cloche). Titre de la page renommé en conséquence.',
+      'FICHE CANDIDAT — 2e numéro de téléphone (colonne telephone_2) : certains candidats ont un numéro suisse + un FR/PT/autre. Éditable et affiché sur la fiche (sous le numéro principal). N\'apparaît PAS sur la liste candidats (seul le principal y reste).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.23 — Push : bannière heads-up Android + page Notifications au design v2
   // ─────────────────────────────────────────────────────────────────────

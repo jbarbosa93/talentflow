@@ -432,6 +432,7 @@ export default function CandidatDetailPage() {
       prenom:          candidat.prenom || '',
       email:           candidat.email || '',
       telephone:       candidat.telephone || '',
+      telephone_2:     (candidat as any).telephone_2 || '',
       localisation:    candidat.localisation || '',
       titre_poste:     candidat.titre_poste || '',
       formation:       candidat.formation || '',
@@ -473,6 +474,7 @@ export default function CandidatDetailPage() {
       prenom:             rest.prenom,
       email:              rest.email,
       telephone:          rest.telephone,
+      telephone_2:        rest.telephone_2 || null,
       localisation:       rest.localisation,
       titre_poste:        rest.titre_poste,
       formation:          rest.formation,
@@ -1448,6 +1450,29 @@ export default function CandidatDetailPage() {
                 onMouseLeave={e => (e.currentTarget.style.color = '')}
               >
                 <Phone size={12} /> {candidat.telephone}
+              </a>
+            ) : null}
+
+            {/* v2.10.24 — 2e numéro (Suisse + FR/PT/autre). N'apparaît PAS sur la liste. */}
+            {isEditing ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Phone size={12} style={{ opacity: 0.55 }} />
+                <input
+                  value={editData.telephone_2 || ''}
+                  onChange={e => set('telephone_2', e.target.value)}
+                  placeholder="2e n° (FR, PT…)"
+                  style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, width: 140, outline: 'none', fontFamily: 'var(--font-jakarta), inherit' }}
+                />
+              </span>
+            ) : (candidat as any).telephone_2 ? (
+              <a
+                href={`tel:${(candidat as any).telephone_2}`}
+                title="Appeler (2e numéro)"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'inherit', textDecoration: 'none', opacity: 0.7 }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
+                onMouseLeave={e => (e.currentTarget.style.color = '')}
+              >
+                <Phone size={12} /> {(candidat as any).telephone_2}
               </a>
             ) : null}
 

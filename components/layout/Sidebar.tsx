@@ -31,7 +31,7 @@ const NAV_ITEMS = [
   { href: '/messages',     label: 'Envois',           icon: Mail,            hideForSecretaire: true },
   { href: '/sign',         label: 'Signatures',       icon: FileSignature,   hideForSecretaire: true },
   { href: '/sign/rapports', label: 'Rapports',        icon: ClipboardList,   hideForSecretaire: true },
-  { href: '/notifications', label: 'Notifications',    icon: Bell,            hideForSecretaire: true },
+  // v2.10.24 — Notifications déplacé dans Outils (« Notifications TalentFlow Sign »).
   { href: '/matching',     label: 'Matching IA',      icon: Sparkles,        hideForSecretaire: true, beta: true },
   { href: '/secretariat',  label: 'Administration',   icon: ClipboardList,   secretaireVisible: true },
 ]
