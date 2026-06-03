@@ -68,9 +68,11 @@ export async function sendPushToToken(
   title: string,
   body: string,
   data?: Record<string, string>,
+  imageUrl?: string,
 ): Promise<PushResult> {
   const sa = getServiceAccount()
   if (!sa) return { ok: false, error: 'FIREBASE_SERVICE_ACCOUNT non configuré' }
+  const img = (imageUrl && /^https:\/\//.test(imageUrl)) ? imageUrl : undefined
   try {
     const accessToken = await getAccessToken(sa)
     const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
@@ -79,14 +81,18 @@ export async function sendPushToToken(
       body: JSON.stringify({
         message: {
           token,
-          notification: { title, body },
+          // image cross-plateforme (grande image dépliable Android + pièce jointe iOS)
+          notification: { title, body, ...(img ? { image: img } : {}) },
           data: data || undefined,
           // priority high + canal "importance haute" → bannière pop-up (heads-up) Android
           android: {
             priority: 'high',
-            notification: { channel_id: 'tf_default', sound: 'default' },
+            notification: { channel_id: 'tf_default', sound: 'default', ...(img ? { image: img } : {}) },
           },
-          apns: { payload: { aps: { sound: 'default' } } },
+          apns: {
+            payload: { aps: { sound: 'default', 'mutable-content': 1 } },
+            ...(img ? { fcm_options: { image: img } } : {}),
+          },
         },
       }),
     })
@@ -107,11 +113,12 @@ export async function sendPushToTokens(
   title: string,
   body: string,
   data?: Record<string, string>,
+  imageUrl?: string,
 ): Promise<{ sent: number; failed: number; invalidTokens: string[] }> {
   let sent = 0, failed = 0
   const invalidTokens: string[] = []
   for (const t of tokens) {
-    const r = await sendPushToToken(t, title, body, data)
+    const r = await sendPushToToken(t, title, body, data, imageUrl)
     if (r.ok) sent++
     else { failed++; if (r.invalidToken) invalidTokens.push(t) }
   }

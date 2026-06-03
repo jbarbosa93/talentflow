@@ -7,6 +7,7 @@ import { DM_Sans } from 'next/font/google'
 import '../globals.css'
 import ServiceWorkerRegister from '@/components/report/ServiceWorkerRegister'
 import PushRegister from '@/components/report/PushRegister'
+import InAppMessage from '@/components/report/InAppMessage'
 
 const jakarta = DM_Sans({
   subsets: ['latin'],
@@ -85,6 +86,8 @@ export default function ReportPublicLayout({ children }: { children: React.React
             le web reste pour les missions ponctuelles. */}
         <ServiceWorkerRegister />
         <PushRegister />
+        {/* v2.10.26 — Message riche in-app (modal + animation festive) au chargement */}
+        <InAppMessage />
       </body>
     </html>
   )

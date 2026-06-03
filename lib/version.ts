@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.24'
+export const APP_VERSION = '2.10.26'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,34 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.26 — Notifications : modal animé in-app + bibliothèque d'images
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.26',
+    date: '2026-06-03',
+    label: 'Notifications TalentFlow Sign : modal animé in-app + bibliothèque d’images',
+    features: [
+      'Option « Afficher aussi dans l’app » : le candidat voit un modal centré (titre + texte + image) à l’ouverture.',
+      'Animations festives au choix : confetti 🎉, cœurs ❤️, feux d’artifice 🎆, neige ❄️, étoiles ⭐.',
+      'Bibliothèque d’images réutilisables : on charge une image une fois, on la réutilise ensuite.',
+      'Images auto-redimensionnées + compressées pour garantir l’affichage sur iOS et Android.',
+      'Le modal in-app fonctionne même si le candidat n’a pas d’appareil push enregistré.',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.25 — Notifications push : image jointe (iOS + Android)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.25',
+    date: '2026-06-03',
+    label: 'Notifications TalentFlow Sign : image dans la notification',
+    features: [
+      'Page Notifications : ajout d’une image optionnelle à la notification (upload + aperçu).',
+      'L’image s’affiche dans la notification sur iOS et Android (bannière + centre de notifications).',
+      'Idéal pour les messages festifs (anniversaire, Noël, Pâques, Nouvel An).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.24 — Notifications déplacé dans Outils (« Notifications TalentFlow Sign »)
   // ─────────────────────────────────────────────────────────────────────
