@@ -90,7 +90,7 @@ function enrichSection(section: string, weekStartDate?: string | null): string {
   }
 }
 import {
-  looksLikeDateField, looksLikeCountrySelect, looksLikeCompanyField, looksLikePhoneField, EUROPEAN_COUNTRIES,
+  looksLikeDateField, looksLikeCountrySelect, looksLikeCompanyField, looksLikePhoneField, isCandidatePhoneField, EUROPEAN_COUNTRIES,
   effectiveFieldState, effectiveCheckedState, computeFormulaValue, formatFormulaValue,
   getGroupDisplayLabel, getFieldErrorLabel, getDayOffsetFromSection, dateForDayOfWeek,
 } from '@/lib/sign/field-helpers'
@@ -1511,7 +1511,12 @@ function FieldRow({ field, value, onChange, onChangeRaw, autoFill, allValues, hi
   // Le rendu reste un input modifiable (sauf si autoFillLocked) — le candidat peut corriger.
   // v2.9.28 — Détection téléphone élargie : autoFillSource='phone' OU libellé
   // (« Tél. portable », « Natel »…) → input tel + pré-remplissage candidat.
-  const phoneAutoValue = looksLikePhoneField(field) ? (autoFill.telephone || '') : ''
+  // v2.10.20 — FIX : on ne PRÉ-REMPLIT avec le téléphone du candidat QUE si
+  // isCandidatePhoneField (= autoFillCandidatePhone coché OU heuristique « pas un
+  // tiers »). Avant : looksLikePhoneField pré-remplissait TOUT champ tél (ex. « Tél.
+  // portable du conjoint ») avec le numéro du candidat, ignorant le décochage fait
+  // en Mode Document. Le FORMAT tel (clavier) reste sur looksLikePhoneField (isPhoneField).
+  const phoneAutoValue = isCandidatePhoneField(field) ? (autoFill.telephone || '') : ''
   if (phoneAutoValue && field.autoFillLocked) {
     const explicitOverride = typeof value === 'string' || typeof value === 'number'
       ? String(value).trim()
@@ -1804,8 +1809,11 @@ function isFieldFilled(
     return !!auto && auto.trim() !== ''
   }
   if (t === 'date' && f.metadata?.tabType === 'datesigned') return !!autoFill.today
-  // v2.7.6 — Numéro avec source phone : rempli si autoFill.telephone existe (même sans valeur explicite)
-  if (t === 'number' && f.autoFillSource === 'phone' && autoFill.telephone) return true
+  // v2.7.6 / v2.10.20 — Champ tél pré-rempli avec le numéro du candidat : compté
+  // comme « rempli » UNIQUEMENT s'il pré-remplit vraiment (isCandidatePhoneField).
+  // Avant : tout champ autoFillSource='phone' était considéré rempli même quand
+  // autoFillCandidatePhone était décoché (ex. tél conjoint) → faux « rempli ».
+  if (isCandidatePhoneField(f) && autoFill.telephone) return true
   return value !== undefined && value !== null && String(value).trim() !== ''
 }
 

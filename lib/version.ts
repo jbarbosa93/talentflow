@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.18'
+export const APP_VERSION = '2.10.21'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,39 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.21 — Backend notifications push (Firebase Cloud Messaging)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.21',
+    date: '2026-06-03',
+    label: 'Backend push : envoi de notifications depuis le serveur (FCM) + table push_tokens + endpoints',
+    features: [
+      'NOTIFICATIONS PUSH (backend) — Helper d\'envoi FCM HTTP v1 (lib/push/fcm.ts) signé via jose (clé FIREBASE_SERVICE_ACCOUNT, pas de dépendance firebase-admin). Table push_tokens (Supabase, RLS service-role) : token + plateforme + lien compte portail. Endpoint POST /api/push/register (lie le token au compte candidat/client connecté). Endpoint POST /api/push/test (consultant, envoie une notif de test à un token ou à tous). Purge auto des tokens morts. Fondation pour les notifs automatiques (candidat signe, rapport à valider…). App native : enregistrement push + token (repo talentflow-sign-app).',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.20 — FIX wizard : tél conjoint ne se pré-remplit plus avec le tél candidat
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.20',
+    date: '2026-06-03',
+    label: 'Fix Sign : le wizard respecte le décochage « pré-remplir tél candidat » (Mode Document)',
+    features: [
+      'FIX SIGN — Dans le wizard, tout champ « téléphone » (autoFillSource=phone) se pré-remplissait avec le numéro du candidat, même si « Pré-remplir avec le téléphone du candidat » était DÉCOCHÉ en Mode Document (ex. « Tél. portable du conjoint »). Désormais le pré-remplissage de la VALEUR utilise isCandidatePhoneField (respecte le flag autoFillCandidatePhone) ; le FORMAT clavier tel reste sur looksLikePhoneField. La détection « champ rempli » suit la même règle. SignWizard.',
+    ],
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.19 — Politique de confidentialité publique (/confidentialite)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.19',
+    date: '2026-06-03',
+    label: 'Page publique « Politique de confidentialité » (obligatoire App Store / Google Play, conforme nLPD/RGPD)',
+    features: [
+      'Nouvelle page publique /confidentialite : politique de confidentialité L-Agence (web + app TalentFlow Sign). Couvre données collectées (identité, documents, mission, signature, caméra/GPS/Face ID/push), finalités, bases légales, partage, hébergement UE (Irlande), durée, sécurité, droits nLPD/RGPD, contact. Requise pour la publication sur les stores. À faire relire par un conseiller en protection des données.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.18 — Rapports : blocage saisie d'heures hors période de mission
   // ─────────────────────────────────────────────────────────────────────
