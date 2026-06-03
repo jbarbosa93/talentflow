@@ -64,11 +64,13 @@ export default function InAppMessage() {
     }
   }, [])
 
-  // Lance l'animation une fois par message affiché.
+  // Lance l'animation une fois par message affiché, juste APRÈS que le modal
+  // soit peint (sinon les confettis partaient avant que la carte soit visible).
   useEffect(() => {
     if (!msg || animatedIdRef.current === msg.id) return
     animatedIdRef.current = msg.id
-    runAnimation(msg.animation)
+    const t = setTimeout(() => runAnimation(msg.animation), 280)
+    return () => clearTimeout(t)
   }, [msg])
 
   function dismiss() {
@@ -85,8 +87,10 @@ export default function InAppMessage() {
   if (!msg) return null
 
   return (
+    // Le FOND ne ferme PAS au tap (évite la fermeture accidentelle quand on tape
+    // la notification → l'app s'ouvre et le tap « traverse »). Fermeture via la
+    // croix ou le bouton uniquement.
     <div
-      onClick={dismiss}
       style={{
         position: 'fixed', inset: 0, zIndex: 99990,
         background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
@@ -95,14 +99,27 @@ export default function InAppMessage() {
       }}
     >
       <div
-        onClick={e => e.stopPropagation()}
         style={{
+          position: 'relative',
           width: 'min(420px, 94vw)', background: '#fff', borderRadius: 20, overflow: 'hidden',
           boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
           transform: closing ? 'scale(0.95)' : 'scale(1)', transition: 'transform 0.2s',
           animation: 'tfPop 0.32s cubic-bezier(0.34,1.56,0.64,1)',
         }}
       >
+        {/* Croix de fermeture */}
+        <button
+          onClick={dismiss}
+          aria-label="Fermer"
+          style={{
+            position: 'absolute', top: 10, right: 10, zIndex: 2,
+            width: 32, height: 32, borderRadius: '50%', border: 'none',
+            background: 'rgba(0,0,0,0.45)', color: '#fff', fontSize: 20, lineHeight: '32px',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          ×
+        </button>
         {msg.image_url && (
           <img src={msg.image_url} alt="" style={{ width: '100%', maxHeight: 240, objectFit: 'cover', display: 'block' }} />
         )}

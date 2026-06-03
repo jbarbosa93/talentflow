@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.28'
+export const APP_VERSION = '2.10.29'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.29 — Modal in-app : ne se ferme plus tout seul au tap de la notif
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.29',
+    date: '2026-06-03',
+    label: 'Modal in-app : reste affiché au tap de la notification (fermeture via croix/bouton)',
+    features: [
+      'Le modal ne se ferme plus quand on tape à côté (le tap d’ouverture depuis la notif le fermait par erreur → on ne voyait que les confettis).',
+      'Croix de fermeture ajoutée ; l’animation se lance après l’affichage du modal.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.28 — Modal in-app : s'affiche même app déjà ouverte / au tap de la notif
   // ─────────────────────────────────────────────────────────────────────
