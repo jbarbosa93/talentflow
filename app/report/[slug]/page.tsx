@@ -38,7 +38,7 @@ import AppComingSoonBanner from '@/components/report/AppComingSoonBanner'
 // (sécurité — un candidat malhonnête pouvait copier le lien et le forwarder à un complice).
 // Le seul canal d'envoi au client est désormais email automatique vers client_email.
 import {
-  getCurrentWeekStart, isoDate, getWeekDates, parseIsoDate,
+  getCurrentWeekStart, isoDate, getWeekDates, parseIsoDate, getMondayOf,
 } from '@/lib/report/week-helpers'
 import { formatDateChDot } from '@/lib/report/text-format'
 import { buildBlockedDaysForWeek, buildBlockedFieldsMap, type DayBlockReason } from '@/lib/report/day-blocking'
@@ -198,9 +198,15 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     const beforeMission = !!(start && weekEndIso < start)
     const afterMission  = !!(end && weekStart > end)
     if (!beforeMission && !afterMission) return
-    // Tombée hors fenêtre → repositionner sur la semaine courante ou la 1ʳᵉ valide
-    const fallback = isoDate(getCurrentWeekStart())
-    setWeekStart(fallback)
+    // Tombée hors fenêtre → repositionner sur la DERNIÈRE (ou 1ʳᵉ) semaine valide DANS
+    // la mission. ⚠️ Ne PAS retomber sur la semaine courante : si la mission est
+    // terminée, la semaine courante est elle-même hors mission (bug v2.6.2 : le candidat
+    // pouvait saisir des heures après la fin de mission).
+    let fallbackDate: Date
+    if (afterMission && end) fallbackDate = getMondayOf(parseIsoDate(end))
+    else if (beforeMission && start) fallbackDate = getMondayOf(parseIsoDate(start))
+    else fallbackDate = getCurrentWeekStart()
+    setWeekStart(isoDate(fallbackDate))
   }, [selectedClient, weekStart])
 
   // v2.6.2 — Fetch jours déclarés ailleurs (étape D) à chaque changement semaine+entreprise
@@ -1216,7 +1222,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
               onFinalize={handleClickSubmit}
               onSwitchToDocumentMode={() => setViewMode('document')}
               token={slug /* clé sessionStorage pour persistance step */}
-              contextData={{ weekStartDate: weekStart }}
+              contextData={{ weekStartDate: weekStart, missionStartDate: selectedClient?.mission_start_date || null, missionEndDate: selectedClient?.mission_end_date || null }}
               allDocumentFields={activeDoc?.fields || []}
               // v2.5.0 — Messages adaptés au contexte Rapport (en attente entreprise, pas signé final)
               completedTitle={

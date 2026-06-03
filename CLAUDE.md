@@ -105,7 +105,17 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.9.82** — 29/05/2026 (Rapports : Pointeuse timbrage GPS + email destinataire + annotation WhatsApp)
+**v2.10.17** — 02/06/2026 (Marathon post-go-live + 🆕 App native TalentFlow Sign)
+
+### v2.9.93→2.10.17 (02/06) — Post-go-live + App mobile native
+
+**App native (repo séparé `~/Dev/talentflow-sign-app`, Capacitor 8 SPM)** : coque iOS+Android qui charge les portails live distants. Écran d'accueil (Collaborateur → `/report/login` · Client → `/client-portal/login`). `appId: ch.lagence.talentflowsign`. Icône éclair + splash + Face ID (`@aparajita/capacitor-biometric-auth`) + caméra (`@capacitor/camera`). Compte Apple Developer **Individual** soumis (en validation). ⚠️ Une app « Talentflow » (CodeksAI) existe déjà → notre nom « TalentFlow Sign » est distinct. Détails : MEMORY.md.
+
+**Fixes/features web déployés (v2.10.10→17)** :
+- **v2.10.14** — FIX critique email validation client (mode portail) : envoie à l'email saisi sur le lien (`report_link_clients.client_email`, ex chef de chantier/RH) au lieu de `clients.email` (placeholder info@l-agence.ch). ⚠️ Règle : **toujours renseigner l'email du client à la création du lien** (sinon repli sur l'adresse entreprise).
+- **v2.10.17** — Nouveau rapport repart à l'étape 1 (clé `currentStepIdx` scopée par `weekStartDate`) + signature visible en dark mode (`color-scheme: light` zone signature + report layout).
+- **v2.10.12** — Pièces jointes HEIC iPhone → JPEG serveur (`heic-convert`) : lisibles Windows + assemblées recto/verso.
+- **v2.10.11** — Signature rognée au tracé (`trimToInk`). **v2.10.15** — champs connexion 16px (anti-zoom iOS). **v2.10.16** — bandeau « app à venir » portail candidat. **v2.10.13** — bandeau PWA install retiré. **v2.10.10** — pauses pointeuse (De..à.. + garde-fous) + page de connexion portail.
 
 ### v2.9.82 (29/05) — Pointeuse (timbrage GPS) + email destinataire + annotation client
 

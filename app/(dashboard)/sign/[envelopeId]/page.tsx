@@ -830,7 +830,7 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                             <button
                               type="button"
                               onClick={() => setPreviewFile({
-                                url: `/api/sign/envelopes/${envelopeId}/uploads?path=${encodeURIComponent(f.path)}`,
+                                url: `/api/sign/envelopes/${envelopeId}/uploads?path=${encodeURIComponent(f.path)}&preview=1`,
                                 name: f.name,
                                 mimeType: f.mimeType,
                               })}

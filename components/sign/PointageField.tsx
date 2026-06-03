@@ -23,7 +23,7 @@ function todayIso(): string {
 }
 
 export default function PointageField({
-  value, onChange, captureGps, liveTimer, dayDate,
+  value, onChange, captureGps, liveTimer, dayDate, missionStart, missionEnd,
 }: {
   value: unknown
   onChange: (v: PointageValue) => void
@@ -31,8 +31,14 @@ export default function PointageField({
   liveTimer?: boolean
   /** v2.10.4 — Date réelle du jour (ISO). Si dans le futur → saisie bloquée. */
   dayDate?: string | null
+  /** v2.10.x — Bornes de mission (ISO). Jour hors [start, end] → saisie bloquée. */
+  missionStart?: string | null
+  missionEnd?: string | null
 }) {
   const isFuture = !!dayDate && dayDate > todayIso()
+  // v2.10.x — Jour hors période de mission (le client exige des heures dans la mission).
+  const isAfterMission = !!dayDate && !!missionEnd && dayDate > missionEnd
+  const isBeforeMission = !!dayDate && !!missionStart && dayDate < missionStart
   // v2.10.6 — Jour passé : le chrono LIVE n'a plus de sens (on n'est plus dans le présent).
   // → on cache « Démarrer ma journée » et on laisse la saisie manuelle. La Timbreuse LIVE
   // ne s'affiche donc QUE pour aujourd'hui (ou si la date du jour est inconnue).
@@ -220,6 +226,24 @@ export default function PointageField({
       {label}
     </button>
   )
+
+  // v2.10.x — Jour hors mission : saisie bloquée (avant le début ou après la fin de mission).
+  if (isAfterMission || isBeforeMission) {
+    const bound = isAfterMission ? missionEnd : missionStart
+    const [yy, mm, dd] = String(bound || '').split('-')
+    const txt = isAfterMission
+      ? `La mission s’est terminée le ${dd}.${mm}.${yy}. Tu ne peux pas saisir d’heures après cette date.`
+      : `La mission commence le ${dd}.${mm}.${yy}. Tu ne peux pas saisir d’heures avant cette date.`
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px dashed #D1D5DB', borderRadius: 12, padding: 14, background: '#F9FAFB' }}>
+        <span style={{ fontSize: 18 }}>🔒</span>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#6B7280' }}>Hors période de mission</div>
+          <div style={{ fontSize: 12, color: '#9CA3AF' }}>{txt}</div>
+        </div>
+      </div>
+    )
+  }
 
   // v2.10.4 — Jour futur : saisie bloquée (on ne pointe pas une journée pas encore arrivée).
   if (isFuture) {

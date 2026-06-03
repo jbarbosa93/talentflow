@@ -74,11 +74,12 @@ export async function POST(
   let linkClient: {
     id: string; client_name: string; client_email: string | null;
     client_contact_name: string | null; client_phone: string | null;
+    mission_start_date: string | null; mission_end_date: string | null;
   } | null = null
   if (reportLinkClientId) {
     const { data } = await supabase
       .from('report_link_clients' as any)
-      .select('id, link_id, client_name, client_email, client_contact_name, client_phone')
+      .select('id, link_id, client_name, client_email, client_contact_name, client_phone, mission_start_date, mission_end_date')
       .eq('id', reportLinkClientId)
       .maybeSingle()
     if (!data) {
@@ -99,6 +100,24 @@ export async function POST(
   }
 
   const weekDates = getWeekDates(parseIsoDate(weekStart))
+
+  // v2.10.x — Garde-fou borne mission : refuse une semaine ENTIÈREMENT hors de la
+  // fenêtre [mission_start_date, mission_end_date]. La semaine qui CONTIENT la date
+  // de fin reste autorisée (les jours après la fin sont grisés côté pointeuse).
+  // Contrainte appliquée seulement si l'entreprise destinataire a des dates de mission.
+  const missionStart = (linkClient as any)?.mission_start_date as string | null | undefined
+  const missionEnd = (linkClient as any)?.mission_end_date as string | null | undefined
+  if (missionEnd && weekStart > missionEnd) {
+    return NextResponse.json({
+      error: `Cette semaine est après la fin de la mission (${missionEnd}). Impossible de saisir des heures au-delà.`,
+    }, { status: 400 })
+  }
+  if (missionStart && weekDates.end < missionStart) {
+    return NextResponse.json({
+      error: `Cette semaine est avant le début de la mission (${missionStart}).`,
+    }, { status: 400 })
+  }
+
   const existing = await getSubmissionByWeek(link.id, weekStart, reportLinkClientId)
   if (existing && existing.status !== 'draft') {
     return NextResponse.json({

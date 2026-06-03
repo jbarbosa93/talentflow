@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.17'
+export const APP_VERSION = '2.10.18'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.18 — Rapports : blocage saisie d'heures hors période de mission
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.18',
+    date: '2026-06-02',
+    label: 'Rapports : impossible de saisir des heures hors de la période de mission (avant le début / après la fin)',
+    features: [
+      'FIX RAPPORTS — Un candidat pouvait saisir/soumettre des heures pour des semaines après la fin (ou avant le début) de sa mission. Correctif à 3 niveaux : (1) Serveur — refuse une semaine entièrement hors de [mission_start_date, mission_end_date]. (2) Pointeuse — jours hors mission grisés « 🔒 Hors période de mission » + non exigés à la validation (bornes propagées contextData → StepContent → GroupedFields → FieldRow, helper sectionLockReason). (3) Semaine par défaut — l\'auto-correction repositionne sur la dernière semaine valide DANS la mission au lieu de la semaine courante. La semaine qui CONTIENT la date de fin reste autorisée (jours après la fin grisés). Actif uniquement si l\'entreprise a des dates de mission. [reprise branche claude/talentflow-portal-link-duration]',
+      'SIGN — « Email de réception du récap final » par défaut = info@l-agence.ch (avant : vide → repli sur le créateur). DEFAULT_OPTIONS.recapEmail.',
+      'FIX SIGN APERÇU — Sur la page enveloppe, cliquer « aperçu » (œil) sur une pièce jointe PDF la téléchargeait + aperçu blanc : la route /uploads?path= servait toujours en Content-Disposition: attachment. Ajout de ?preview=1 → inline → le PDF s\'affiche dans le modal. Bouton œil mis à jour.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.17 — FIX : nouveau rapport repart à l'étape 1 (plus à la dernière)
   // ─────────────────────────────────────────────────────────────────────

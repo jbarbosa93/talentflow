@@ -105,11 +105,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       const blob = await downloadSignDocument(downloadPath)
       const filename = downloadPath.split('/').pop() || 'fichier'
       const mimeType = blob.type || 'application/octet-stream'
+      // v2.10.18 — ?preview=1 → Content-Disposition inline (affichage dans l'iframe
+      // du modal aperçu). Sans le param, on garde 'attachment' (téléchargement).
+      // Avant : toujours 'attachment' → le PDF se téléchargeait au clic « aperçu »
+      // et l'iframe restait blanc.
+      const inline = url.searchParams.get('preview') === '1'
       const headers = new Headers()
       headers.set('Content-Type', mimeType)
       headers.set(
         'Content-Disposition',
-        `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+        `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(filename)}`,
       )
       headers.set('Cache-Control', 'private, no-store')
       const buf = Buffer.from(await blob.arrayBuffer())

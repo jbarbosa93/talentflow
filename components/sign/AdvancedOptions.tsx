@@ -37,7 +37,9 @@ export const DEFAULT_OPTIONS: AdvancedOptionsValue = {
   expiryWarningDays: null,
   channel: 'email',
   companyName: null,
-  recapEmail: null,
+  // v2.10.18 — Email de réception du récap par défaut : info@l-agence.ch
+  // (les docs signés finaux arrivent dans la boîte commune, pas que chez le créateur).
+  recapEmail: 'info@l-agence.ch',
 }
 
 interface Props {
