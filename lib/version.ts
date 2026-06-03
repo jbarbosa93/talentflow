@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.27'
+export const APP_VERSION = '2.10.28'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.28 — Modal in-app : s'affiche même app déjà ouverte / au tap de la notif
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.28',
+    date: '2026-06-03',
+    label: 'Modal in-app : apparaît même si le candidat est déjà dans l’app ou tape la notification',
+    features: [
+      'Le modal se vérifie en continu (toutes les 25 s) tant que l’app est ouverte → le candidat ne le rate plus.',
+      'Taper la notification (l’app reprend) affiche désormais le modal (re-vérification au retour au premier plan).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.27 — Modal in-app : animation synchronisée avec l'affichage
   // ─────────────────────────────────────────────────────────────────────

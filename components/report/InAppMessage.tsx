@@ -31,23 +31,43 @@ interface InApp {
 export default function InAppMessage() {
   const [msg, setMsg] = useState<InApp | null>(null)
   const [closing, setClosing] = useState(false)
-  const firedRef = useRef(false)
+  const animatedIdRef = useRef<string | null>(null)
+  const msgRef = useRef<InApp | null>(null)
+  msgRef.current = msg
 
-  // Récupère le message non vu (une fois au montage).
+  // Vérifie s'il y a un message non vu. Ne remplace pas un modal déjà affiché.
+  // Appelé : au montage, périodiquement (app ouverte), et quand l'app revient au
+  // premier plan (tap sur la notif → l'app reprend sans recharger la page).
   useEffect(() => {
     let active = true
     loadConfetti()  // précharge l'animation en parallèle → prête à l'affichage
-    fetch('/api/push/inapp')
-      .then(r => r.json())
-      .then(d => { if (active && d.message) setMsg(d.message) })
-      .catch(() => {})
-    return () => { active = false }
+
+    async function check() {
+      if (msgRef.current) return  // un modal est déjà affiché
+      try {
+        const r = await fetch('/api/push/inapp')
+        const d = await r.json()
+        if (active && d.message && !msgRef.current) setMsg(d.message)
+      } catch { /* noop */ }
+    }
+
+    check()
+    const interval = setInterval(check, 25000)  // re-check toutes les 25 s tant que l'app est ouverte
+    const onVisible = () => { if (document.visibilityState === 'visible') check() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      active = false
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
   }, [])
 
-  // Lance l'animation quand le message s'affiche.
+  // Lance l'animation une fois par message affiché.
   useEffect(() => {
-    if (!msg || firedRef.current) return
-    firedRef.current = true
+    if (!msg || animatedIdRef.current === msg.id) return
+    animatedIdRef.current = msg.id
     runAnimation(msg.animation)
   }, [msg])
 
