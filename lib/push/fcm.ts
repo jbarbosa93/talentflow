@@ -81,7 +81,11 @@ export async function sendPushToToken(
           token,
           notification: { title, body },
           data: data || undefined,
-          android: { priority: 'high' },
+          // priority high + canal "importance haute" → bannière pop-up (heads-up) Android
+          android: {
+            priority: 'high',
+            notification: { channel_id: 'tf_default', sound: 'default' },
+          },
           apns: { payload: { aps: { sound: 'default' } } },
         },
       }),

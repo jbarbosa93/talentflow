@@ -76,14 +76,18 @@ export default function NotificationsPage() {
   const canSend = title.trim() && body.trim() && selected.size > 0 && !sending
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 20px 80px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-        <Bell size={26} style={{ color: '#EAB308' }} />
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Notifications</h1>
+    <div className="d-page" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif', maxWidth: 1040, margin: '0 auto' }}>
+      <div className="d-page-header">
+        <div>
+          <h1 className="d-page-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+            <Bell size={22} color="var(--primary)" />
+            <span>Notifications</span>
+          </h1>
+          <p style={{ fontSize: 14, color: 'var(--muted-foreground)', margin: '6px 0 22px' }}>
+            Envoyer une notification push aux candidats qui ont installé l&apos;app et accepté les notifications.
+          </p>
+        </div>
       </div>
-      <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 22px' }}>
-        Envoyer une notification push aux candidats qui ont installé l&apos;app et accepté les notifications.
-      </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 360px', gap: 20, alignItems: 'start' }}>
         {/* Colonne gauche : destinataires */}

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.22'
+export const APP_VERSION = '2.10.23'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.23 — Push : bannière heads-up Android + page Notifications au design v2
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.23',
+    date: '2026-06-03',
+    label: 'Push : notification en bannière pop-up (Android) + page Notifications alignée au design',
+    features: [
+      'PUSH — Canal Android « importance haute » (tf_default) + message FCM avec channel_id → la notif s\'affiche en BANNIÈRE pop-up (heads-up), plus seulement dans le centre. iOS : son par défaut.',
+      'UI — Page Notifications remise au design v2 (classe d-page + titre serif d-page-title, cohérent avec Rapports/Signatures).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.22 — Push : enregistrement auto du token lié au candidat (C2)
   // ─────────────────────────────────────────────────────────────────────
