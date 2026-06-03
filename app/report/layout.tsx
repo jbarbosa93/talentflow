@@ -6,6 +6,7 @@ import type { Metadata, Viewport } from 'next'
 import { DM_Sans } from 'next/font/google'
 import '../globals.css'
 import ServiceWorkerRegister from '@/components/report/ServiceWorkerRegister'
+import PushRegister from '@/components/report/PushRegister'
 
 const jakarta = DM_Sans({
   subsets: ['latin'],
@@ -83,6 +84,7 @@ export default function ReportPublicLayout({ children }: { children: React.React
             l'application » retiré : on a désormais l'app native TalentFlow Sign ;
             le web reste pour les missions ponctuelles. */}
         <ServiceWorkerRegister />
+        <PushRegister />
       </body>
     </html>
   )

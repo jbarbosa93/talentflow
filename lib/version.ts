@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.21'
+export const APP_VERSION = '2.10.22'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.22 — Push : enregistrement auto du token lié au candidat (C2)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.22',
+    date: '2026-06-03',
+    label: 'Push : enregistrement auto de l\'appareil + page « Notifications » (envoi aux candidats)',
+    features: [
+      'NOTIFICATIONS PUSH (C2) — L\'app native ajoute son token FCM à l\'URL du portail au clic (?pt=&plat=). Composant PushRegister (layouts /report et /client-portal) lit le token, l\'enregistre via /api/push/register, et le lie au compte connecté (candidat → candidate_id via le lien rapport). Nettoyage de l\'URL.',
+      'NOTIFICATIONS PUSH (C1) — Nouvelle page « Notifications » (sidebar) : liste les candidats ayant un appareil enregistré, sélection multiple + recherche, saisie titre/message, bouton Envoyer → POST /api/push/send (cible les tokens des candidats choisis, purge les tokens morts). Endpoint /api/push/recipients pour la liste.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.21 — Backend notifications push (Firebase Cloud Messaging)
   // ─────────────────────────────────────────────────────────────────────

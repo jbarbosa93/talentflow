@@ -25,14 +25,32 @@ export async function POST(req: NextRequest) {
     const jar = await cookies()
     let accountId: string | null = null
     let accountType: string | null = null
+    let reportLinkId: string | null = null
     for (const type of ['candidat', 'client'] as const) {
       const jwt = jar.get(cookieName(type))?.value
       if (!jwt) continue
       const session = await verifySession(jwt)
-      if (session) { accountId = session.accountId; accountType = session.accountType; break }
+      if (session) {
+        accountId = session.accountId
+        accountType = session.accountType
+        reportLinkId = session.reportLinkId || null
+        break
+      }
     }
 
     const admin = createAdminClient()
+
+    // v2.10.22 — Résout le candidat (pour cibler par candidat dans la page Notifs).
+    // Candidat : via report_links.candidat_id du lien rapport lié au compte.
+    let candidateId: string | null = null
+    if (accountType === 'candidat' && reportLinkId) {
+      const { data: link } = await (admin as any)
+        .from('report_links')
+        .select('candidat_id')
+        .eq('id', reportLinkId)
+        .maybeSingle()
+      candidateId = (link?.candidat_id as string) || null
+    }
     // Upsert : si le token existe déjà, on rafraîchit le lien + last_seen_at.
     const { error } = await (admin as any)
       .from('push_tokens')
@@ -41,6 +59,7 @@ export async function POST(req: NextRequest) {
         platform,
         account_type: accountType,
         portal_account_id: accountId,
+        candidate_id: candidateId,
         last_seen_at: new Date().toISOString(),
       }, { onConflict: 'token' })
 

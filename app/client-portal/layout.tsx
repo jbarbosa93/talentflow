@@ -4,6 +4,7 @@
 import type { Metadata, Viewport } from 'next'
 import { DM_Sans, Instrument_Serif } from 'next/font/google'
 import '../globals.css'
+import PushRegister from '@/components/report/PushRegister'
 
 const jakarta = DM_Sans({
   subsets: ['latin'],
@@ -69,6 +70,7 @@ export default function ClientPortalLayout({ children }: { children: React.React
         }}
       >
         {children}
+        <PushRegister />
       </body>
     </html>
   )
