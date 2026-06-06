@@ -995,8 +995,9 @@ function RoleFixedRecipients({
                   onBlur={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent' }}
                   title="Renommer ce rôle — synchronisé avec l'éditeur de template"
                 />
-                {/* v2.8.6 — Bouton « Moi » : auto-fill avec le profil du user connecté */}
-                {me && me.email && (
+                {/* v2.8.6 — Bouton « Moi » : auto-fill avec le profil du user connecté.
+                    v2.10.31 — Masqué sur le rôle « Consultant » (on choisit João/Seb). */}
+                {me && me.email && !isConsultantRoleName(r.roleName) && (
                   <button
                     type="button"
                     onClick={() => {
