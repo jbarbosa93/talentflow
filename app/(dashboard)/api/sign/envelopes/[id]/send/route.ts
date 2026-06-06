@@ -7,6 +7,7 @@ import { requireAuth } from '@/lib/auth-guard'
 import { generateTokensForEnvelope } from '@/lib/sign/tokens'
 import { logAuditEvent, extractIp } from '@/lib/sign/audit'
 import { dispatchInvite } from '@/lib/sign/sequential'
+import { getConsultant } from '@/lib/sign/consultants'
 import type { SignDocument, SignEnvelope, SignField, SignRecipient } from '@/lib/sign/types'
 
 export const runtime = 'nodejs'
@@ -101,6 +102,30 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const allRecipients = env.recipients as SignRecipient[]
   const allSigners = allRecipients.filter(r => r.role !== 'cc')
 
+  // v2.10.30 — Consultant choisi (João/Seb) sur un rôle « Consultant » : on
+  // récupère SA signature (Paramètres → Mon profil = user_preset_signatures) et
+  // on l'apposera en auto-sign. Garde-fou : si le consultant n'a pas encore
+  // enregistré sa signature → on bloque l'envoi avec un message clair.
+  const consultantSigByEmail = new Map<string, string>()  // email destinataire → data_url signature
+  for (const rec of allSigners) {
+    const key = (rec as { consultantKey?: string | null }).consultantKey
+    if (!key) continue
+    const c = getConsultant(key)
+    if (!c) continue
+    const { data: sigRow } = await supabase
+      .from('user_preset_signatures' as any)
+      .select('data_url')
+      .eq('user_id', c.userId)
+      .maybeSingle()
+    const dataUrl = (sigRow as { data_url?: string } | null)?.data_url || ''
+    if (!dataUrl) {
+      return NextResponse.json({
+        error: `${c.name} n'a pas encore enregistré sa signature. Demande-lui de la dessiner dans Paramètres → Mon profil, puis renvoie le contrat.`,
+      }, { status: 400 })
+    }
+    consultantSigByEmail.set((rec.email || '').toLowerCase().trim(), dataUrl)
+  }
+
   // v2.9.53 — Mapping robuste destinataire ↔ template order (pattern #71).
   // Le template peut être 1-based (recipientOrder 1, 2, ...) alors que
   // les destinataires de l'envelope peuvent être 0-based (order 0, 1, ...).
@@ -178,11 +203,16 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const autoSignedEmails: string[] = []
   for (const rec of allSigners) {
     if (rec.status === 'signed') continue
+    // v2.10.30 — Priorité : signature du CONSULTANT choisi (João/Seb) si ce
+    // destinataire a un consultantKey, sinon preset du template (v2.9.51).
+    const recEmailNorm = (rec.email || '').toLowerCase().trim()
+    const consultantSig = consultantSigByEmail.get(recEmailNorm) || null
     // v2.9.53 — Résolution via mapping pattern #71
     const tplOrd = recipientToTplOrder.get(rec.order ?? 0) ?? (rec.order ?? 0)
     const sig = sigInfoByTplOrder.get(tplOrd)
-    if (!sig || !sig.firstPresetDataUrl) continue
-    // → AU MOINS 1 preset : auto-sign avec cette preset comme signature globale
+    const autoDataUrl = consultantSig || (sig?.firstPresetDataUrl || null)
+    if (!autoDataUrl) continue
+    // → consultant choisi OU au moins 1 preset : auto-sign avec cette signature
     try {
       const nowIso = new Date().toISOString()
       const safeTtl = ttlDays || 30
@@ -211,7 +241,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         recipient_phone: rec.phone || null,
         expires_at: expiresAt,
         signed_at: nowIso,
-        signature_data_url: sig.firstPresetDataUrl,
+        signature_data_url: autoDataUrl,
         signature_method: 'auto',
         signed_ip: null,
         terms_accepted_at: nowIso,
@@ -232,17 +262,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         recipientEmail: rec.email,
         ip: extractIp(req),
         metadata: {
-          method: 'preset_template',
-          role: 'Signataire',
-          presetCount: sig.presetCount,
-          totalSig: sig.totalSig,
+          method: consultantSig ? 'consultant_auto' : 'preset_template',
+          role: consultantSig ? 'Consultant' : 'Signataire',
+          presetCount: sig?.presetCount ?? 0,
+          totalSig: sig?.totalSig ?? 0,
         },
       })
       autoSignedEmails.push(rec.email)
       console.log(
-        `[sign/send] auto-sign preset_template : ${rec.email}`
+        `[sign/send] auto-sign ${consultantSig ? 'consultant' : 'preset_template'} : ${rec.email}`
         + ` envOrder=${rec.order ?? 0} → tplOrder=${tplOrd}`
-        + ` preset=${sig.presetCount}/${sig.totalSig} name="${effectiveName}"`,
+        + ` preset=${sig?.presetCount ?? 0}/${sig?.totalSig ?? 0} name="${effectiveName}"`,
       )
     } catch (e) {
       console.warn('[sign/send] auto-sign échoué pour', rec.email, e)

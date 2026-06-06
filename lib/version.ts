@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.10.29'
+export const APP_VERSION = '2.10.30'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.10.30 — Sign : rôle « Consultant » (João/Seb) + nom candidat dans l'email
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.10.30',
+    date: '2026-06-06',
+    label: 'Contrats : choix du consultant (João/Seb) + nom du candidat dans l’email signé',
+    features: [
+      'Quand un rôle du template s’appelle « Consultant », on choisit João ou Seb à l’envoi → coordonnées remplies + sa signature apposée automatiquement (pas d’email au consultant). Idéal pour les secrétaires.',
+      'Garde-fou : si le consultant n’a pas encore enregistré sa signature (Paramètres → Mon profil), l’envoi est bloqué avec un message clair.',
+      'Email du contrat signé : le titre et le corps affichent le NOM DU CANDIDAT (identifié par son rôle), même si le consultant signe en premier. Fini le mauvais nom dans le sujet.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.29 — Modal in-app : ne se ferme plus tout seul au tap de la notif
   // ─────────────────────────────────────────────────────────────────────

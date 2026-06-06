@@ -98,6 +98,10 @@ export async function POST(req: NextRequest) {
         status: 'pending' as const,
         signed_at: null,
         preferredViewMode,
+        // v2.10.30 — Consultant choisi (João/Seb) pour un rôle « Consultant ».
+        consultantKey: typeof (r as { consultantKey?: string }).consultantKey === 'string'
+          ? (r as { consultantKey?: string }).consultantKey
+          : undefined,
       }
     })
 

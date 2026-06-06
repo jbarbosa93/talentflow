@@ -457,6 +457,10 @@ export interface SignRecipient {
   preferredViewMode?: SignViewMode
   /** v2.8.10 — Index palette couleur (0-7). Si undefined → fallback sur `order`. */
   colorIdx?: number | null
+  /** v2.10.30 — Clé du consultant choisi (João/Seb) quand le rôle = « Consultant ».
+   *  À l'envoi, sa signature (Paramètres → Mon profil) est apposée automatiquement
+   *  (auto-sign) et il ne reçoit pas d'email. Voir lib/sign/consultants.ts. */
+  consultantKey?: string | null
 }
 
 export type SignTemplateKind = 'envelope' | 'report'

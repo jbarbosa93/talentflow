@@ -598,6 +598,7 @@ export async function sendSignFinalRecapEmail(
       <div style="background:#FAFAF7;border:1px solid #E5E7EB;border-radius:10px;padding:14px 16px;margin:0 0 20px;">
         <div style="font-size:11px;color:#6B7280;letter-spacing:0.05em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Détails</div>
         <div style="font-size:13px;color:#1C1A14;line-height:1.7;">
+          ${(params.candidateName || '').trim() ? `<strong>Candidat :</strong> ${escapeHtml((params.candidateName || '').trim())}<br>` : ''}
           <strong>Enveloppe :</strong> ${escapeHtml(params.envelopeTitle)}<br>
           <strong>Complétée le :</strong> ${dateStr} à ${timeStr}<br>
           <strong>Pièces jointes :</strong> ${params.attachments.length}
@@ -621,6 +622,7 @@ export async function sendSignFinalRecapEmail(
       ? `${params.uploaderName} a également chargé ${uCount} pièce${uCount > 1 ? 's' : ''} jointe${uCount > 1 ? 's' : ''} — jointe${uCount > 1 ? 's' : ''} à cet email. Ces fichiers ne sont pas renvoyés au candidat.`
       : '',
     '',
+    (params.candidateName || '').trim() ? `Candidat : ${(params.candidateName || '').trim()}` : '',
     `Complétée le : ${dateStr} à ${timeStr}`,
     `Voir l'enveloppe : ${params.envelopeUrl}`,
   ].filter(Boolean).join('\n')

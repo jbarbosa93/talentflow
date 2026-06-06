@@ -22,6 +22,7 @@ import type { SignCategory, SignDocument, SignTemplate } from '@/lib/sign/types'
 import { createClient } from '@/lib/supabase/client'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import { looksLikeCompanyField } from '@/lib/sign/field-helpers'
+import { CONSULTANTS, getConsultant, isConsultantRoleName } from '@/lib/sign/consultants'
 import { Edit3 } from 'lucide-react'
 
 export default function SignNewPageWrapper() {
@@ -152,6 +153,7 @@ function SignNewPage() {
           status: r.status || 'pending',
           signed_at: r.signed_at || null,
           preferredViewMode: r.preferredViewMode || 'auto',
+          consultantKey: r.consultantKey || null,
         })))
       }
       // Options avancées
@@ -813,6 +815,47 @@ function Field({
   )
 }
 
+// ─── ConsultantPicker — sélecteur João / Seb pour un rôle « Consultant » ──
+// v2.10.30 — Remplace les champs nom/email quand le rôle = « Consultant ».
+function ConsultantPicker({
+  value, onPick,
+}: {
+  value: string
+  onPick: (c: typeof CONSULTANTS[number] | null) => void
+}) {
+  return (
+    <div>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted-foreground)', marginBottom: 6 }}>
+        Signer en tant que
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {CONSULTANTS.map(c => {
+          const on = value === c.key
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => onPick(on ? null : c)}
+              style={{
+                flex: '1 1 170px', padding: '11px 14px', borderRadius: 10,
+                border: on ? '2px solid #EAB308' : '1px solid var(--border)',
+                background: on ? '#FEFCE8' : 'var(--card)', color: 'var(--foreground)',
+                cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{c.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{c.email}</div>
+            </button>
+          )
+        })}
+      </div>
+      <p style={{ fontSize: 11.5, color: 'var(--muted-foreground)', margin: '8px 0 0', lineHeight: 1.5 }}>
+        ✒️ Le consultant choisi sera <strong>signé automatiquement</strong> avec sa signature (Paramètres → Mon profil) — il ne reçoit pas d'email.
+      </p>
+    </div>
+  )
+}
+
 // ─── RoleFixedRecipients — mode DocuSign "rôles du template" ──────────
 // v2.2.1
 // Affiche 1 carte par rôle du template (read-only role + saisie nom/email)
@@ -1020,6 +1063,32 @@ function RoleFixedRecipients({
                 )}
               </div>
 
+              {/* v2.10.30 — Rôle « Consultant » → sélecteur João / Seb (au lieu de
+                  taper nom/email). Le choix remplit les coordonnées + active
+                  l'auto-signature avec la signature du consultant à l'envoi. */}
+              {isConsultantRoleName(r.roleName) ? (
+                <ConsultantPicker
+                  value={r.consultantKey || ''}
+                  onPick={(c) => {
+                    if (!c) {
+                      updateRecipient(idx, { consultantKey: null, name: '', firstName: '', lastName: '', email: '' })
+                      return
+                    }
+                    const parts = c.name.split(' ')
+                    const fn = parts.shift() || c.name
+                    const ln = parts.join(' ')
+                    updateRecipient(idx, {
+                      consultantKey: c.key,
+                      name: c.name,
+                      firstName: fn,
+                      lastName: ln,
+                      email: c.email,
+                      candidat_id: null,
+                    })
+                  }}
+                />
+              ) : (
+              <>
               {/* v2.2.3 — Inputs : Prénom (autocomplete candidats DB) + Nom + Email */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: 8 }}>
                 <FirstNameAutocomplete
@@ -1089,9 +1158,12 @@ function RoleFixedRecipients({
                 lastName={r.lastName}
                 roleName={r.roleName}
               />
+              </>
+              )}
 
-              {/* v2.2.2 — Mode d'affichage par destinataire (signers uniquement) */}
-              {!isCC && (
+              {/* v2.2.2 — Mode d'affichage par destinataire (signers uniquement,
+                  hors consultant auto-signé) */}
+              {!isCC && !isConsultantRoleName(r.roleName) && (
                 <ViewModePicker
                   value={r.preferredViewMode || 'auto'}
                   onChange={(mode) => updateRecipient(idx, { preferredViewMode: mode })}

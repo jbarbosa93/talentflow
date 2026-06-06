@@ -250,8 +250,14 @@ export async function POST(req: NextRequest) {
       }
 
       // v2.9.67 — Calcule le nom complet du candidat pour le sujet de l'email récap.
-      // Priorité : (1) candidat lié en DB (envelopes.candidate_id) — vrai prénom/nom,
-      // (2) 1er destinataire non-créateur, (3) fallback envelopeTitle.
+      // v2.10.30 — Identification par RÔLE (et non par ordre/email) : sinon, quand le
+      // consultant est placé en étape 1, c'était LUI qui était pris comme « candidat »
+      // dans le titre (le filtre « non-créateur » ne l'excluait pas car son email ≠
+      // email de récap info@). Priorité :
+      //   (1) candidat lié en DB (envelopes.candidate_id) — vrai prénom/nom ;
+      //   (2) destinataire dont le rôle = « Candidat » ;
+      //   (3) destinataire qui n'est PAS « Consultant » et pas le créateur ;
+      //   (4) 1er destinataire non-créateur ; (5) fallback envelopeTitle.
       let candidateName = ''
       try {
         if (envelope.candidate_id) {
@@ -264,10 +270,19 @@ export async function POST(req: NextRequest) {
             candidateName = `${candRow.prenom || ''} ${candRow.nom || ''}`.trim()
           }
         }
-        if (!candidateName && creatorEmail) {
-          const nonCreator = (updatedRecipients as Array<{ email?: string; name?: string }>)
-            .find(r => r.email && r.email.toLowerCase() !== creatorEmail.toLowerCase() && (r.name || '').trim())
-          if (nonCreator) candidateName = (nonCreator.name || '').trim()
+        if (!candidateName) {
+          const recips = (updatedRecipients as Array<{ email?: string; name?: string; roleName?: string }>)
+          const named = recips.filter(r => (r.name || '').trim())
+          const roleOf = (r: { roleName?: string }) => (r.roleName || '').toLowerCase().trim()
+          const creatorNorm = (creatorEmail || '').toLowerCase().trim()
+          const isCreator = (r: { email?: string }) => !!creatorNorm && (r.email || '').toLowerCase().trim() === creatorNorm
+          // (2) rôle explicitement « Candidat »
+          let cand = named.find(r => roleOf(r) === 'candidat')
+          // (3) tout sauf « Consultant » et le créateur
+          if (!cand) cand = named.find(r => roleOf(r) !== 'consultant' && !isCreator(r))
+          // (4) 1er non-créateur
+          if (!cand) cand = named.find(r => !isCreator(r))
+          if (cand) candidateName = (cand.name || '').trim()
         }
       } catch (err) {
         console.warn('[sign/finalize] candidateName lookup échoué', err)
