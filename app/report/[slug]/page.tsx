@@ -23,6 +23,7 @@ import type { SignDocument, SignField } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
 import type { ReportSubmissionStatus, ReportLinkClient } from '@/lib/report/types'
 import CandidatWelcomeHeader from '@/components/report/CandidatWelcomeHeader'
+import PortalLogoHeader from '@/components/report/PortalLogoHeader'
 import ClientSelector from '@/components/report/ClientSelector'
 import MissionList, { type MissionItem } from '@/components/report/MissionList'
 import MissionInfoList from '@/components/report/MissionInfoList'
@@ -684,7 +685,10 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
         paddingBottom: 100,
       }}>
-        <CandidatWelcomeHeader prenom={candidatePrenomLanding} actions={accountActions} />
+        {/* v2.10.39 — Rapports simplifié : salutation + météo + métier déplacés
+            sur l'Accueil. Ici on garde juste le logo (+ déconnexion). */}
+        {accountStickyBar}
+        <PortalLogoHeader />
         <AppComingSoonBanner />
         <div style={{ padding: '6px 16px 18px' }}>
           <button
@@ -712,30 +716,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           </button>
         </div>
 
-        {/* v2.6.1 — Section "Mes missions" : entreprises avec infos mission renseignées */}
-        {clients.some(c => c.mission_contact_name || c.mission_phone || c.mission_start_date || c.mission_end_date) && (
-          <>
-            <div style={{ padding: '14px 16px 6px' }}>
-              <div style={{
-                fontSize: 11,
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: '#6B7280',
-                marginBottom: 10,
-              }}>
-                Mes missions
-              </div>
-            </div>
-            <MissionInfoList
-              clients={clients}
-              // v2.7.3 — Bug 2 A : ouvre un modal "Infos mission" au lieu de
-              // basculer en formulaire. Le clic sur "Mes missions" ne doit pas
-              // démarrer une saisie — c'est juste un récap des infos mission.
-              onSelect={(c) => setMissionInfoClient(c)}
-            />
-          </>
-        )}
+        {/* v2.10.39 — Section "Mes missions" déplacée sur l'Accueil. */}
 
         <div style={{ padding: '14px 16px 6px' }}>
           <div style={{
@@ -813,7 +794,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           </div>
         )}
 
-        <ContactAgenceButton />
+        {/* v2.10.39 — Bouton Contacter déplacé sur l'Accueil. */}
 
         {/* v2.4.2 — Modal viewer rapport complété (tap sur card "Validé") */}
         {viewerSubmission && (
@@ -1078,8 +1059,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           }}
           title="Comment remplir mon rapport ?"
         >📖 {isMobile ? 'Guide' : 'Comment remplir ?'}</button>
-        {/* v2.4.2 — Bouton Contacter L-Agence COMPACT en haut à droite du header */}
-        <ContactAgenceButton variant="compact" />
+        {/* v2.10.39 — Bouton Contacter retiré du remplissage (présent sur l'Accueil). */}
         {/* v2.9.7 — Mon compte + Déconnexion à droite de l'Aide (au lieu d'un bandeau sticky moche) */}
         {accountActions}
       </header>
