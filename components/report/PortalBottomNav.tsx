@@ -46,8 +46,8 @@ export default function PortalBottomNav() {
 
   const home = slug ? `/report/${slug}` : '/report'
   const tabs = [
-    { key: 'home', label: 'Accueil', icon: Home, href: home, match: (p: string) => !!slug && p === `/report/${slug}` },
-    { key: 'rapports', label: 'Rapports', icon: FileText, href: home, match: () => false },
+    { key: 'accueil', label: 'Accueil', icon: Home, href: '/report/accueil', match: (p: string) => p.startsWith('/report/accueil') },
+    { key: 'rapports', label: 'Rapports', icon: FileText, href: home, match: (p: string) => !!slug && p === `/report/${slug}` },
     { key: 'documents', label: 'Documents', icon: FolderOpen, href: '/report/documents', match: (p: string) => p.startsWith('/report/documents') },
     { key: 'profil', label: 'Profil', icon: User, href: '/report/profil', match: (p: string) => p.startsWith('/report/profil') },
     { key: 'params', label: 'Paramètres', icon: Settings, href: '/report/account', match: (p: string) => p.startsWith('/report/account') },

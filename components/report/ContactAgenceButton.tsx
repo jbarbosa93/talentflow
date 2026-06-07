@@ -41,7 +41,9 @@ export default function ContactAgenceButton({ variant = 'floating' }: Props) {
 
   const floatingBtnStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: 16,
+    // v2.10.36 — Remonté au-dessus de la barre de navigation basse (~66px)
+    // pour ne plus la chevaucher.
+    bottom: 'calc(74px + env(safe-area-inset-bottom, 0px))',
     right: 16,
     zIndex: 90,
     display: 'inline-flex',

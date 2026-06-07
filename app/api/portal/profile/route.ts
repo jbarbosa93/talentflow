@@ -11,7 +11,7 @@ import { verifySession, cookieName } from '@/lib/portal-auth'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-async function resolveCandidateId(): Promise<string | null> {
+async function resolveContext(): Promise<{ candidateId: string; reportLinkId: string; slug: string } | null> {
   const jar = await cookies()
   const jwt = jar.get(cookieName('candidat'))?.value
   if (!jwt) return null
@@ -20,15 +20,17 @@ async function resolveCandidateId(): Promise<string | null> {
   const admin = createAdminClient()
   const { data: link } = await (admin as any)
     .from('report_links')
-    .select('candidat_id')
+    .select('candidat_id, slug')
     .eq('id', session.reportLinkId)
     .maybeSingle()
-  return (link?.candidat_id as string) || null
+  if (!link?.candidat_id) return null
+  return { candidateId: link.candidat_id as string, reportLinkId: session.reportLinkId, slug: (link.slug as string) || '' }
 }
 
 export async function GET() {
-  const candidateId = await resolveCandidateId()
-  if (!candidateId) return NextResponse.json({ error: 'non connecté' }, { status: 401 })
+  const ctx = await resolveContext()
+  if (!ctx) return NextResponse.json({ error: 'non connecté' }, { status: 401 })
+  const { candidateId, reportLinkId, slug } = ctx
 
   const admin = createAdminClient()
   const { data: c } = await (admin as any)
@@ -81,7 +83,25 @@ export async function GET() {
     } catch { /* garde la valeur brute */ }
   }
 
+  // Résumé rapports (pour le tableau de bord Accueil).
+  let reports: { count: number; last: null | { status: string; week_start: string | null; week_end: string | null } } = { count: 0, last: null }
+  try {
+    const { data: subs } = await (admin as any)
+      .from('report_submissions')
+      .select('status, week_start, week_end, created_at')
+      .eq('link_id', reportLinkId)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    const list = (subs || []) as any[]
+    reports = {
+      count: list.length,
+      last: list[0] ? { status: list[0].status || '', week_start: list[0].week_start || null, week_end: list[0].week_end || null } : null,
+    }
+  } catch { /* best-effort */ }
+
   return NextResponse.json({
+    slug,
+    reports,
     profile: {
       prenom: c.prenom || '',
       nom: c.nom || '',
