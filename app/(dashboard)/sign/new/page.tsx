@@ -183,12 +183,15 @@ function SignNewPage() {
 
   useEffect(() => {
     if (!selectedTemplate) return
-    // v2.8.0 — On charge toujours les docs du template (vide ou pas) :
-    // - Template contrat vierge → documents = [] → user upload son PDF du jour
-    // - Template contrat ad-hoc (chargé via ?draft=) → contient déjà le PDF du jour
-    // - Autre template → ses PDFs modèles (comportement historique)
-    // Le user peut supprimer + ré-uploader dans le DocumentUploader si besoin.
-    setDocuments(selectedTemplate.documents || [])
+    // v2.8.0 / v2.10.32 — Chargement des docs du template :
+    // - Template CONTRAT (parent, non ad-hoc) → documents = [] : son PDF n'est
+    //   qu'une RÉFÉRENCE pour mémoriser les positions de signature. On NE le
+    //   charge PAS comme document à envoyer ; l'utilisateur upload le contrat du
+    //   jour, et les positions du template se reportent dessus au send (cf. plus bas).
+    // - Template contrat AD-HOC (?draft=) → contient déjà le PDF du jour → on le garde.
+    // - Autre template → ses PDFs modèles (comportement historique).
+    const tplIsAdHoc = !!(selectedTemplate as { parent_template_id?: string | null }).parent_template_id
+    setDocuments(isContractTemplate && !tplIsAdHoc ? [] : (selectedTemplate.documents || []))
 
     // v2.8.0 — Déduire la catégorie de l'enveloppe depuis template_category.
     // Mapping : 'contrat' → 'contrat', 'mappe' → 'mappe', sinon 'autres'.
