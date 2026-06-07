@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, FileText, User, FolderOpen, ChevronRight, Plus } from 'lucide-react'
 import CandidatWelcomeHeader from '@/components/report/CandidatWelcomeHeader'
 import ContactAgenceButton from '@/components/report/ContactAgenceButton'
+import AppComingSoonBanner from '@/components/report/AppComingSoonBanner'
 
 interface Data {
   slug: string
@@ -75,7 +76,12 @@ export default function AccueilPage() {
       <div style={{ marginBottom: 16 }}>
         <CandidatWelcomeHeader prenom={d.profile.prenom || ''} />
       </div>
-      {d.profile.titre_poste && <p style={{ fontSize: 14, color: '#9A958A', margin: '-6px 0 18px 2px' }}>{d.profile.titre_poste}</p>}
+      {d.profile.titre_poste && <p style={{ fontSize: 14, color: '#9A958A', margin: '-6px 0 14px 2px' }}>{d.profile.titre_poste}</p>}
+
+      {/* Bandeau « Bientôt l'application » (refermable) */}
+      <div className="tf-fadeup" style={{ marginBottom: 14 }}>
+        <AppComingSoonBanner />
+      </div>
 
       {/* Mission en cours */}
       {m && (
