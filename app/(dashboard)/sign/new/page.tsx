@@ -1000,38 +1000,7 @@ function RoleFixedRecipients({
                   onBlur={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent' }}
                   title="Renommer ce rôle — synchronisé avec l'éditeur de template"
                 />
-                {/* v2.8.6 — Bouton « Moi » : auto-fill avec le profil du user connecté.
-                    v2.10.31 — Masqué sur le rôle « Consultant » (on choisit João/Seb). */}
-                {me && me.email && !isConsultantRoleName(r.roleName) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const fullName = `${me.firstName} ${me.lastName}`.trim() || me.email.split('@')[0]
-                      updateRecipient(idx, {
-                        name: fullName,
-                        firstName: me.firstName,
-                        lastName: me.lastName,
-                        email: me.email,
-                        ...(me.phone ? { phone: me.phone } : {}),
-                      })
-                    }}
-                    title={`Auto-remplir avec votre profil (${me.email})`}
-                    style={{
-                      padding: '3px 9px',
-                      fontSize: 11, fontWeight: 700,
-                      border: `1px solid ${palette.stroke}`,
-                      background: palette.fill,
-                      color: palette.stroke,
-                      borderRadius: 6,
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      flexShrink: 0,
-                      display: 'inline-flex', alignItems: 'center', gap: 3,
-                    }}
-                  >
-                    👤 Moi
-                  </button>
-                )}
+                {/* v2.10.33 — Bouton « Moi » retiré partout (demande João). */}
                 <span style={{ flex: 1 }} />
                 <span style={{
                   padding: '3px 10px',
