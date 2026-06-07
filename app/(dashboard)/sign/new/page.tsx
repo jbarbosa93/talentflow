@@ -687,7 +687,9 @@ function SignNewPage() {
                 templateRoleCount={templateRoleCount}
                 onSwitchToFreeMode={() => setUseTemplateRoles(false)}
                 requirePhone={advanced.channel === 'whatsapp' || advanced.channel === 'both'}
-                me={me}
+                // v2.10.33 — Pas de bouton « Moi » sur un contrat (Consultant =
+                // sélecteur João/Seb, Candidat = jamais le consultant connecté).
+                me={isContractTemplate ? null : me}
               />
             ) : (
               <>
