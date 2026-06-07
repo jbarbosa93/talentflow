@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Mail, Calendar, Clock, ArrowLeft, LogOut, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import AuthLayout, { inputStyle, labelStyle, primaryBtnStyle, errorStyle } from './AuthLayout'
+import PortalEmailChange from './PortalEmailChange'
 
 interface Props {
   accountType: 'client' | 'candidat'
@@ -165,6 +166,9 @@ export default function AccountPage({ accountType, basePath }: Props) {
         <InfoRow icon={<Calendar size={14} />} label="Compte créé le" value={formatDate(account.invitedAt)} />
         <InfoRow icon={<Clock size={14} />} label="Dernière connexion" value={formatDate(account.lastLoginAt)} last />
       </div>
+
+      {/* v2.10.44 — Changer mon e-mail (avec vérification) — candidat uniquement */}
+      {accountType === 'candidat' && <PortalEmailChange currentEmail={account.email} />}
 
       {/* Form change password */}
       <h2 style={{

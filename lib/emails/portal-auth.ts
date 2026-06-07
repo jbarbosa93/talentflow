@@ -56,6 +56,22 @@ function btn(href: string, label: string): string {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Email CODE de changement d'email (v2.10.44) — envoyé sur le NOUVEL email
+// ──────────────────────────────────────────────────────────────────────────
+export async function sendEmailChangeCodeEmail(opts: { to: string; code: string }) {
+  const html = emailLayout(`
+    <h1 style="font-size:20px;font-weight:700;margin:0 0 14px;">Confirme ton nouvel e-mail</h1>
+    <p style="margin:0 0 12px;">Tu as demandé à changer l'adresse e-mail de ton compte L-Agence. Voici ton code de confirmation :</p>
+    <div style="text-align:center;margin:22px 0;">
+      <span style="display:inline-block;font-size:32px;font-weight:800;letter-spacing:8px;color:#1C1A14;background:#FEF3C7;padding:14px 22px;border-radius:12px;">${opts.code}</span>
+    </div>
+    <p style="margin:0 0 6px;color:#6B7280;font-size:13.5px;">Saisis ce code dans l'application pour valider le changement. Il expire dans 15 minutes.</p>
+    <p style="margin:0;color:#6B7280;font-size:13.5px;">Si tu n'es pas à l'origine de cette demande, ignore cet e-mail — rien ne sera modifié.</p>
+  `)
+  return sendEmail({ to: opts.to, subject: 'Code de confirmation — Changement d\'e-mail', html })
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Email INVITATION (admin invite un client/candidat → il crée son mdp)
 // ──────────────────────────────────────────────────────────────────────────
 
