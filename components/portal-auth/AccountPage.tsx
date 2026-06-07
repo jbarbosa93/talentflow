@@ -140,17 +140,20 @@ export default function AccountPage({ accountType, basePath }: Props) {
 
   return (
     <AuthLayout title="Mon compte">
-      {/* Bouton retour portail */}
-      <button
-        onClick={() => router.push(portalUrl)}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: 'transparent', border: 'none', cursor: 'pointer',
-          color: '#6B7280', fontSize: 13, padding: 0, marginBottom: 18,
-          fontFamily: 'inherit',
-        }}>
-        <ArrowLeft size={14} /> Retour {accountType === 'client' ? 'au portail' : 'aux rapports'}
-      </button>
+      {/* v2.10.41 — Bouton retour masqué pour le candidat (la barre de navigation
+          basse gère le retour). Conservé pour le portail client (sans barre). */}
+      {accountType !== 'candidat' && (
+        <button
+          onClick={() => router.push(portalUrl)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: '#6B7280', fontSize: 13, padding: 0, marginBottom: 18,
+            fontFamily: 'inherit',
+          }}>
+          <ArrowLeft size={14} /> Retour au portail
+        </button>
+      )}
 
       {/* Infos compte */}
       <div style={{

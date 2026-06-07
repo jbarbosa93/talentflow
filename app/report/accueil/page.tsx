@@ -6,18 +6,25 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, FileText, User, FolderOpen, ChevronRight, Plus } from 'lucide-react'
+import { Loader2, Calendar, Phone, Briefcase, Building2 } from 'lucide-react'
 import CandidatWelcomeHeader from '@/components/report/CandidatWelcomeHeader'
 import ContactAgenceButton from '@/components/report/ContactAgenceButton'
 import AppComingSoonBanner from '@/components/report/AppComingSoonBanner'
 
+interface Company { name: string; contact_name: string; contact_phone: string; start: string | null; end: string | null }
 interface Data {
   slug: string
   reports: { count: number; last: null | { status: string; week_start: string | null; week_end: string | null } }
+  companies: Company[]
   profile: {
     prenom: string; nom: string; titre_poste: string; photo_url: string | null
     mission: null | { entreprise: string; metier: string | null; date_debut: string | null; date_fin: string | null; active: boolean }
   }
+}
+
+function fmtFull(d?: string | null) {
+  if (!d) return ''
+  try { return new Date(d).toLocaleDateString('fr-CH', { day: '2-digit', month: 'long', year: 'numeric' }) } catch { return d }
 }
 
 const STATUS_LABEL: Record<string, { txt: string; bg: string; fg: string }> = {
@@ -47,27 +54,22 @@ export default function AccueilPage() {
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#9A958A' }}><Loader2 className="animate-spin" /></div>
   if (!d) return <div style={{ padding: 40, textAlign: 'center', color: '#9A958A' }}>Indisponible.</div>
 
-  const home = d.slug ? `/report/${d.slug}` : '/report'
-  const m = d.profile.mission
   const last = d.reports.last
   const st = last ? (STATUS_LABEL[last.status] || { txt: last.status, bg: '#F1EFE9', fg: '#6B6457' }) : null
+  const today = new Date().toISOString().slice(0, 10)
 
-  const Tile = ({ icon: Icon, title, sub, onClick, primary }: any) => (
-    <button onClick={onClick} className="tf-press" style={{
-      display: 'flex', alignItems: 'center', gap: 13, width: '100%', textAlign: 'left',
-      padding: '15px 16px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit',
-      border: primary ? 'none' : '1px solid #ECEAE3',
-      background: primary ? '#EAB308' : '#fff',
-    }}>
-      <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: primary ? 'rgba(0,0,0,0.12)' : '#FAFAF7' }}>
-        <Icon size={19} color={primary ? '#1C1A14' : '#6B6457'} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1A14' }}>{title}</div>
-        {sub && <div style={{ fontSize: 12.5, color: primary ? '#5C4A08' : '#9A958A' }}>{sub}</div>}
-      </div>
-      <ChevronRight size={18} color={primary ? '#1C1A14' : '#C9C3B5'} />
-    </button>
+  // Source mission : report_link_clients (riche : contact + dates). Repli sur la
+  // mission de la table missions si aucune entreprise renseignée.
+  const m = d.profile.mission
+  const missionCards: Company[] = d.companies && d.companies.length > 0
+    ? d.companies
+    : (m ? [{ name: m.entreprise, contact_name: '', contact_phone: '', start: m.date_debut, end: m.date_fin }] : [])
+
+  const InfoRow = ({ icon: Icon, children }: any) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0' }}>
+      <Icon size={15} color="#9A958A" style={{ flexShrink: 0 }} />
+      <span style={{ fontSize: 13.5, color: '#3F3A30' }}>{children}</span>
+    </div>
   )
 
   return (
@@ -83,16 +85,31 @@ export default function AccueilPage() {
         <AppComingSoonBanner />
       </div>
 
-      {/* Mission en cours */}
-      {m && (
-        <div className="tf-fadeup" style={{ background: m.active ? '#F0FDF4' : '#FAFAF7', border: `1px solid ${m.active ? '#BBF7D0' : '#ECEAE3'}`, borderRadius: 16, padding: '15px 17px', marginBottom: 14, animationDelay: '.05s' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: m.active ? '#15803D' : '#9A958A', marginBottom: 5 }}>
-            {m.active ? '● Mission en cours' : 'Dernière mission'}
+      {/* Ma mission — infos rapides (entreprise, dates, contact) */}
+      {missionCards.map((co, i) => {
+        const active = !co.end || co.end >= today
+        return (
+          <div key={i} className="tf-fadeup" style={{ background: active ? '#F0FDF4' : '#FAFAF7', border: `1px solid ${active ? '#BBF7D0' : '#ECEAE3'}`, borderRadius: 16, padding: '15px 17px', marginBottom: 14, animationDelay: `${0.05 + i * 0.05}s` }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: active ? '#15803D' : '#9A958A', marginBottom: 7 }}>
+              {active ? '● Mission en cours' : 'Mission terminée'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+              <Building2 size={17} color="#1C1A14" />
+              <span style={{ fontSize: 17, fontWeight: 800, color: '#1C1A14' }}>{co.name || 'Entreprise'}</span>
+            </div>
+            {m?.metier && i === 0 && <InfoRow icon={Briefcase}>{m.metier}</InfoRow>}
+            {co.start && <InfoRow icon={Calendar}>Depuis le <strong>{fmtFull(co.start)}</strong>{co.end ? ` — jusqu'au ${fmtFull(co.end)}` : ''}</InfoRow>}
+            {co.contact_phone && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0' }}>
+                <Phone size={15} color="#9A958A" style={{ flexShrink: 0 }} />
+                <a href={`tel:${co.contact_phone.replace(/\s/g, '')}`} style={{ fontSize: 13.5, color: '#1D4ED8', fontWeight: 600, textDecoration: 'none' }}>
+                  {co.contact_name ? `${co.contact_name} · ` : ''}{co.contact_phone}
+                </a>
+              </div>
+            )}
           </div>
-          {m.entreprise && <div style={{ fontSize: 17, fontWeight: 800, color: '#1C1A14' }}>{m.entreprise}</div>}
-          {m.metier && <div style={{ fontSize: 13.5, color: '#6B6457' }}>{m.metier}</div>}
-        </div>
-      )}
+        )
+      })}
 
       {/* Résumé rapports */}
       <div className="tf-fadeup" style={{ display: 'flex', gap: 12, marginBottom: 20, animationDelay: '.1s' }}>
@@ -109,14 +126,6 @@ export default function AccueilPage() {
             </>
           ) : <div style={{ fontSize: 13, color: '#C9C3B5' }}>Aucun pour l&apos;instant</div>}
         </div>
-      </div>
-
-      {/* Accès rapides */}
-      <div className="tf-fadeup" style={{ display: 'flex', flexDirection: 'column', gap: 10, animationDelay: '.15s' }}>
-        <Tile icon={Plus} title="Nouveau rapport" sub="Saisir mes heures de la semaine" primary onClick={() => router.push(home)} />
-        <Tile icon={FileText} title="Mes rapports" sub="Voir tous mes rapports" onClick={() => router.push(home)} />
-        <Tile icon={User} title="Mon profil" sub="Mes infos et ma mission" onClick={() => router.push('/report/profil')} />
-        <Tile icon={FolderOpen} title="Mes documents" sub="Permis, carte d'identité…" onClick={() => router.push('/report/documents')} />
       </div>
 
       {/* Bouton flottant Contacter L-Agence (au-dessus de la barre) */}

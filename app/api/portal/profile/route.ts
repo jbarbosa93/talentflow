@@ -83,6 +83,23 @@ export async function GET() {
     } catch { /* garde la valeur brute */ }
   }
 
+  // Entreprises du lien + infos mission (contact, dates) — pour l'Accueil.
+  let companies: any[] = []
+  try {
+    const { data: rlc } = await (admin as any)
+      .from('report_link_clients')
+      .select('client_name, mission_contact_name, mission_phone, mission_start_date, mission_end_date, display_order')
+      .eq('link_id', reportLinkId)
+      .order('display_order', { ascending: true })
+    companies = (rlc || []).map((r: any) => ({
+      name: r.client_name || '',
+      contact_name: r.mission_contact_name || '',
+      contact_phone: r.mission_phone || '',
+      start: r.mission_start_date || null,
+      end: r.mission_end_date || null,
+    }))
+  } catch { /* best-effort */ }
+
   // Résumé rapports (pour le tableau de bord Accueil).
   let reports: { count: number; last: null | { status: string; week_start: string | null; week_end: string | null } } = { count: 0, last: null }
   try {
@@ -102,6 +119,7 @@ export async function GET() {
   return NextResponse.json({
     slug,
     reports,
+    companies,
     profile: {
       prenom: c.prenom || '',
       nom: c.nom || '',
