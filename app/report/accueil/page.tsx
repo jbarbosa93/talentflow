@@ -7,6 +7,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, FileText, User, FolderOpen, ChevronRight, Plus } from 'lucide-react'
+import CandidatWelcomeHeader from '@/components/report/CandidatWelcomeHeader'
+import ContactAgenceButton from '@/components/report/ContactAgenceButton'
 
 interface Data {
   slug: string
@@ -68,11 +70,12 @@ export default function AccueilPage() {
   )
 
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto', padding: '22px 18px 90px' }}>
-      <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 27, fontWeight: 400, color: '#1C1A14', margin: '4px 0 4px' }}>
-        Bonjour {d.profile.prenom || ''} 👋
-      </h1>
-      {d.profile.titre_poste && <p style={{ fontSize: 14, color: '#9A958A', margin: '0 0 20px' }}>{d.profile.titre_poste}</p>}
+    <div style={{ maxWidth: 560, margin: '0 auto', padding: '14px 18px 90px' }}>
+      {/* Logo L-Agence + salutation + météo (composant existant) */}
+      <div style={{ marginBottom: 16 }}>
+        <CandidatWelcomeHeader prenom={d.profile.prenom || ''} />
+      </div>
+      {d.profile.titre_poste && <p style={{ fontSize: 14, color: '#9A958A', margin: '-6px 0 18px 2px' }}>{d.profile.titre_poste}</p>}
 
       {/* Mission en cours */}
       {m && (
@@ -109,6 +112,9 @@ export default function AccueilPage() {
         <Tile icon={User} title="Mon profil" sub="Mes infos et ma mission" onClick={() => router.push('/report/profil')} />
         <Tile icon={FolderOpen} title="Mes documents" sub="Permis, carte d'identité…" onClick={() => router.push('/report/documents')} />
       </div>
+
+      {/* Bouton flottant Contacter L-Agence (au-dessus de la barre) */}
+      <ContactAgenceButton />
     </div>
   )
 }

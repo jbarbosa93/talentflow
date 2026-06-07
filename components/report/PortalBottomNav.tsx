@@ -27,7 +27,7 @@ export default function PortalBottomNav() {
     let active = true
     fetch('/api/portal-auth/me?type=candidat&full=1')
       .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (active) { setSlug(d?.targetSlug || null); setReady(!!d) } })
+      .then(d => { if (active) { setSlug(d?.account?.targetSlug || null); setReady(!!d) } })
       .catch(() => {})
     return () => { active = false }
   }, [hidden, pathname])
