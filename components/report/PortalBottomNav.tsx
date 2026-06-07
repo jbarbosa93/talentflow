@@ -71,6 +71,7 @@ export default function PortalBottomNav() {
             key={t.key}
             type="button"
             onClick={() => router.push(t.href)}
+            className="tf-press"
             style={{
               flex: 1, border: 'none', background: 'transparent', cursor: 'pointer',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',

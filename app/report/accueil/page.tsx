@@ -52,7 +52,7 @@ export default function AccueilPage() {
   const st = last ? (STATUS_LABEL[last.status] || { txt: last.status, bg: '#F1EFE9', fg: '#6B6457' }) : null
 
   const Tile = ({ icon: Icon, title, sub, onClick, primary }: any) => (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} className="tf-press" style={{
       display: 'flex', alignItems: 'center', gap: 13, width: '100%', textAlign: 'left',
       padding: '15px 16px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit',
       border: primary ? 'none' : '1px solid #ECEAE3',
@@ -79,7 +79,7 @@ export default function AccueilPage() {
 
       {/* Mission en cours */}
       {m && (
-        <div style={{ background: m.active ? '#F0FDF4' : '#FAFAF7', border: `1px solid ${m.active ? '#BBF7D0' : '#ECEAE3'}`, borderRadius: 16, padding: '15px 17px', marginBottom: 14 }}>
+        <div className="tf-fadeup" style={{ background: m.active ? '#F0FDF4' : '#FAFAF7', border: `1px solid ${m.active ? '#BBF7D0' : '#ECEAE3'}`, borderRadius: 16, padding: '15px 17px', marginBottom: 14, animationDelay: '.05s' }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: m.active ? '#15803D' : '#9A958A', marginBottom: 5 }}>
             {m.active ? '● Mission en cours' : 'Dernière mission'}
           </div>
@@ -89,7 +89,7 @@ export default function AccueilPage() {
       )}
 
       {/* Résumé rapports */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+      <div className="tf-fadeup" style={{ display: 'flex', gap: 12, marginBottom: 20, animationDelay: '.1s' }}>
         <div style={{ flex: 1, background: '#fff', border: '1px solid #ECEAE3', borderRadius: 14, padding: '14px 16px' }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#1C1A14', lineHeight: 1 }}>{d.reports.count}</div>
           <div style={{ fontSize: 12, color: '#9A958A', marginTop: 4 }}>rapport{d.reports.count > 1 ? 's' : ''} au total</div>
@@ -106,7 +106,7 @@ export default function AccueilPage() {
       </div>
 
       {/* Accès rapides */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="tf-fadeup" style={{ display: 'flex', flexDirection: 'column', gap: 10, animationDelay: '.15s' }}>
         <Tile icon={Plus} title="Nouveau rapport" sub="Saisir mes heures de la semaine" primary onClick={() => router.push(home)} />
         <Tile icon={FileText} title="Mes rapports" sub="Voir tous mes rapports" onClick={() => router.push(home)} />
         <Tile icon={User} title="Mon profil" sub="Mes infos et ma mission" onClick={() => router.push('/report/profil')} />

@@ -6,7 +6,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, MapPin, Phone, Mail, Briefcase, Calendar, Cake } from 'lucide-react'
+import { Loader2, MapPin, Phone, Mail, Briefcase, Cake } from 'lucide-react'
+import PortalLogoHeader from '@/components/report/PortalLogoHeader'
 
 interface Profile {
   prenom: string; nom: string; email: string; telephone: string; telephone_2: string
@@ -57,11 +58,12 @@ export default function ProfilPage() {
   ) : null
 
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto', padding: '20px 18px 90px' }}>
-      <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 26, fontWeight: 400, color: '#1C1A14', margin: '8px 0 20px' }}>Mon profil</h1>
+    <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 18px 90px' }}>
+      <PortalLogoHeader />
+      <h1 className="tf-fadeup" style={{ fontFamily: 'Georgia, serif', fontSize: 26, fontWeight: 400, color: '#1C1A14', margin: '8px 0 20px' }}>Mon profil</h1>
 
       {/* En-tête photo + nom */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
+      <div className="tf-fadeup" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22, animationDelay: '.05s' }}>
         <div style={{ width: 84, height: 84, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 800, color: '#B45309', border: '2px solid #fff', boxShadow: '0 2px 10px rgba(0,0,0,0.08)' }}>
           {p.photo_url ? <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
         </div>
@@ -73,7 +75,7 @@ export default function ProfilPage() {
 
       {/* Mission en cours */}
       {p.mission && (
-        <div style={{ background: p.mission.active ? '#F0FDF4' : '#FAFAF7', border: `1px solid ${p.mission.active ? '#BBF7D0' : '#ECEAE3'}`, borderRadius: 14, padding: '14px 16px', marginBottom: 20 }}>
+        <div className="tf-fadeup" style={{ background: p.mission.active ? '#F0FDF4' : '#FAFAF7', border: `1px solid ${p.mission.active ? '#BBF7D0' : '#ECEAE3'}`, borderRadius: 14, padding: '14px 16px', marginBottom: 20, animationDelay: '.1s' }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: p.mission.active ? '#15803D' : '#9A958A', marginBottom: 6 }}>
             {p.mission.active ? '● Mission en cours' : 'Dernière mission'}
           </div>
@@ -88,7 +90,7 @@ export default function ProfilPage() {
       )}
 
       {/* Coordonnées */}
-      <div style={{ background: '#fff', border: '1px solid #ECEAE3', borderRadius: 14, padding: '4px 16px 8px' }}>
+      <div className="tf-fadeup" style={{ background: '#fff', border: '1px solid #ECEAE3', borderRadius: 14, padding: '4px 16px 8px', animationDelay: '.15s' }}>
         <Row icon={Mail} label="E-mail" value={p.email} />
         <Row icon={Phone} label="Téléphone" value={p.telephone} />
         <Row icon={Phone} label="2e téléphone" value={p.telephone_2} />

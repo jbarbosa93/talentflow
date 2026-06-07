@@ -81,6 +81,15 @@ export default function ReportPublicLayout({ children }: { children: React.React
           MozOsxFontSmoothing: 'grayscale',
         }}
       >
+        {/* v2.10.38 — Animations légères du portail candidat (fade-in + tap). */}
+        <style>{`
+          @keyframes tfFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+          @keyframes tfPopIn { 0% { opacity: 0; transform: scale(0.92); } 60% { transform: scale(1.03); } 100% { opacity: 1; transform: scale(1); } }
+          .tf-fadeup { animation: tfFadeUp .45s cubic-bezier(0.22,1,0.36,1) both; }
+          .tf-pop { animation: tfPopIn .4s cubic-bezier(0.34,1.56,0.64,1) both; }
+          .tf-press { transition: transform .12s ease, box-shadow .12s ease; }
+          .tf-press:active { transform: scale(0.96); }
+        `}</style>
         {children}
         {/* v2.9.35 — PWA : enregistrement SW. v2.10.13 — Bandeau « Installer
             l'application » retiré : on a désormais l'app native TalentFlow Sign ;
