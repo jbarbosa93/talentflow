@@ -689,7 +689,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             sur l'Accueil. Ici on garde juste le logo (+ déconnexion). */}
         {accountStickyBar}
         <PortalLogoHeader />
-        <AppComingSoonBanner />
+        {/* v2.10.41 — Bannière « Bientôt l'application » uniquement sur l'Accueil. */}
         <div style={{ padding: '6px 16px 18px' }}>
           <button
             type="button"
