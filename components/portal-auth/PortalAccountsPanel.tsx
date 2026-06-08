@@ -191,7 +191,7 @@ export default function PortalAccountsPanel({ portalId, reportLinkId, accountTyp
       const r = await fetch(`/api/admin/portal-accounts/${id}/invitation-link`, { method: 'POST' })
       const d = await r.json().catch(() => ({}))
       if (!r.ok || !d.link) { toast.error(d.error || 'Erreur'); return }
-      await navigator.clipboard.writeText(d.link)
+      await navigator.clipboard.writeText(String(d.link).replace(/\s+/g, ''))
       toast.success('Lien d\'invitation copié — prêt à coller (WhatsApp, etc.)')
     } catch {
       toast.error('Impossible de copier le lien')
@@ -205,7 +205,10 @@ export default function PortalAccountsPanel({ portalId, reportLinkId, accountTyp
       const r = await fetch(`/api/admin/portal-accounts/${id}/invitation-link`, { method: 'POST' })
       const d = await r.json().catch(() => ({}))
       if (!r.ok || !d.link) { toast.error(d.error || 'Erreur'); return }
-      const msg = `Bonjour,\n\nVoici votre lien d'accès au portail L-Agence (créez votre mot de passe) :\n${d.link}\n\nÀ bientôt,\nL-Agence SA`
+      // v2.10.47 — garde-fou : retire tout espace/retour à la ligne du lien
+      // (une URL n'en contient jamais) pour qu'il reste cliquable sur WhatsApp.
+      const cleanLink = String(d.link).replace(/\s+/g, '')
+      const msg = `Bonjour,\n\nVoici votre lien d'accès au portail L-Agence (créez votre mot de passe) :\n${cleanLink}\n\nÀ bientôt,\nL-Agence SA`
       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
     } catch {
       toast.error('Impossible de préparer le lien WhatsApp')

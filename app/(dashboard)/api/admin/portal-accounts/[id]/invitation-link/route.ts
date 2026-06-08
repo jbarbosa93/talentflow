@@ -12,7 +12,9 @@ import { generateOpaqueToken, INVITATION_TTL_DAYS } from '@/lib/portal-auth'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch'
+// v2.10.47 — .trim() : la variable d'env contenait un retour à la ligne en trop
+// → le lien devenait « talent-flow.ch\n/report/... » (cassé sur WhatsApp).
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch').trim()
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireAuth()
