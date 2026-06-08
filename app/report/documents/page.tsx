@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, FolderOpen, Eye, Plus, UploadCloud, X, FileText, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Loader2, FolderOpen, Eye, Plus, UploadCloud, X, FileText, CheckCircle2, AlertTriangle, Camera } from 'lucide-react'
 import PortalLogoHeader from '@/components/report/PortalLogoHeader'
 
 interface Doc { id: string; label: string; type_name: string; status: string | null; expiry_date: string | null; hasRecto: boolean; hasVerso: boolean }
@@ -32,6 +32,8 @@ export default function DocumentsPage() {
   const [expiry, setExpiry] = useState('')
   const rectoRef = useRef<HTMLInputElement>(null)
   const versoRef = useRef<HTMLInputElement>(null)
+  const [rectoName, setRectoName] = useState('')
+  const [versoName, setVersoName] = useState('')
 
   function load() {
     fetch('/api/portal/documents')
@@ -57,7 +59,7 @@ export default function DocumentsPage() {
       if (versoRef.current?.files?.[0]) fd.append('verso', versoRef.current.files[0])
       const r = await fetch('/api/portal/documents', { method: 'POST', body: fd })
       const d = await r.json()
-      if (d.ok) { setShowUpload(false); setTypeId(''); setExpiry(''); setLoading(true); load() }
+      if (d.ok) { setShowUpload(false); setTypeId(''); setExpiry(''); setRectoName(''); setVersoName(''); setLoading(true); load() }
       else setErr(d.error || 'Échec de l\'envoi')
     } catch { setErr('Erreur réseau') } finally { setBusy(false) }
   }
@@ -67,7 +69,7 @@ export default function DocumentsPage() {
       <PortalLogoHeader />
       <div className="tf-fadeup" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '8px 0 18px' }}>
         <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 26, fontWeight: 400, color: '#1C1A14', margin: 0 }}>Mes documents</h1>
-        <button onClick={() => { setShowUpload(true); setErr(null) }} className="tf-press" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 13px', borderRadius: 10, border: 'none', background: '#EAB308', color: '#1C1A14', fontSize: 13.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+        <button onClick={() => { setShowUpload(true); setErr(null); setRectoName(''); setVersoName('') }} className="tf-press" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 13px', borderRadius: 10, border: 'none', background: '#EAB308', color: '#1C1A14', fontSize: 13.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
           <Plus size={16} /> Ajouter
         </button>
       </div>
@@ -115,7 +117,7 @@ export default function DocumentsPage() {
       {/* Modal upload */}
       {showUpload && (
         <div onClick={() => !busy && setShowUpload(false)} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, background: '#fff', borderRadius: '18px 18px 0 0', padding: '20px 20px calc(24px + env(safe-area-inset-bottom,0px))', animation: 'tfFadeUp .3s ease both' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, background: '#fff', borderRadius: '18px 18px 0 0', padding: '20px 20px calc(24px + env(safe-area-inset-bottom,0px))', animation: 'tfFadeUp .3s ease both', maxHeight: 'calc(100dvh - env(safe-area-inset-top,0px) - 10px)', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: '#1C1A14', margin: 0 }}>Ajouter un document</h2>
               <button onClick={() => !busy && setShowUpload(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#9A958A' }}><X size={20} /></button>
@@ -134,10 +136,19 @@ export default function DocumentsPage() {
               </>
             )}
 
-            <label style={{ fontSize: 12.5, fontWeight: 700, color: '#6B6457' }}>Fichier (recto)</label>
-            <input ref={rectoRef} type="file" accept="image/*,application/pdf" style={{ width: '100%', fontSize: 13.5, marginTop: 6, marginBottom: 12 }} />
+            <label style={{ fontSize: 12.5, fontWeight: 700, color: '#6B6457' }}>Photo / fichier (recto)</label>
+            <input ref={rectoRef} type="file" accept="image/*,application/pdf" onChange={e => setRectoName(e.target.files?.[0]?.name || '')} style={{ display: 'none' }} />
+            <button type="button" onClick={() => rectoRef.current?.click()} className="tf-press" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '13px 14px', marginTop: 6, marginBottom: 14, borderRadius: 12, border: rectoName ? '1.5px solid #16A34A' : '1.5px dashed #D6D2C8', background: rectoName ? '#F0FDF4' : '#FAF9F6', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+              {rectoName ? <CheckCircle2 size={20} color="#16A34A" style={{ flexShrink: 0 }} /> : <Camera size={20} color="#9A958A" style={{ flexShrink: 0 }} />}
+              <span style={{ fontSize: 14, fontWeight: 600, color: rectoName ? '#166534' : '#6B6457', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rectoName || 'Prendre une photo ou choisir un fichier'}</span>
+            </button>
+
             <label style={{ fontSize: 12.5, fontWeight: 700, color: '#6B6457' }}>Verso (optionnel)</label>
-            <input ref={versoRef} type="file" accept="image/*,application/pdf" style={{ width: '100%', fontSize: 13.5, marginTop: 6, marginBottom: 16 }} />
+            <input ref={versoRef} type="file" accept="image/*,application/pdf" onChange={e => setVersoName(e.target.files?.[0]?.name || '')} style={{ display: 'none' }} />
+            <button type="button" onClick={() => versoRef.current?.click()} className="tf-press" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '13px 14px', marginTop: 6, marginBottom: 16, borderRadius: 12, border: versoName ? '1.5px solid #16A34A' : '1.5px dashed #D6D2C8', background: versoName ? '#F0FDF4' : '#FAF9F6', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+              {versoName ? <CheckCircle2 size={20} color="#16A34A" style={{ flexShrink: 0 }} /> : <Camera size={20} color="#9A958A" style={{ flexShrink: 0 }} />}
+              <span style={{ fontSize: 14, fontWeight: 600, color: versoName ? '#166534' : '#6B6457', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{versoName || 'Prendre une photo ou choisir un fichier'}</span>
+            </button>
 
             {err && <div style={{ background: '#FEF2F2', color: '#B91C1C', fontSize: 13, padding: '9px 12px', borderRadius: 9, marginBottom: 12 }}>{err}</div>}
 
