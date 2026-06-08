@@ -10,6 +10,7 @@ import { Loader2, Calendar, Phone, Briefcase, Building2 } from 'lucide-react'
 import CandidatWelcomeHeader from '@/components/report/CandidatWelcomeHeader'
 import ContactAgenceButton from '@/components/report/ContactAgenceButton'
 import AppComingSoonBanner from '@/components/report/AppComingSoonBanner'
+import RecapPeriode from '@/components/report/RecapPeriode'
 
 interface Company { name: string; contact_name: string; contact_phone: string; start: string | null; end: string | null }
 interface Data {
@@ -42,6 +43,7 @@ export default function AccueilPage() {
   const router = useRouter()
   const [d, setD] = useState<Data | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showRecap, setShowRecap] = useState(false)
 
   useEffect(() => {
     fetch('/api/portal/profile')
@@ -127,6 +129,20 @@ export default function AccueilPage() {
           ) : <div style={{ fontSize: 13, color: '#C9C3B5' }}>Aucun pour l&apos;instant</div>}
         </div>
       </div>
+
+      {/* Récapitulatif par période (heures par entreprise, repas…) */}
+      {d.slug && (
+        <div className="tf-fadeup" style={{ marginTop: 4, animationDelay: '.15s' }}>
+          <button onClick={() => setShowRecap(v => !v)} className="tf-press" style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: 'none', background: '#1C1A14', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>
+            📊 {showRecap ? 'Masquer le récapitulatif' : 'Récapitulatif (heures, repas…)'}
+          </button>
+          {showRecap && (
+            <div style={{ marginTop: 14 }}>
+              <RecapPeriode slug={d.slug} scope="candidate" />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bouton flottant Contacter L-Agence (au-dessus de la barre) */}
       <ContactAgenceButton />
