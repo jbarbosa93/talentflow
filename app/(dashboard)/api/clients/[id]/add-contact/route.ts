@@ -70,9 +70,11 @@ export async function POST(
     }
     const next = [...existing, newContact]
 
+    // v2.10.48 — La table `clients` n'a PAS de colonne `updated_at` → l'écrire
+    // faisait échouer l'UPDATE (erreur 500 « Contact non enregistré »).
     const { error } = await supabase
       .from('clients' as any)
-      .update({ contacts: next, updated_at: new Date().toISOString() })
+      .update({ contacts: next })
       .eq('id', id)
     if (error) {
       console.error('[clients/add-contact] update error', error)
