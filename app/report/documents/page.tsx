@@ -44,6 +44,15 @@ export default function DocumentsPage() {
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // v2.10.52 — Fige la page de fond quand le modal d'ajout est ouvert
+  // (sinon le contenu derrière scrolle/bouge).
+  useEffect(() => {
+    if (!showUpload) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [showUpload])
+
   const selType = types.find(t => t.id === typeId)
 
   async function submit() {

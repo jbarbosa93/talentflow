@@ -80,11 +80,32 @@ export default function ReportPublicLayout({ children }: { children: React.React
           // (Auto Dark Theme) / iOS d'inverser les couleurs (sinon signature au
           // doigt invisible, champs assombris, etc.).
           colorScheme: 'light',
+          // v2.10.52 — Verrouille les variables de thème en CLAIR : sinon le
+          // @media (prefers-color-scheme: dark) du téléphone bascule --foreground
+          // en blanc → texte illisible (récapitulatif, etc.).
+          ['--foreground' as any]: '#1C1A14',
+          ['--muted' as any]: '#6B7280',
+          ['--card' as any]: '#ffffff',
+          ['--surface' as any]: '#FAFAF7',
+          ['--border' as any]: '#E5E7EB',
+          // v2.10.52 — La barre du haut (logo) passe SOUS la Dynamic Island.
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          // v2.10.52 — Empêche le rebond élastique qui fait "bouger" les boutons fixes.
+          overscrollBehaviorY: 'none',
           fontFamily: 'var(--font-jakarta), system-ui, -apple-system, sans-serif',
           WebkitFontSmoothing: 'antialiased',
           MozOsxFontSmoothing: 'grayscale',
         }}
       >
+        {/* v2.10.52 — Bandeau flou type Instagram : le contenu qui défile sous
+            la Dynamic Island est flouté, le logo reste toujours en dessous. */}
+        <div aria-hidden style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60,
+          height: 'env(safe-area-inset-top, 0px)',
+          background: 'rgba(250,250,247,0.72)',
+          backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          pointerEvents: 'none',
+        }} />
         {/* v2.10.38 — Animations légères du portail candidat (fade-in + tap). */}
         <style>{`
           @keyframes tfFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
