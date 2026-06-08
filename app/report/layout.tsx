@@ -60,6 +60,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  // viewport-fit=cover : indispensable pour que env(safe-area-inset-bottom)
+  // renvoie la vraie valeur (~34px) dans l'app native → la barre du bas ne
+  // passe plus sous l'arrondi / la barre home de l'iPhone.
+  viewportFit: 'cover',
   themeColor: '#EAB308',
 }
 

@@ -37,7 +37,7 @@ export default function PortalBottomNav() {
   const visible = !hidden && ready
   useEffect(() => {
     if (visible) {
-      document.body.style.paddingBottom = 'calc(66px + env(safe-area-inset-bottom, 0px))'
+      document.body.style.paddingBottom = 'calc(66px + max(10px, env(safe-area-inset-bottom, 0px)))'
       return () => { document.body.style.paddingBottom = '' }
     }
   }, [visible])
@@ -59,7 +59,7 @@ export default function PortalBottomNav() {
         position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50,
         background: '#fff', borderTop: '1px solid #ECEAE3',
         display: 'flex', justifyContent: 'space-around', alignItems: 'stretch',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingBottom: 'max(10px, env(safe-area-inset-bottom, 0px))',
         boxShadow: '0 -2px 12px rgba(0,0,0,0.04)',
       }}
     >
