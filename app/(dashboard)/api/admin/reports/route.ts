@@ -100,6 +100,60 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
+    // v2.10.49 — 1 CANDIDAT = 1 LIEN (= son accès à l'application). Si le candidat
+    // a déjà un lien actif, on le RÉUTILISE : on y ajoute l'entreprise (si fournie)
+    // au lieu de créer un doublon. Évite plusieurs accès appli pour un même candidat.
+    if (body.candidat_id) {
+      const { data: existingLink } = await supabase
+        .from('report_links' as any)
+        .select('*')
+        .eq('candidat_id', body.candidat_id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (existingLink) {
+        const existing = existingLink as unknown as { id: string }
+        const clientName = (body.client_name || '').trim()
+        const clientEmailNorm = (body.client_email || '').toLowerCase().trim()
+        const clientIdReuse = typeof body.client_id === 'string' && body.client_id.trim() ? body.client_id.trim() : null
+        if (clientName) {
+          // Évite le doublon d'entreprise (par email, client_id ou nom).
+          const { data: existingClients } = await supabase
+            .from('report_link_clients' as any)
+            .select('id, client_email, client_name, client_id')
+            .eq('link_id', existing.id)
+          const list = (existingClients || []) as Array<{ client_email?: string; client_name?: string; client_id?: string }>
+          const dup = list.some(c =>
+            (clientEmailNorm && (c.client_email || '').toLowerCase().trim() === clientEmailNorm) ||
+            (clientIdReuse && c.client_id === clientIdReuse) ||
+            (c.client_name || '').toLowerCase().trim() === clientName.toLowerCase(),
+          )
+          if (!dup) {
+            // Dates mission si fournies
+            let mStart: string | null = null, mEnd: string | null = null
+            const mid = typeof body.mission_id === 'string' && body.mission_id.trim() ? body.mission_id.trim() : null
+            if (mid) {
+              const { data: mr } = await (supabase as any).from('missions').select('date_debut, date_fin').eq('id', mid).maybeSingle()
+              if (mr) { mStart = mr.date_debut || null; mEnd = mr.date_fin || null }
+            }
+            await supabase.from('report_link_clients' as any).insert({
+              link_id: existing.id,
+              client_id: clientIdReuse,
+              client_name: clientName,
+              client_email: clientEmailNorm || null,
+              client_contact_name: typeof body.client_contact_name === 'string' && body.client_contact_name.trim() ? body.client_contact_name.trim() : null,
+              client_phone: body.client_phone ? normalizePhoneE164(body.client_phone) : null,
+              mission_start_date: mStart,
+              mission_end_date: mEnd,
+              display_order: list.length,
+            })
+          }
+        }
+        return NextResponse.json({ link: existingLink, reused: true })
+      }
+    }
+
     const slug = await generateSlug(candidatPrenom, candidatNom)
 
     // v2.3.x — Stocke le nom complet du candidat. 3 sources :

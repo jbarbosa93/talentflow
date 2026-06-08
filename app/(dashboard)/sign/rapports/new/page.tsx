@@ -170,11 +170,11 @@ function NewReportLinkPageInner() {
     return () => { cancelled = true }
   }, [useClientPortal, clientId])
 
-  // Auto-titre dès qu'on a candidat + client
+  // Auto-titre dès qu'on a un candidat (l'entreprise est optionnelle v2.10.49)
   useEffect(() => {
-    if (!title.trim() && (candidatPrenom || candidatNom) && clientName) {
+    if (!title.trim() && (candidatPrenom || candidatNom)) {
       const fullCand = [candidatPrenom, candidatNom].filter(Boolean).join(' ').trim()
-      setTitle(`Rapport ${fullCand} — ${clientName}`)
+      setTitle(clientName ? `Rapport ${fullCand} — ${clientName}` : `Rapport ${fullCand}`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidatPrenom, candidatNom, clientName])
@@ -235,8 +235,8 @@ function NewReportLinkPageInner() {
     if (!candidatPrenom.trim() && !candidatNom.trim()) return 'Sélectionne un candidat'
     if (!templateId) return 'Choisis un template de rapport'
     if (!title.trim()) return 'Titre requis'
-    if (!clientName.trim()) return 'Nom du client requis'
-    if (!clientEmail.trim()) return 'Email du client requis'
+    // v2.10.49 — Entreprise OPTIONNELLE : on peut créer l'accès appli du candidat
+    // seul, puis ajouter les entreprises ensuite (1 candidat = 1 lien = 1 accès).
     return null
   }
 
@@ -289,7 +289,15 @@ function NewReportLinkPageInner() {
         const fullMsg = d.details ? `${d.error || 'Erreur'} — ${d.details}` : (d.error || 'Erreur création')
         throw new Error(fullMsg)
       }
-      toast.success('Lien rapport créé')
+      // v2.10.49 — Si le candidat avait déjà un lien, la route le réutilise
+      // (entreprise ajoutée à son lien existant) → message clair.
+      if (d.reused) {
+        toast.success(clientName.trim()
+          ? 'Ce candidat avait déjà un lien — l\'entreprise a été ajoutée à son lien existant'
+          : 'Ce candidat a déjà un lien — ouverture de son lien existant')
+      } else {
+        toast.success('Lien rapport créé')
+      }
       router.push(`/sign/rapports/${d.link.id}`)
     } catch (e: any) {
       toast.error(e.message || 'Erreur')
@@ -575,7 +583,7 @@ function NewReportLinkPageInner() {
           </Field>
           {/* v2.3.8 Bug 2 — Autocomplete client + contacts depuis la DB. Sélectionner
               une ligne pré-remplit clientName + clientContactName + clientEmail. */}
-          <Field label="Nom de l'entreprise cliente *" hint="recherche dans la base clients TalentFlow">
+          <Field label="Nom de l'entreprise cliente (optionnel)" hint="laisse vide pour créer seulement l'accès appli du candidat — tu ajouteras les entreprises ensuite">
             <ClientContactAutocomplete
               value={clientName}
               isLinked={!!clientId}
@@ -661,7 +669,7 @@ function NewReportLinkPageInner() {
               />
             </Field>
           )}
-          <Field label="Email client *" hint={useClientPortal ? 'Mode portail actif → destinataire = email principal entreprise' : undefined}>
+          <Field label="Email client (optionnel)" hint={useClientPortal ? 'Mode portail actif → destinataire = email principal entreprise' : undefined}>
             <input
               type="email"
               value={clientEmail}
