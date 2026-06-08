@@ -93,7 +93,7 @@ export default function LoginForm({ accountType, basePath }: Props) {
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle} htmlFor="email">Email</label>
             <input
-              id="email" type="email" required autoComplete="email" inputMode="email"
+              id="email" type="email" required autoComplete="email" inputMode="email" suppressHydrationWarning
               value={email} onChange={e => setEmail(e.target.value)}
               style={inputStyle} placeholder="vous@exemple.ch"
             />
@@ -102,7 +102,7 @@ export default function LoginForm({ accountType, basePath }: Props) {
             <label style={labelStyle} htmlFor="password">Mot de passe</label>
             <div style={{ position: 'relative' }}>
               <input
-                id="password" type={showPassword ? 'text' : 'password'} required autoComplete="current-password"
+                id="password" type={showPassword ? 'text' : 'password'} required autoComplete="current-password" suppressHydrationWarning
                 value={password} onChange={e => setPassword(e.target.value)}
                 style={{ ...inputStyle, paddingRight: 44 }} placeholder="••••••••"
               />
@@ -133,7 +133,7 @@ export default function LoginForm({ accountType, basePath }: Props) {
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle} htmlFor="email">Email</label>
             <input
-              id="email" type="email" required autoComplete="email" inputMode="email"
+              id="email" type="email" required autoComplete="email" inputMode="email" suppressHydrationWarning
               value={email} onChange={e => setEmail(e.target.value)}
               style={inputStyle} placeholder="vous@exemple.ch"
             />
