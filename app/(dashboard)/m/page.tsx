@@ -2,8 +2,9 @@
 // TalentFlow Mobile /m — Accueil (v2.9.72)
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { Users, Building2, TrendingUp, FileText } from 'lucide-react'
+import { Users, Building2, TrendingUp, FileText, CircleUser } from 'lucide-react'
 import MHeader from './_components/MHeader'
+import { computeEtpSemaine } from '@/lib/missions-etp'
 
 export default function MobileHomePage() {
   const { data: candidatsTotal } = useQuery<number>({
@@ -35,8 +36,10 @@ export default function MobileHomePage() {
       if (!r.ok) return { etp: 0, count: 0 }
       const j = await r.json()
       const items = Array.isArray(j) ? j : (j?.missions || j?.items || [])
-      const etp = Number(j?.stats?.total_etp ?? 0)
-      return { etp, count: items.length }
+      // ETP prorata semaine en cours (même calcul que le web) — hors absences/vacances/arrêts
+      const etp = computeEtpSemaine(items)
+      const enCours = items.filter((m: any) => m?.statut === 'en_cours').length
+      return { etp, count: enCours }
     },
     staleTime: 60_000,
   })
@@ -47,8 +50,15 @@ export default function MobileHomePage() {
 
   return (
     <>
-      <MHeader title="TalentFlow" />
+      <MHeader title="TalentFlow" action={
+        <Link href="/m/profil" className="m-header-action ghost" aria-label="Profil">
+          <CircleUser size={24} />
+        </Link>
+      } />
       <div className="m-content">
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 16px' }}>
+          <img src="/logo-agence-officiel-noir.png" alt="L-Agence" style={{ height: 40, width: 'auto', objectFit: 'contain' }} />
+        </div>
         <div className="m-kpi-row">
           <div className="m-kpi">
             <div className="m-kpi-val">{candidatsTotal ?? '—'}</div>

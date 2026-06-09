@@ -5,7 +5,9 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, Calendar, ExternalLink, Pencil } from 'lucide-react'
 import MHeader from '../_components/MHeader'
+import MAvatar from '../_components/MAvatar'
 import MMissionEditModal, { EditableMission } from '../_components/MMissionEditModal'
+import { computeEtpSemaine } from '@/lib/missions-etp'
 
 interface Mission {
   id: string
@@ -24,13 +26,18 @@ interface Mission {
   report_link_slug?: string | null
 }
 
-type TabKey = 'en_cours' | 'all' | 'terminee'
+type TabKey = 'en_cours' | 'fin_mission'
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: 'en_cours', label: 'En cours' },
-  { key: 'terminee', label: 'Terminées' },
-  { key: 'all',      label: 'Toutes' },
+  { key: 'en_cours',    label: 'En cours' },
+  { key: 'fin_mission', label: 'Fin de mission' },
 ]
+
+// Mission en_cours dont la date de fin est passée = « Fin de mission » (comme le web)
+function isExpired(m: { statut?: string; date_fin?: string | null }): boolean {
+  const today = new Date().toISOString().slice(0, 10)
+  return m.statut === 'en_cours' && !!m.date_fin && m.date_fin < today
+}
 
 function fmtDate(s?: string | null): string {
   if (!s) return '—'
@@ -59,26 +66,26 @@ export default function MobileMissionsPage() {
 
   const [editMission, setEditMission] = useState<EditableMission | null>(null)
 
-  const { data, isLoading } = useQuery<{ missions: Mission[]; etp: number }>({
-    queryKey: ['m', 'missions', tab],
+  // Fetch global (toutes missions) → ETP correct sur tous les onglets + filtrage client.
+  const { data, isLoading } = useQuery<{ all: Mission[] }>({
+    queryKey: ['m', 'missions'],
     queryFn: async () => {
-      const params = new URLSearchParams()
-      if (tab !== 'all') params.set('statut', tab)
-      const url = '/api/missions' + (params.toString() ? `?${params}` : '')
-      const r = await fetch(url, { credentials: 'include' })
-      if (!r.ok) return { missions: [], etp: 0 }
+      const r = await fetch('/api/missions', { credentials: 'include' })
+      if (!r.ok) return { all: [] }
       const j = await r.json()
-      return {
-        missions: Array.isArray(j) ? j : (j.missions || []),
-        etp: Number(j?.stats?.total_etp ?? 0),
-      }
+      return { all: Array.isArray(j) ? j : (j.missions || []) }
     },
     staleTime: 30_000,
   })
 
-  const missions = data?.missions || []
-  const etp = data?.etp ?? 0
+  const allMissions = data?.all || []
+  const missions = allMissions.filter((m) =>
+    tab === 'fin_mission' ? isExpired(m) : (m.statut === 'en_cours' && !isExpired(m))
+  )
+  // ETP prorata semaine en cours (même calcul que le web) — toujours sur les en_cours
+  const etp = computeEtpSemaine(allMissions as any)
   const etpLabel = Number.isInteger(etp) ? String(etp) : etp.toFixed(1)
+  const activeCount = allMissions.filter((m) => m.statut === 'en_cours' && !isExpired(m)).length
 
   return (
     <>
@@ -104,8 +111,8 @@ export default function MobileMissionsPage() {
               <div className="m-kpi-lbl">ETP en cours</div>
             </div>
             <div className="m-kpi">
-              <div className="m-kpi-val">{missions.length}</div>
-              <div className="m-kpi-lbl">Missions</div>
+              <div className="m-kpi-val">{activeCount}</div>
+              <div className="m-kpi-lbl">En cours</div>
             </div>
           </div>
         )}
@@ -120,15 +127,11 @@ export default function MobileMissionsPage() {
         )}
 
         {!isLoading && missions.map((m) => {
-          const badge = statusBadge(m.statut)
+          const badge = isExpired(m) ? { cls: 'expired', label: 'Fin de mission' } : statusBadge(m.statut)
           return (
             <div key={m.id} className="m-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div className="m-avatar">
-                  {m.photo_url
-                    ? <img src={m.photo_url} alt={m.candidat_nom || ''} loading="lazy" />
-                    : initials(m.candidat_nom)}
-                </div>
+                <MAvatar src={m.photo_url} initials={initials(m.candidat_nom)} alt={m.candidat_nom || ''} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="m-card-title">{m.candidat_nom || 'Sans candidat'}</div>
                   <div className="m-card-sub">{m.client_nom || '—'}{m.client_canton ? ` · ${m.client_canton}` : ''}</div>
