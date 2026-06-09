@@ -1,12 +1,19 @@
 'use client'
 // TalentFlow Mobile /m/candidats/[id] — Fiche simplifiée (v2.9.72)
-import { use, useState } from 'react'
+import { use, useState, useEffect } from 'react'
+import PublicPdfViewer from '@/components/sign/PublicPdfViewer'
+import { Pencil } from 'lucide-react'
+import MCandidatEditModal from '../../_components/MCandidatEditModal'
 import { useQuery } from '@tanstack/react-query'
 import {
   Mail, Phone, MapPin, Calendar, FileText, Briefcase,
-  Languages, Car, Award, FileSignature, ExternalLink, Eye
+  Languages, Car, Award, Eye
 } from 'lucide-react'
 import MHeader from '../../_components/MHeader'
+import MAvatar from '../../_components/MAvatar'
+import MContactActions from '../../_components/MContactActions'
+import { useMetiers } from '@/hooks/useMetiers'
+import { useMetierCategories } from '@/hooks/useMetierCategories'
 
 interface Candidat {
   id: string
@@ -14,9 +21,11 @@ interface Candidat {
   prenom?: string | null
   email?: string | null
   telephone?: string | null
+  telephone_2?: string | null
   localisation?: string | null
   titre_poste?: string | null
   pipeline_metier?: string | null
+  tags?: string[] | null
   photo_url?: string | null
   cv_url?: string | null
   cv_nom_fichier?: string | null
@@ -54,6 +63,9 @@ function initials(c: Candidat): string {
 export default function MobileCandidatDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [docPreview, setDocPreview] = useState<{ url: string; label: string } | null>(null)
+  const [editing, setEditing] = useState(false)
+  const { metiers } = useMetiers()
+  const { getColorForMetier } = useMetierCategories()
 
   const { data: candData, isLoading } = useQuery<{ candidat: Candidat }>({
     queryKey: ['m', 'candidat', id],
@@ -101,18 +113,45 @@ export default function MobileCandidatDetail({ params }: { params: Promise<{ id:
 
   return (
     <>
-      <MHeader title={fullName} back="/m/candidats" />
+      <MHeader title={fullName} back="/m/candidats" action={
+        <button onClick={() => setEditing(true)} className="m-header-action" aria-label="Modifier le candidat">
+          <Pencil size={15} /> Modifier
+        </button>
+      } />
       <div className="m-content">
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}>
-          <div className="m-avatar lg">
-            {c.photo_url
-              ? <img src={c.photo_url} alt={fullName} />
-              : initials(c)}
-          </div>
+          <MAvatar src={c.photo_url} initials={initials(c)} alt={fullName} size={96} className="m-avatar lg" />
           <div style={{ marginTop: 10, fontSize: 20, fontWeight: 800, textAlign: 'center' }}>{fullName}</div>
-          {(c.titre_poste || c.pipeline_metier) && (
+          {c.titre_poste && (
             <div style={{ fontSize: 13, color: 'var(--m-text-soft)', marginTop: 2, textAlign: 'center' }}>
-              {c.titre_poste || c.pipeline_metier}
+              {c.titre_poste}
+            </div>
+          )}
+          {(() => {
+            const assigned = (c.tags || []).filter((t) => metiers.includes(t))
+            if (assigned.length === 0) return null
+            return (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 8 }}>
+                {assigned.map((t) => {
+                  const color = getColorForMetier(t) || '#9a8a3a'
+                  return (
+                    <span
+                      key={t}
+                      style={{
+                        fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999,
+                        color, background: `${color}1a`, border: `1px solid ${color}40`,
+                      }}
+                    >
+                      {t}
+                    </span>
+                  )
+                })}
+              </div>
+            )
+          })()}
+          {(c.telephone || c.email) && (
+            <div style={{ marginTop: 14 }}>
+              <MContactActions phone={c.telephone} email={c.email} size="lg" />
             </div>
           )}
         </div>
@@ -250,13 +289,6 @@ export default function MobileCandidatDetail({ params }: { params: Promise<{ id:
           </>
         )}
 
-        <div className="m-section-title">Actions</div>
-        <a href={`/candidats/${id}`} className="m-btn secondary full" style={{ marginBottom: 8 }}>
-          <ExternalLink size={16} /> Fiche complète (desktop)
-        </a>
-        <a href={`/m/sign/new?candidate_id=${id}`} className="m-btn primary full">
-          <FileSignature size={16} /> Envoyer un document à signer
-        </a>
       </div>
 
       {docPreview && (
@@ -266,17 +298,45 @@ export default function MobileCandidatDetail({ params }: { params: Promise<{ id:
           onClose={() => setDocPreview(null)}
         />
       )}
+
+      {editing && (
+        <MCandidatEditModal
+          candidat={{
+            id: c.id,
+            prenom: c.prenom,
+            nom: c.nom,
+            email: c.email,
+            telephone: c.telephone,
+            telephone_2: c.telephone_2,
+            localisation: c.localisation,
+            titre_poste: c.titre_poste,
+            tags: c.tags,
+          }}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </>
   )
 }
 
 function DocPreviewModal({ url, label, onClose }: { url: string; label: string; onClose: () => void }) {
   const isImage = /\.(jpe?g|png|webp|gif)(\?|$)/i.test(url)
+
+  // Autoriser le pinch-zoom pendant l'aperçu (le viewport global de l'app le bloque),
+  // puis restaurer à la fermeture. → le doc s'ouvre ajusté à l'écran, l'utilisateur zoome ensuite.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null
+    const prev = meta?.getAttribute('content') ?? null
+    meta?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=6, user-scalable=yes, viewport-fit=cover')
+    return () => {
+      if (meta) meta.setAttribute('content', prev ?? 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover')
+    }
+  }, [])
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 90,
         background: 'rgba(0,0,0,0.85)',
@@ -284,7 +344,7 @@ function DocPreviewModal({ url, label, onClose }: { url: string; label: string; 
       }}
     >
       <div style={{
-        padding: 12, color: '#fff',
+        padding: 12, color: '#fff', flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))'
       }}>
@@ -292,14 +352,13 @@ function DocPreviewModal({ url, label, onClose }: { url: string; label: string; 
         <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{label}</div>
         <div style={{ width: 60 }} />
       </div>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-      >
+      <div style={{ flex: 1, overflow: 'auto', background: '#fff' }}>
         {isImage ? (
-          <img src={url} alt={label} style={{ maxWidth: '100%', height: 'auto' }} />
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', minHeight: '100%' }}>
+            <img src={url} alt={label} style={{ maxWidth: '100%', height: 'auto' }} />
+          </div>
         ) : (
-          <iframe src={url} title={label} style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }} />
+          <PublicPdfViewer url={url} />
         )}
       </div>
     </div>

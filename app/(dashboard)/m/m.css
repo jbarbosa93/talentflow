@@ -23,6 +23,21 @@
   display: flex;
   flex-direction: column;
   padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  overscroll-behavior-y: none;
+}
+
+/* Bandeau opaque sur la zone Dynamic Island / encoche : empêche le contenu
+   d'apparaître sous l'heure du téléphone (overscroll / rubber-band). */
+.m-root::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--m-card);
+  z-index: 31;
+  pointer-events: none;
 }
 
 /* Header mobile compact */

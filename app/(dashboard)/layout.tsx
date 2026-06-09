@@ -52,6 +52,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover', // app native : active env(safe-area-inset-*) (Dynamic Island / barre home)
   themeColor: '#F7C948',
 }
 
@@ -61,7 +62,7 @@ export default function DashboardRootLayout({
   return (
     <html lang="fr">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="apple-touch-icon" href="/icon-192.png" />

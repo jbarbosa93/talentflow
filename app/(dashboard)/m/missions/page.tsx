@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { TrendingUp, MapPin, Calendar, ExternalLink, FileText } from 'lucide-react'
+import { TrendingUp, Calendar, ExternalLink, Pencil } from 'lucide-react'
 import MHeader from '../_components/MHeader'
+import MMissionEditModal, { EditableMission } from '../_components/MMissionEditModal'
 
 interface Mission {
   id: string
@@ -56,21 +57,28 @@ function initials(name?: string | null): string {
 export default function MobileMissionsPage() {
   const [tab, setTab] = useState<TabKey>('en_cours')
 
-  const { data, isLoading } = useQuery<{ missions: Mission[] }>({
+  const [editMission, setEditMission] = useState<EditableMission | null>(null)
+
+  const { data, isLoading } = useQuery<{ missions: Mission[]; etp: number }>({
     queryKey: ['m', 'missions', tab],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (tab !== 'all') params.set('statut', tab)
       const url = '/api/missions' + (params.toString() ? `?${params}` : '')
       const r = await fetch(url, { credentials: 'include' })
-      if (!r.ok) return { missions: [] }
+      if (!r.ok) return { missions: [], etp: 0 }
       const j = await r.json()
-      return { missions: Array.isArray(j) ? j : (j.missions || []) }
+      return {
+        missions: Array.isArray(j) ? j : (j.missions || []),
+        etp: Number(j?.stats?.total_etp ?? 0),
+      }
     },
     staleTime: 30_000,
   })
 
   const missions = data?.missions || []
+  const etp = data?.etp ?? 0
+  const etpLabel = Number.isInteger(etp) ? String(etp) : etp.toFixed(1)
 
   return (
     <>
@@ -88,6 +96,19 @@ export default function MobileMissionsPage() {
             </button>
           ))}
         </div>
+
+        {etp > 0 && (
+          <div className="m-kpi-row" style={{ marginBottom: 14 }}>
+            <div className="m-kpi">
+              <div className="m-kpi-val">{etpLabel}</div>
+              <div className="m-kpi-lbl">ETP en cours</div>
+            </div>
+            <div className="m-kpi">
+              <div className="m-kpi-val">{missions.length}</div>
+              <div className="m-kpi-lbl">Missions</div>
+            </div>
+          </div>
+        )}
 
         {isLoading && <div className="m-loading">Chargement...</div>}
 
@@ -128,25 +149,27 @@ export default function MobileMissionsPage() {
                 )}
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <button
+                  onClick={() => setEditMission(m)}
+                  className="m-btn primary"
+                  style={{ flex: 1, fontSize: 12 }}
+                >
+                  <Pencil size={14} /> Modifier
+                </button>
                 {m.candidat_id && (
                   <Link href={`/m/candidats/${m.candidat_id}`} className="m-btn secondary" style={{ flex: 1, fontSize: 12 }}>
                     <ExternalLink size={14} /> Candidat
-                  </Link>
-                )}
-                {m.report_link_slug && (
-                  <Link href={`/m/rapports?slug=${m.report_link_slug}`} className="m-btn secondary" style={{ flex: 1, fontSize: 12 }}>
-                    <FileText size={14} /> Rapport
                   </Link>
                 )}
               </div>
             </div>
           )
         })}
-
-        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'var(--m-text-soft)' }}>
-          <Link href="/missions" style={{ color: 'inherit' }}>Gestion complète (desktop) →</Link>
-        </div>
       </div>
+
+      {editMission && (
+        <MMissionEditModal mission={editMission} onClose={() => setEditMission(null)} />
+      )}
     </>
   )
 }

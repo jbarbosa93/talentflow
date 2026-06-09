@@ -87,6 +87,7 @@ export async function middleware(request: NextRequest) {
   // /sign/v/[token] reste publique (signature destinataire avec token UUID).
   const isProtectedRoute =
     pathname.startsWith('/dashboard') ||
+    pathname === '/m' || pathname.startsWith('/m/') ||
     pathname.startsWith('/candidats') ||
     pathname.startsWith('/clients') ||
     pathname.startsWith('/offres') ||

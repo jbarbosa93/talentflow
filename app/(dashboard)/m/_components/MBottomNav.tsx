@@ -2,12 +2,12 @@
 // TalentFlow Mobile /m — Barre de navigation basse dédiée (v2.9.72)
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Users, FileSignature, TrendingUp, FileText } from 'lucide-react'
+import { Home, Users, Building2, TrendingUp, FileText } from 'lucide-react'
 
 const ITEMS = [
   { href: '/m',          label: 'Accueil',    Icon: Home },
   { href: '/m/candidats', label: 'Candidats', Icon: Users },
-  { href: '/m/sign',     label: 'Sign',       Icon: FileSignature },
+  { href: '/m/clients',  label: 'Clients',    Icon: Building2 },
   { href: '/m/missions', label: 'Missions',   Icon: TrendingUp },
   { href: '/m/rapports', label: 'Rapports',   Icon: FileText },
 ]

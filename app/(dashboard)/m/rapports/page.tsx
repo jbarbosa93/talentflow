@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { Search, FileText, ExternalLink, Pause, CheckCircle2 } from 'lucide-react'
+import { Search, Plus, ChevronRight } from 'lucide-react'
 import MHeader from '../_components/MHeader'
 
 interface ReportLink {
@@ -69,7 +69,11 @@ export default function MobileRapportsPage() {
 
   return (
     <>
-      <MHeader title="Rapports hebdo" back="/m" />
+      <MHeader title="Rapports hebdo" back="/m" action={
+        <Link href="/m/rapports/new" className="m-header-action" aria-label="Nouveau rapport">
+          <Plus size={16} /> Nouveau
+        </Link>
+      } />
       <div className="m-content">
         <div className="m-tabs">
           {TABS.map(t => (
@@ -108,43 +112,20 @@ export default function MobileRapportsPage() {
           const badge = statusBadge(l.status)
           const fullName = l.candidat_name || l.title || 'Sans nom'
           return (
-            <div key={l.id} className="m-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div className="m-avatar">{initials(fullName)}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="m-card-title">{fullName}</div>
-                  <div className="m-card-sub">
-                    {l.client_name || l.title || '—'}
-                    {l.updated_at && ` · MAJ ${fmtDate(l.updated_at)}`}
-                  </div>
+            <Link key={l.id} href={`/m/rapports/${l.id}`} className="m-card" style={{ alignItems: 'center' }}>
+              <div className="m-avatar">{initials(fullName)}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="m-card-title">{fullName}</div>
+                <div className="m-card-sub">
+                  {l.client_name || l.title || '—'}
+                  {l.updated_at && ` · MAJ ${fmtDate(l.updated_at)}`}
                 </div>
-                <span className={`m-badge ${badge.cls}`}>{badge.label}</span>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <a
-                  href={`/report/${l.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="m-btn secondary"
-                  style={{ flex: 1, fontSize: 12 }}
-                >
-                  <ExternalLink size={14} /> Lien candidat
-                </a>
-                <Link
-                  href={`/sign/rapports/${l.id}`}
-                  className="m-btn secondary"
-                  style={{ flex: 1, fontSize: 12 }}
-                >
-                  <FileText size={14} /> Soumissions
-                </Link>
-              </div>
-            </div>
+              <span className={`m-badge ${badge.cls}`}>{badge.label}</span>
+              <ChevronRight size={18} style={{ color: 'var(--m-text-soft)', marginLeft: 4 }} />
+            </Link>
           )
         })}
-
-        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'var(--m-text-soft)' }}>
-          <Link href="/sign/rapports" style={{ color: 'inherit' }}>Gestion complète (desktop) →</Link>
-        </div>
       </div>
     </>
   )

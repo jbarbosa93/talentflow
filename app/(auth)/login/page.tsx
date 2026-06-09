@@ -6,6 +6,13 @@ import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Loader2, ShieldCheck, Mail } from 'lucide-react'
 import { motion } from 'framer-motion'
 
+// Dans l'app native consultant (user-agent « TalentFlowApp »), rediriger vers
+// l'espace mobile /m après connexion ; sinon /dashboard (web desktop inchangé).
+function appPostLoginTarget(): string {
+  if (typeof navigator !== 'undefined' && navigator.userAgent.includes('TalentFlowApp')) return '/m'
+  return '/dashboard'
+}
+
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -49,7 +56,7 @@ function LoginForm() {
         if (data.reconnected) {
           setAutoReconnecting(true)
           localStorage.setItem('talentflow_last_activity', Date.now().toString())
-          router.push('/dashboard')
+          router.push(appPostLoginTarget())
           router.refresh()
           return
         }
@@ -147,7 +154,7 @@ function LoginForm() {
       if (!signInError) {
         logAccess('login_success_auto_logout')
         localStorage.setItem('talentflow_last_activity', Date.now().toString())
-        router.push('/dashboard')
+        router.push(appPostLoginTarget())
         router.refresh()
         setLoading(false)
         return
@@ -204,7 +211,7 @@ function LoginForm() {
       }
 
       localStorage.setItem('talentflow_last_activity', Date.now().toString())
-      router.push('/dashboard')
+      router.push(appPostLoginTarget())
       router.refresh()
     } catch {
       setError('Erreur lors de la vérification 2FA.')
@@ -267,7 +274,7 @@ function LoginForm() {
     // 3. Log + redirect
     logAccess('login_success')
     localStorage.setItem('talentflow_last_activity', Date.now().toString())
-    router.push('/dashboard')
+    router.push(appPostLoginTarget())
     router.refresh()
   }
 
