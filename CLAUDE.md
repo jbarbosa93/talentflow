@@ -105,7 +105,17 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.10.17** — 02/06/2026 (Marathon post-go-live + 🆕 App native TalentFlow Sign)
+**v2.10.52** — 08/06/2026 (🍎 TalentFlow Sign soumis à l'App Store + fixes portail app native)
+
+### v2.10.45→52 (08/06) — App Store + fixes portail app native iOS
+
+Journée **publication App Store** (compte Apple Developer validé — Team ID `4RBJRRF9R6`, Individual). Détails complets : MEMORY.md.
+
+- **v2.10.49** — **« 1 candidat = 1 lien »** : liens rapport centrés candidat. `/sign/rapports/new` → entreprise **optionnelle** + **réutilise le lien existant** du candidat (toast `d.reused`).
+- **v2.10.50/51/52** — fixes **app native iOS** (portail `/report`) : bottom nav coupée par barre home (`paddingBottom: max(10px, env(safe-area-inset-bottom))` sur `PortalBottomNav`), modal « Ajouter document » scrollable (`maxHeight calc(100dvh - safe-area-top)`) + boutons fichier stylés « 📷 Prendre une photo », **dark mode verrouillé clair** (vars `--foreground` sur `report/layout`) + **Dynamic Island** (`viewportFit: 'cover'` + `paddingTop env(safe-area-inset-top)` + barre floutée).
+- **v2.10.45→48** — Récap Accueil portail (heures/entreprise/repas) ; Sentry bruit réduit ; lien invitation WhatsApp cassé (retour ligne dans `NEXT_PUBLIC_APP_URL`) ; contact client « Erreur serveur » (colonne `updated_at` inexistante).
+- **TalentFlow Sign → App Store** : app Capacitor (`ch.talentflow.sign`) **soumise, « En attente de vérification »**. ⚠️ Repo séparé `~/Dev/talentflow-sign-app`. Reste prochain build : footer adresse, persistance session WKWebView, autofill mdp (Associated Domains).
+- **Hors TalentFlow** (repos séparés) : **FinanceApp** (Apple ID 6778033852, iOS gratuit paywall Stripe caché via UA) + **Calma** (Apple ID 6778036244, site `calma-bien-etre.ch` créé/Infomaniak, DNS configuré via MCP Chrome) aussi soumises.
 
 ### v2.9.93→2.10.17 (02/06) — Post-go-live + App mobile native
 
