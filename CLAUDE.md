@@ -105,7 +105,14 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.10.52** — 08/06/2026 (🍎 TalentFlow Sign soumis à l'App Store + fixes portail app native)
+**v2.11.2** — 10/06/2026 (🍎 fix refus Apple 2.1a : boucle login portail en WKWebView)
+
+### v2.11.2 (10/06) — Fix boucle login portail (refus Apple 2.1a + 3.2)
+
+Apple a refusé TalentFlow Sign iOS 1.0(1) : « when we tried to login the app displayed the connection screen in a loop ». Cause double, 100% côté web (l'app = coque → resoumission du MÊME binaire après deploy Vercel) :
+- `lib/portal-auth.ts` — cookie session portail `SameSite: 'strict'` → `'lax'` (Strict pas renvoyé par WKWebView sur la nav post-login → 401 → boucle). Lax bloque toujours le CSRF cross-site POST.
+- `components/portal-auth/LoginForm.tsx` — `router.push(next)` → `window.location.assign(next)` (nav DURE : cookie posé par réponse XHR pas garanti dispo pour les fetch d'une nav soft en WKWebView).
+- 2e motif : **Guideline 3.2 Business** (app réservée aux collaborateurs/clients L-Agence, distribution publique choisie) → réponse aux 5 questions + demande de distribution **unlisted**.
 
 ### v2.10.45→52 (08/06) — App Store + fixes portail app native iOS
 

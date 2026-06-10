@@ -72,7 +72,7 @@ export function generateOpaqueToken(): string {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// JWT session (cookie HttpOnly, Secure, SameSite=Strict)
+// JWT session (cookie HttpOnly, Secure, SameSite=Lax)
 // ──────────────────────────────────────────────────────────────────────────
 
 export async function signSession(payload: PortalSession): Promise<string> {
@@ -115,7 +115,10 @@ export function sessionCookieOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict' as const,
+    // Lax (pas Strict) : Strict empêche WKWebView (app native iOS) de renvoyer le
+    // cookie sur la navigation post-login → boucle infinie sur l'écran de connexion
+    // (refus Apple 2.1a, 10/06/2026). Lax bloque toujours le CSRF cross-site POST.
+    sameSite: 'lax' as const,
     path: '/',
     maxAge: SESSION_TTL_DAYS * 24 * 60 * 60, // 30j en secondes
   }

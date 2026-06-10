@@ -4,7 +4,7 @@
 // Évite une page dédiée forgot-password (cohérence + moins de code)
 
 import { useState, FormEvent } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
 import AuthLayout, { inputStyle, labelStyle, primaryBtnStyle, linkBtnStyle, errorStyle, successStyle } from './AuthLayout'
 
@@ -18,7 +18,6 @@ interface Props {
 }
 
 export default function LoginForm({ accountType, basePath }: Props) {
-  const router = useRouter()
   const search = useSearchParams()
   const next = search.get('next') || basePath
 
@@ -53,7 +52,10 @@ export default function LoginForm({ accountType, basePath }: Props) {
         setBusy(false)
         return
       }
-      router.push(next)
+      // Navigation DURE (pas router.push) : en WKWebView (app native iOS), le cookie
+      // posé par la réponse XHR n'est pas garanti disponible pour les fetch d'une
+      // nav soft → 401 → re-redirect login en boucle (refus Apple 2.1a, 10/06/2026).
+      window.location.assign(next)
     } catch {
       setError('Erreur réseau, réessayez')
       setBusy(false)
