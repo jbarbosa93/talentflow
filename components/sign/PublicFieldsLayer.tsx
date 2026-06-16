@@ -163,6 +163,11 @@ export default function PublicFieldsLayer({
           // v2.6.2 — Fields bloqués : opacity réduite + curseur not-allowed
           opacity: belongsToPrevious ? 0.95 : isBlocked ? 0.55 : 1,
           pointerEvents: belongsToPrevious || isBlocked ? 'none' : 'auto',
+          // v2.11.3 — FIX scroll Android : les cases de champs couvrent l'essentiel
+          // de la page et capturaient le glissement à un doigt (l'utilisateur devait
+          // scroller à deux doigts). `pan-y` laisse le scroll vertical traverser le
+          // champ tout en gardant le tap (signer / cocher / saisir). iOS déjà OK.
+          touchAction: 'pan-y',
         }
         const titleText = belongsToPrevious && filledBy
           ? `Rempli par ${filledBy}`

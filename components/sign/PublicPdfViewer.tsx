@@ -121,6 +121,11 @@ function PageCanvas({ pageNum, pdfDoc, containerWidth, rootRef, onVisible, rende
             width: sizePx.width,
             height: sizePx.height,
             pointerEvents: 'auto',
+            // v2.11.3 — FIX scroll Android : l'overlay couvre TOUTE la page, il
+            // capturait le glissement à un doigt même hors champ (scroll bloqué,
+            // l'utilisateur devait scroller à deux doigts). `pan-y` laisse passer
+            // le scroll vertical tout en gardant les taps. iOS était déjà OK.
+            touchAction: 'pan-y',
           }}>
             {renderPageOverlay(pageNum, sizePx)}
           </div>
