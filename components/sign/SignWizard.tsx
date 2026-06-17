@@ -1835,6 +1835,7 @@ const containerStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
+  minHeight: 0, // v2.11.6 — permet au body (overflowY:auto) de scroller (molette desktop)
   width: '100%',
   background: '#FAFAF7',
   fontFamily: 'inherit',

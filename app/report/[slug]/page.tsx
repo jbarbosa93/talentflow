@@ -1185,13 +1185,14 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           Desktop : background gris pour faire respirer le PDF qui est centré max 1100px. */}
       <main style={{
         flex: 1,
+        minHeight: 0, // v2.11.6 — indispensable pour que le scroll interne (wizard/document) marche à la molette desktop
         overflow: 'hidden',
         position: 'relative',
         display: 'flex', flexDirection: 'column',
         background: !isMobile && viewMode === 'document' ? '#F3F4F6' : '#FAFAF7',
       }}>
         {viewMode === 'wizard' && wizardAvailable ? (
-          <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <SignWizard
               /* v2.10.17 — remontage propre par semaine + entreprise : un nouveau
                  rapport repart à l'étape 1 (l'étape n'est plus héritée de la
