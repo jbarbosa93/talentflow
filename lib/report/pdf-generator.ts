@@ -18,7 +18,7 @@ import fs from 'fs'
 import path from 'path'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { stampPdf } from '@/lib/sign/pdf-stamp'
-import { computeFormulaValue } from '@/lib/sign/field-helpers'
+import { computeFormulaValue, getDayOffsetFromSection, dateForDayOfWeek } from '@/lib/sign/field-helpers'
 import { safePdfText } from '@/lib/sign/safe-text'
 import { pointageHours, type PointageValue } from '@/lib/sign/pointage'
 import type { SignField } from '@/lib/sign/types'
@@ -45,6 +45,42 @@ export interface GenerateReportPdfArgs {
     nom?: string | null
     email?: string | null
   } | null
+}
+
+/**
+ * v2.11.4 — Dates TOUJOURS dérivées de la semaine (déterministe), côté serveur.
+ *
+ * Les champs Date d'un rapport (un par jour) sont calculables à 100 % depuis
+ * week_start (Lundi = week_start, Mardi = +1, …) + le n° de semaine (dateFormat
+ * « WW »). L'auto-fill existait déjà côté candidat (app/report/[slug]) mais
+ * pouvait être contourné/écrasé par un brouillon → des soumissions arrivaient
+ * avec des dates vides → ligne Date blanche dans le PDF (bug Landry Renia 15/06).
+ *
+ * On garantit ici : à la génération, tout champ date VIDE est rempli depuis
+ * week_start. Les valeurs explicitement saisies par le candidat sont préservées.
+ */
+function enrichReportDateValues(
+  fields: SignField[] | undefined,
+  values: Record<string, unknown> | null | undefined,
+  weekStartRaw: string | null | undefined,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...(values || {}) }
+  const weekStart = String(weekStartRaw || '').slice(0, 10)
+  if (!weekStart) return out
+  for (const f of fields || []) {
+    if (f.type !== 'date') continue
+    const cur = out[f.id]
+    const hasVal = cur !== undefined && cur !== null && String(cur).trim() !== ''
+    if (hasVal) continue
+    const offset = getDayOffsetFromSection(f.wizardSection)
+    if (offset !== null) {
+      const d = dateForDayOfWeek(weekStart, offset)
+      if (d) out[f.id] = d
+    } else if (((f as any).dateFormat || '').toString().includes('WW')) {
+      out[f.id] = weekStart
+    }
+  }
+  return out
 }
 
 /**
@@ -171,13 +207,18 @@ export async function generateReportPdf(
         }
       }
 
+      // v2.11.4 — Dates TOUJOURS remplies depuis week_start (garantie serveur)
+      const enrichedFieldValues = enrichReportDateValues(
+        doc.fields, submission.field_values, (submission as any).week_start,
+      )
+
       // ─── Pass 1 : fields recipientOrder=1 (Candidat) ───
       const candFields = (doc.fields || []).filter(f => (f.recipientOrder ?? 1) === 1)
       if (candFields.length > 0) {
         currentBuf = await stampPdf({
           pdfBuffer: currentBuf,
           fields: candFields,
-          fieldValues: submission.field_values || {},
+          fieldValues: enrichedFieldValues,
           signatureDataUrl: submission.candidate_signature_data_url,
           autoFill: {
             firstName: candFirstName,
@@ -205,7 +246,7 @@ export async function generateReportPdf(
       currentBuf = await stampPdf({
         pdfBuffer: currentBuf,
         fields: clientFields,
-        fieldValues: submission.field_values || {},
+        fieldValues: enrichedFieldValues,
         signatureDataUrl: submission.client_signature_data_url,
         autoFill: {
           firstName: clientFirstName,
