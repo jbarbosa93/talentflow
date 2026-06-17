@@ -143,10 +143,15 @@ export async function GET(
     }
   }
 
-  // Merge final : auto-fill candidat (résolu) ⊕ saisies candidat (priorité)
+  // Merge final : saisies candidat (heures, repas…) ⊕ auto-fill AUTORITAIRE
+  // v2.11.5 — resolvedCandidatValues ré-appliqué APRÈS les saisies stockées →
+  // les champs déterministes (dates par-jour/n° semaine) + nom + entreprise
+  // gagnent TOUJOURS. Corrige le carryover (une soumission pouvait porter les
+  // dates d'une autre semaine) ET le nom/entreprise vides. Les saisies candidat
+  // (heures, repas, chantier…) restent intactes car absentes de resolvedCandidatValues.
   const previousFieldValues: Record<string, unknown> = {
-    ...resolvedCandidatValues,
     ...(submission.field_values || {}),
+    ...resolvedCandidatValues,
   }
 
   // v2.3.3 Bug 3 — Calculer les champs formula (recipientOrder=1) côté serveur.

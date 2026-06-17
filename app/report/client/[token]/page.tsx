@@ -117,10 +117,11 @@ export default function PublicClientReportPage({
           // firstname/lastname/fullname/email/company + dates jour/datesigned) ⊕
           // submission.field_values (saisies candidat). Tout est exposé en read-only via
           // PublicFieldsLayer grâce à currentRecipientOrder=2.
-          const merged: Record<string, unknown> = {
-            ...(d.previousFieldValues || {}),
-            ...(d.submission?.field_values || {}),
-          }
+          // v2.11.5 — previousFieldValues contient DÉJÀ les saisies candidat ⊕
+          // l'auto-fill autoritaire (dates correctes + nom + entreprise, résolus
+          // serveur). Ne PAS ré-appliquer field_values par-dessus : ça réintroduirait
+          // les dates « carryover » (d'une autre semaine) stockées dans field_values.
+          const merged: Record<string, unknown> = { ...(d.previousFieldValues || {}) }
           if (Object.keys(merged).length > 0) setValues(merged)
           // v2.4.0 — Pré-remplir si une note client a déjà été saisie (reprise)
           if (typeof d.submission?.notes_client === 'string') {
@@ -156,10 +157,8 @@ export default function PublicClientReportPage({
 
   const handleCancelEdit = () => {
     // Revert les valeurs modifiées (recharge depuis data initiale)
-    const merged: Record<string, unknown> = {
-      ...(data?.previousFieldValues || {}),
-      ...(data?.submission?.field_values || {}),
-    }
+    // v2.11.5 — previousFieldValues = source complète (saisies + auto-fill correct)
+    const merged: Record<string, unknown> = { ...(data?.previousFieldValues || {}) }
     setValues(merged)
     setEditValues({})
     setEditMode(false)
@@ -678,7 +677,7 @@ export default function PublicClientReportPage({
               onFinalize={handleFinalize}
               onSwitchToDocumentMode={() => setViewMode('document')}
               token={token}
-              previousFieldValues={{ ...(data.previousFieldValues || {}), ...(data.submission.field_values || {}) }}
+              previousFieldValues={{ ...(data.previousFieldValues || {}) /* v2.11.5 — déjà complet + dates/nom corrects */ }}
               previousSignerLabel={candidateFullName || 'Collaborateur'}
               allDocumentFields={activeDoc?.fields || []}
             />

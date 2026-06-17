@@ -177,12 +177,20 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       .catch(() => { /* silent : fallback legacy possible */ })
   }, [slug, state])
 
-  // Mode initial : wizard sur mobile si dispo, sinon document
+  // Mode initial : wizard sur mobile si dispo, sinon document.
+  // v2.11.5 — Sur DESKTOP aussi, les rapports POINTEUSE (widgets Présent/Absent,
+  // Démarrer, Début/Fin, Pauses) ne tiennent pas dans les petites cellules A5 du
+  // mode document → chevauchement illisible. On bascule alors en mode wizard
+  // (saisie propre étape par étape, comme sur mobile). Les rapports simples
+  // (cases/nombres) gardent le mode document sur desktop.
   useEffect(() => {
     if (state !== 'ok' || !data) return
     const wizardEnabled = data.wizard?.enabled !== false
     const stepsForCandidat = (data.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === 1)
-    if (wizardEnabled && stepsForCandidat.length > 0 && isMobile) setViewMode('wizard')
+    const hasPointage = (data.template?.documents || []).some(
+      (d: { fields?: { type?: string }[] }) => (d.fields || []).some(f => f.type === 'pointage'),
+    )
+    if (wizardEnabled && stepsForCandidat.length > 0 && (isMobile || hasPointage)) setViewMode('wizard')
     else setViewMode('document')
   }, [state, data, isMobile])
 
@@ -278,8 +286,11 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       if (raw) {
         const parsed = JSON.parse(raw) as { values: Record<string, unknown>; savedAt?: number }
         if (parsed?.values) {
-          // Local backup PRIORITAIRE sur auto-fill (l'user pourrait avoir overridé)
-          setValues({ ...buildAutoFillForWeek(), ...parsed.values })
+          // v2.11.5 — Les dates par-jour/n° semaine sont déterministes (semaine) :
+          // on les ré-applique APRÈS les valeurs stockées pour qu'elles gagnent
+          // toujours (corrige le carryover : un brouillon pouvait porter les dates
+          // d'une autre semaine). Les autres champs (heures, repas…) restent saisis.
+          setValues({ ...parsed.values, ...buildAutoFillForWeek() })
           setSavedAt(parsed.savedAt ? new Date(parsed.savedAt) : null)
           restoredFromLocal = true
         }
@@ -293,7 +304,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         .then(r => r.json())
         .then(d => {
           if (d.submission?.field_values) {
-            setValues({ ...buildAutoFillForWeek(), ...d.submission.field_values })
+            // v2.11.5 — dates déterministes ré-appliquées après les valeurs stockées (cf. ci-dessus)
+            setValues({ ...d.submission.field_values, ...buildAutoFillForWeek() })
           } else {
             setValues(buildAutoFillForWeek())
           }

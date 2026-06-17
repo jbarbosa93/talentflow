@@ -69,10 +69,12 @@ function enrichReportDateValues(
   if (!weekStart) return out
   for (const f of fields || []) {
     if (f.type !== 'date') continue
-    const cur = out[f.id]
-    const hasVal = cur !== undefined && cur !== null && String(cur).trim() !== ''
-    if (hasVal) continue
     const offset = getDayOffsetFromSection(f.wizardSection)
+    // v2.11.5 — ÉCRASE TOUJOURS (pas seulement si vide) : la date d'un jour de
+    // rapport hebdo est 100 % déterministe (semaine + jour). Corrige aussi le
+    // cas « carryover » où une soumission contient les dates d'une autre semaine
+    // (ex. Nélio S23 portait les dates de la S24). Seuls les champs date par-jour
+    // et n° de semaine sont dérivés ; les autres champs date sont préservés.
     if (offset !== null) {
       const d = dateForDayOfWeek(weekStart, offset)
       if (d) out[f.id] = d
