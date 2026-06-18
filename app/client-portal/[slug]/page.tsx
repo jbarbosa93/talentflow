@@ -573,11 +573,27 @@ function CandidatCard({ candidat: c, delayMs, slug, notesCount, onOpenDocs, onOp
           fontSize: 11.5, color: '#374151', display: 'flex', alignItems: 'center', gap: 6,
         }}>
           <Calendar size={11} color="#A16207" />
-          <span>
-            En mission depuis le <strong style={{ color: '#1C1A14' }}>{formatExpiryDate(c.mission.date_debut)}</strong>
-            {' · '}
-            <strong style={{ color: '#A16207' }}>{formatMissionDuration(c.mission.date_debut)}</strong>
-          </span>
+          {(() => {
+            // v2.12 — Si la mission est terminée (date_fin passée) → on affiche début → fin
+            // au lieu de « En mission depuis » (qui sous-entend une mission en cours).
+            const todayStr = new Date().toISOString().slice(0, 10)
+            const ended = !!c.mission!.date_fin && c.mission!.date_fin < todayStr
+            return ended ? (
+              <span>
+                Mission du <strong style={{ color: '#1C1A14' }}>{formatExpiryDate(c.mission!.date_debut)}</strong>
+                {' au '}
+                <strong style={{ color: '#1C1A14' }}>{formatExpiryDate(c.mission!.date_fin!)}</strong>
+                {' · '}
+                <strong style={{ color: '#6B7280' }}>terminée</strong>
+              </span>
+            ) : (
+              <span>
+                En mission depuis le <strong style={{ color: '#1C1A14' }}>{formatExpiryDate(c.mission!.date_debut)}</strong>
+                {' · '}
+                <strong style={{ color: '#A16207' }}>{formatMissionDuration(c.mission!.date_debut)}</strong>
+              </span>
+            )
+          })()}
         </div>
       )}
 

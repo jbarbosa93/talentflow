@@ -708,7 +708,7 @@ function CandidatMatchCard({ result, rank, selected, onToggle, cvHoverHook }: { 
       </div>
 
       {/* Mini barres compétences/expérience (colonne fixe, design V2) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0, width: 110 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0, width: 128, marginRight: 8 }}>
         <MiniBar label="Comp." value={score_competences} />
         <MiniBar label="Exp." value={score_experience} />
       </div>
@@ -993,12 +993,12 @@ function ContactBtn({ href, icon: Icon, label, color, bg, disabled }: {
 function MiniBar({ label, value }: { label: string; value: number }) {
   const c = scoreColor(value)
   return (
-    <div style={{ minWidth: 140 }}>
+    <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
         <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{label}</span>
         <span style={{ fontSize: 11, fontWeight: 700, color: c.text }}>{value}%</span>
       </div>
-      <div style={{ height: 5, background: '#E2E8F0', borderRadius: 99, overflow: 'hidden', width: 140 }}>
+      <div style={{ height: 5, background: '#E2E8F0', borderRadius: 99, overflow: 'hidden', width: '100%' }}>
         <div style={{ height: '100%', width: `${value}%`, background: c.bar, borderRadius: 99, transition: 'width 0.6s ease' }} />
       </div>
     </div>

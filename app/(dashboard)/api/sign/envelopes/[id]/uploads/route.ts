@@ -104,7 +104,19 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     try {
       const blob = await downloadSignDocument(downloadPath)
       const filename = downloadPath.split('/').pop() || 'fichier'
-      const mimeType = blob.type || 'application/octet-stream'
+      // v2.12 — Content-Type fiable déduit de l'extension quand le type stocké est
+      // générique (octet-stream). Sinon Chrome TÉLÉCHARGE le PDF même en disposition
+      // 'inline' (il ne sait pas rendre un octet-stream) → l'aperçu (œil) restait blanc.
+      let mimeType = blob.type || ''
+      if (!mimeType || mimeType === 'application/octet-stream' || mimeType === 'binary/octet-stream') {
+        const ext = (filename.split('.').pop() || '').toLowerCase()
+        const byExt: Record<string, string> = {
+          pdf: 'application/pdf',
+          jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+          gif: 'image/gif', heic: 'image/heic', heif: 'image/heif', bmp: 'image/bmp', tiff: 'image/tiff',
+        }
+        mimeType = byExt[ext] || mimeType || 'application/octet-stream'
+      }
       // v2.10.18 — ?preview=1 → Content-Disposition inline (affichage dans l'iframe
       // du modal aperçu). Sans le param, on garde 'attachment' (téléchargement).
       // Avant : toujours 'attachment' → le PDF se téléchargeait au clic « aperçu »

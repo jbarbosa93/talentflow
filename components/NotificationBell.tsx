@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { Bell, X, Check, ChevronRight, GitBranch, Calendar, IdCard } from 'lucide-react'
+import { Bell, X, Check, ChevronRight, GitBranch, Calendar, IdCard, CalendarClock, FileWarning } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 type PipelineRappel = {
@@ -40,6 +40,28 @@ type DocumentAlertLite = {
   days_until_expiry: number
   severity: 'expired' | 'urgent_14' | 'warning_30'
   has_active_mission: boolean
+}
+
+// v2.12 — Alertes missions (cloche, João seul)
+type FinMissionAlert = {
+  mission_id: string
+  candidat_id: string | null
+  candidat_nom: string
+  client_nom: string
+  metier: string
+  date_fin: string
+  days: number
+  severity: 'expired' | 'today' | 'soon'
+  a_replacer: boolean
+}
+type RapportManquantAlert = {
+  mission_id: string
+  candidat_id: string
+  candidat_nom: string
+  client_nom: string
+  metier: string
+  last_report: string | null
+  days_since: number | null
 }
 
 export function NotificationBell() {
@@ -82,10 +104,24 @@ export function NotificationBell() {
     refetchOnWindowFocus: true,
   })
 
+  // v2.12 — Alertes missions (fins de mission + rapports manquants) — João seul (gating serveur)
+  const { data: missionData } = useQuery({
+    queryKey: ['notif-bell-missions'],
+    queryFn: async () => {
+      const r = await fetch('/api/missions/alertes')
+      if (!r.ok) return { finsMission: [], rapportsManquants: [] }
+      return r.json()
+    },
+    refetchInterval: 5 * 60_000,
+    refetchOnWindowFocus: true,
+  })
+
   const pipelineRappels: PipelineRappel[] = pipelineData?.rappels ?? []
   const entretienRappels: EntretienRappel[] = entretienData?.rappels ?? []
   const documentAlerts: DocumentAlertLite[] = documentData?.alerts ?? []
-  const total = pipelineRappels.length + entretienRappels.length + documentAlerts.length
+  const finsMission: FinMissionAlert[] = missionData?.finsMission ?? []
+  const rapportsManquants: RapportManquantAlert[] = missionData?.rapportsManquants ?? []
+  const total = pipelineRappels.length + entretienRappels.length + documentAlerts.length + finsMission.length + rapportsManquants.length
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['notif-bell-pipeline'] })
@@ -179,6 +215,8 @@ export function NotificationBell() {
           pipelineRappels={pipelineRappels}
           entretienRappels={entretienRappels}
           documentAlerts={documentAlerts}
+          finsMission={finsMission}
+          rapportsManquants={rapportsManquants}
           onClose={() => setOpen(false)}
           onDismissPipeline={dismissPipeline}
           onValidatePipeline={validatePipeline}
@@ -192,13 +230,15 @@ export function NotificationBell() {
 }
 
 function NotifPopover({
-  bellRect, pipelineRappels, entretienRappels, documentAlerts, onClose,
+  bellRect, pipelineRappels, entretienRappels, documentAlerts, finsMission, rapportsManquants, onClose,
   onDismissPipeline, onValidatePipeline, onDismissEntretien, onValidateEntretien,
 }: {
   bellRect: DOMRect
   pipelineRappels: PipelineRappel[]
   entretienRappels: EntretienRappel[]
   documentAlerts: DocumentAlertLite[]
+  finsMission: FinMissionAlert[]
+  rapportsManquants: RapportManquantAlert[]
   onClose: () => void
   onDismissPipeline: (id: string) => void
   onValidatePipeline: (id: string) => void
@@ -211,7 +251,7 @@ function NotifPopover({
   const x = Math.max(12, Math.min(window.innerWidth - W - 12, bellRect.right - W))
   const y = bellRect.bottom + 8
 
-  const total = pipelineRappels.length + entretienRappels.length + documentAlerts.length
+  const total = pipelineRappels.length + entretienRappels.length + documentAlerts.length + finsMission.length + rapportsManquants.length
 
   return (
     <>
@@ -250,6 +290,27 @@ function NotifPopover({
             </div>
           ) : (
             <>
+              {finsMission.length > 0 && (
+                <div>
+                  <SectionHeader icon={CalendarClock} label="Fins de mission" count={finsMission.length} />
+                  {finsMission.map(a => (
+                    <FinMissionRow key={a.mission_id} alert={a} />
+                  ))}
+                  <div style={{ padding: '8px 14px', textAlign: 'center', fontSize: 11 }}>
+                    <Link href="/missions" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 700 }}>
+                      Gérer les missions →
+                    </Link>
+                  </div>
+                </div>
+              )}
+              {rapportsManquants.length > 0 && (
+                <div>
+                  <SectionHeader icon={FileWarning} label="Rapports manquants" count={rapportsManquants.length} />
+                  {rapportsManquants.map(a => (
+                    <RapportManquantRow key={a.mission_id} alert={a} />
+                  ))}
+                </div>
+              )}
               {pipelineRappels.length > 0 && (
                 <div>
                   <SectionHeader icon={GitBranch} label="Pipeline" count={pipelineRappels.length} />
@@ -353,6 +414,76 @@ function DocumentAlertRow({ alert }: { alert: DocumentAlertLite }) {
           </div>
           <div style={{ fontSize: 10, color: statusColor, fontWeight: 700, marginTop: 2 }}>
             🪪 {statusText}
+          </div>
+        </div>
+        <ChevronRight size={12} color="var(--muted-foreground)" style={{ marginTop: 4, flexShrink: 0 }} />
+      </Link>
+    </div>
+  )
+}
+
+// v2.12 — Ligne « fin de mission » (lecture seule, se résout quand João renouvelle/passe en indéterminée)
+function FinMissionRow({ alert }: { alert: FinMissionAlert }) {
+  let statusText = ''
+  let statusColor = 'var(--muted-foreground)'
+  if (alert.severity === 'expired') {
+    statusText = `Terminée depuis ${Math.abs(alert.days)}j — à renouveler`
+    statusColor = 'var(--destructive)'
+  } else if (alert.severity === 'today') {
+    statusText = 'Se termine aujourd\'hui'
+    statusColor = '#F97316'
+  } else {
+    statusText = `Se termine dans ${alert.days}j`
+    statusColor = '#A16207'
+  }
+  const sub = [alert.metier, alert.client_nom].filter(Boolean).join(' · ')
+  return (
+    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <Link href="/missions" style={{ flex: 1, display: 'flex', alignItems: 'flex-start', textDecoration: 'none', gap: 6, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {alert.candidat_nom}
+            {alert.a_replacer && (
+              <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(249,115,22,0.15)', color: '#F97316' }}>
+                À REPLACER
+              </span>
+            )}
+          </div>
+          {sub && (
+            <div style={{ fontSize: 11, color: 'var(--muted-foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
+              {sub}
+            </div>
+          )}
+          <div style={{ fontSize: 10, color: statusColor, fontWeight: 700, marginTop: 2 }}>
+            🔚 {statusText}
+          </div>
+        </div>
+        <ChevronRight size={12} color="var(--muted-foreground)" style={{ marginTop: 4, flexShrink: 0 }} />
+      </Link>
+    </div>
+  )
+}
+
+// v2.12 — Ligne « rapport manquant » (mission indéterminée, candidat lié aux rapports, sans soumission récente)
+function RapportManquantRow({ alert }: { alert: RapportManquantAlert }) {
+  const sub = [alert.metier, alert.client_nom].filter(Boolean).join(' · ')
+  const statusText = alert.last_report
+    ? `Dernier rapport il y a ${alert.days_since}j`
+    : 'Aucun rapport reçu'
+  return (
+    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <Link href={`/candidats/${alert.candidat_id}`} style={{ flex: 1, display: 'flex', alignItems: 'flex-start', textDecoration: 'none', gap: 6, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {alert.candidat_nom}
+          </div>
+          {sub && (
+            <div style={{ fontSize: 11, color: 'var(--muted-foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
+              {sub}
+            </div>
+          )}
+          <div style={{ fontSize: 10, color: 'var(--destructive)', fontWeight: 700, marginTop: 2 }}>
+            📄 {statusText}
           </div>
         </div>
         <ChevronRight size={12} color="var(--muted-foreground)" style={{ marginTop: 4, flexShrink: 0 }} />

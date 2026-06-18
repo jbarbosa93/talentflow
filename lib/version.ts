@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.11.6'
+export const APP_VERSION = '2.12.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.12.0',
+    date: '2026-06-18',
+    label: 'Missions : durée rapide + projection ETP + alertes cloche · pack bugs (matching, aperçu docs, portail, mailing)',
+    features: [
+      'Missions : boutons +14 jours / +3 mois (date de fin auto depuis la date de début)',
+      'Missions : projection « ETP semaine prochaine » sur la carte ETP actif',
+      'Cloche (João) : alertes Fins de mission (à venir + déjà passées) + badge « À replacer » + Rapports manquants',
+      'Matching IA : pastille de score ne chevauche plus les barres Comp./Exp.',
+      'Signatures : aperçu (œil) affiche les documents au lieu de les télécharger',
+      'Portail client : affiche « Mission du … au … » pour un candidat dont la mission est terminée',
+      'Mailing : autocomplete client fonctionne aussi pour le 2e destinataire',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.10.30 — Sign : rôle « Consultant » (João/Seb) + nom candidat dans l'email
   // ─────────────────────────────────────────────────────────────────────

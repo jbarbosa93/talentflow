@@ -292,6 +292,16 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
   const [complianceBlock, setComplianceBlock] = useState<{ blocking: any[]; candidatId: string | null } | null>(null)
   const set = (k: keyof typeof form, v: any) => setForm(f => ({ ...f, [k]: v }))
 
+  // v2.12 — Remplissage rapide de la date de fin depuis la date de début (+14j / +3 mois)
+  const fillDateFin = (days: number, months: number) => {
+    if (!form.date_debut) { toast.error('Renseigne d\'abord la date de début'); return }
+    const d = new Date(form.date_debut + 'T00:00:00')
+    if (months) d.setMonth(d.getMonth() + months)
+    if (days) d.setDate(d.getDate() + days)
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    setForm(f => ({ ...f, indeterminee: false, date_fin: iso }))
+  }
+
   const submitMission = async (forceBypass: boolean) => {
     setSaving(true)
     try {
@@ -449,6 +459,19 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
               </div>
             )}
           </div>
+          {!form.indeterminee && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: -2 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Durée rapide :</span>
+              <button type="button" onClick={() => fillDateFin(14, 0)}
+                style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                +14 jours
+              </button>
+              <button type="button" onClick={() => fillDateFin(0, 3)}
+                style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                +3 mois
+              </button>
+            </div>
+          )}
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
             <input
               type="checkbox"
@@ -1012,6 +1035,12 @@ export default function MissionsPage() {
   const weekFriday = new Date(weekMonday)
   weekFriday.setDate(weekMonday.getDate() + 4)
 
+  // v2.12 — Projection ETP semaine PROCHAINE (computeEtpSemaine accepte une date de réf.)
+  // Les missions qui finissent cette semaine sortent du calcul, celles qui commencent
+  // la semaine prochaine y entrent (prorata) → João se projette d'un coup d'œil.
+  const nextWeekRef = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7)
+  const etpNext = computeEtpSemaine(activeEnCours, nextWeekRef)
+
   const stats = {
     total_en_cours: activeEnCours.length,
     total_fin_mission: withEffectif.filter(m => {
@@ -1020,6 +1049,7 @@ export default function MissionsPage() {
     }).length,
     total_sans_emploi: withEffectif.filter(m => m.statut === 'annulee').length,
     total_etp: computeEtpSemaine(activeEnCours),
+    total_etp_next: etpNext,
     marge_en_cours: activeEnCours.reduce((s, m) => s + Number(m.marge_brute || 0), 0),
     marge_moyenne: (() => {
       // Missions qui chevauchent avril+ ET déjà commencées
@@ -1306,18 +1336,26 @@ export default function MissionsPage() {
         <div style={{ background: 'var(--surface, var(--card))', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', flex: 1, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>En Mission</div>
           <div style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 30, fontWeight: 400, color: 'var(--foreground)', lineHeight: 1 }}>{stats.total_en_cours}</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
-            {stats.total_fin_mission > 0
-              ? <span style={{ color: 'var(--destructive)', fontWeight: 600 }}>⚠ {stats.total_fin_mission} fin{stats.total_fin_mission > 1 ? 's' : ''} de mission</span>
-              : <span>Toutes actives</span>}
-          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>Placements actifs</div>
         </div>
 
-        {/* Total ETP */}
+        {/* Total ETP + projection semaine prochaine */}
         <div style={{ background: 'var(--surface, var(--card))', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', flex: 1, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total ETP actif</div>
           <div style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 30, fontWeight: 400, color: '#38BDF8', lineHeight: 1 }}>{Number(stats.total_etp).toFixed(2)}</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>Hors missions terminées</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {(() => {
+              const delta = stats.total_etp_next - stats.total_etp
+              const deltaColor = delta > 0.001 ? '#10B981' : delta < -0.001 ? 'var(--destructive)' : 'var(--muted)'
+              const arrow = delta > 0.001 ? '▲' : delta < -0.001 ? '▼' : '='
+              return (
+                <>
+                  <span>→ Sem. prochaine : <strong style={{ color: 'var(--foreground)' }}>{Number(stats.total_etp_next).toFixed(2)}</strong> ETP</span>
+                  <span style={{ color: deltaColor, fontWeight: 700 }}>{arrow} {delta >= 0 ? '+' : ''}{delta.toFixed(2)}</span>
+                </>
+              )
+            })()}
+          </div>
         </div>
 
         {/* Marge moyenne */}

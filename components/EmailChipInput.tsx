@@ -210,7 +210,7 @@ export default function EmailChipInput({ value, onChange, placeholder = 'Ajouter
         <input
           ref={inputRef}
           value={input}
-          onChange={e => setInput(e.target.value)}
+          onChange={e => { setInput(e.target.value); setFocused(true) }}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           onFocus={() => setFocused(true)}

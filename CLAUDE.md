@@ -105,7 +105,25 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.11.2** — 10/06/2026 (🍎 fix refus Apple 2.1a : boucle login portail en WKWebView)
+**v2.12.0** — 18/06/2026 (Missions : durée rapide + projection ETP + alertes cloche · pack 4 bugs)
+
+### v2.12.0 (18/06) — Missions (durée rapide, projection ETP, alertes cloche) + pack bugs
+
+**Missions** (`app/(dashboard)/missions/page.tsx`) :
+- Modale Nouvelle mission : boutons **+14 jours / +3 mois** (`fillDateFin`) → date de fin calculée depuis la date de début.
+- Carte **ETP actif** : ligne **« → Sem. prochaine : X.XX ETP »** (`computeEtpSemaine(activeEnCours, now+7j)`) + delta coloré. La fonction acceptait déjà une date de référence.
+- Retrait du texte rouge « N fins de mission » (→ « Placements actifs »).
+
+**Alertes cloche — João seul** (`ADMIN_EMAIL`, gating serveur) :
+- Nouvelle route `GET /api/missions/alertes` → `{ finsMission, rapportsManquants }` (réservée à João, sinon listes vides).
+- `NotificationBell` : sections **🔚 Fins de mission** (déjà passées non renouvelées + aujourd'hui + 3 prochains jours) avec badge **À REPLACER** (idée 5 : aucune mission ne prend le relais derrière le candidat) + **📄 Rapports manquants** (idée 6 : mission **indéterminée** + candidat **lié aux rapports** `report_links.status='active'` mais sans soumission `report_submissions.week_start` depuis 14j). Lecture seule, se résolvent toutes seules.
+
+**Pack bugs** :
+- **Matching IA** (`matching/page.tsx`) : `MiniBar` débordait (`width:140` dans colonne `110`) → pastille de score chevauchait les barres. Barres → `width:'100%'`, colonne → 128px + `marginRight`.
+- **Aperçu documents Sign** (`api/sign/envelopes/[id]/uploads` branche `?path=`) : Content-Type déduit de l'extension quand `blob.type` est générique (`octet-stream`) → Chrome téléchargeait le PDF même en `inline`. Branche `?composed=` était déjà inline.
+- **Portail client** (`client-portal/[slug]/page.tsx`) : si `mission.date_fin < today` → « Mission du … au … · terminée » au lieu de « En mission depuis ».
+- **Mailing** (`components/EmailChipInput.tsx`) : `focused` restait à `false` dans certains enchaînements → pas d'autocomplete au 2e email. Fix : `onChange` force `setFocused(true)` (reproduit + vérifié en live via fiber React : 0 → 8 suggestions).
+- **Non-bugs** : contact client email-seul (déjà corrigé v2.10.48), rôles wizard (s'affichent bien).
 
 ### v2.11.2 (10/06) — Fix boucle login portail (refus Apple 2.1a + 3.2)
 
