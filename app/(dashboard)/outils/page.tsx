@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { FolderInput, Camera, Copy, Wrench, ClipboardList, Sparkles, Bell } from 'lucide-react'
+import { FolderInput, Camera, Copy, Wrench, ClipboardList, Sparkles, Bell, Activity } from 'lucide-react'
 
 // ─── Outils V2 ──────────────────────────────────────────────────────────────
 
@@ -15,6 +15,14 @@ type OutilDef = {
 }
 
 const OUTILS: OutilDef[] = [
+  {
+    href: '/outils/sante',
+    icon: Activity,
+    title: 'Santé système',
+    description: 'Cockpit admin — imports OneDrive, rapports/signatures, emails, crons (lecture seule)',
+    cta: 'Consulter',
+    color: '#8B5CF6', bg: 'rgba(139,92,247,0.12)',
+  },
   {
     href: '/notifications',
     icon: Bell,

@@ -105,7 +105,19 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.12.3** — 19/06/2026 (Sécurité : `requireAuth()` sur `/api/rapport-heures`)
+**v2.13.0** — 19/06/2026 (Cockpit Santé système — Outils, lecture seule, João seul)
+
+### v2.13.0 (19/06) — Cockpit « Santé système » (Outils)
+
+Nouvelle page admin **`/outils/sante`** (tuile dans `/outils`) + route **`GET /api/admin/system-health`** (gating `ADMIN_EMAIL` serveur, sinon `{allowed:false}`). Lecture seule, agrège des tables existantes (aucune écriture). 4 cartes auto-rafraîchies (60s) avec pastilles vert/orange/rouge :
+- **OneDrive/imports** : dernier sync (`onedrive_fichiers.traite_le`), erreurs 7j (`statut_action='error'`), candidats `import_status='a_traiter'`.
+- **Rapports & signatures** : `report_links` actifs, `report_submissions` en attente (draft/candidate_signed/client_signed) + finalisés 7j, `sign_envelopes` non signées + qui traînent (>7j).
+- **Emails** : `emails_envoyes` confirmés (`statut='envoye'`) + canal natif WhatsApp/SMS (`statut='tentative'`, NON un échec) + en file. ⚠️ Aucun statut `erreur` dans la table → échecs réels = Sentry.
+- **Crons** : seul `onedrive-sync` traçable en base (pas de table `cron_runs`) ; les 7 autres affichent leur horaire. Suivi exact = table de logs cron à créer (proposé, non fait).
+
+Colonnes validées contre la prod (`rdpbqnhwhjkngxxitupg`). Route admin-gated comme `/api/missions/alertes`.
+
+### v2.12.3 (19/06) — Fix sécurité : `/api/rapport-heures` protégé
 
 ### v2.12.3 (19/06) — Fix sécurité : `/api/rapport-heures` protégé
 
