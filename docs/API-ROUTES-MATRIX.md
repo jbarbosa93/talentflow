@@ -10,8 +10,8 @@ Le middleware exclut tout `/api/` → chaque route porte SON garde-fou. Deux pat
 
 | Niveau | Routes |
 |---|---|
-| AUTH | 136 |
-| ⚠️ PUBLIC ? | 27 |
+| AUTH | 137 |
+| ⚠️ PUBLIC ? | 26 |
 | SECRÉTARIAT | 19 |
 | PUBLIC (slug) | 16 |
 | PORTAIL (token) | 16 |
@@ -23,7 +23,7 @@ Le middleware exclut tout `/api/` → chaque route porte SON garde-fou. Deux pat
 
 ## Conclusions du triage manuel (19/06/2026)
 
-Les routes marquées **⚠️ PUBLIC ?** ont été vérifiées à la main : la quasi-totalité est publique par design.
+Les 28 routes initialement marquées **⚠️ PUBLIC ?** ont été vérifiées à la main. **Toutes sont désormais soit publiques par design, soit corrigées.**
 
 | Route(s) | Verdict |
 |---|---|
@@ -36,10 +36,12 @@ Les routes marquées **⚠️ PUBLIC ?** ont été vérifiées à la main : la q
 | `/api/metiers`, `/api/metier-categories` | ✅ Listes de référence non sensibles |
 | `/api/avam/search` | ✅ Recherche offres externes (veille publique) |
 | `/api/demande-acces` | ✅ Formulaire de demande d'accès (public par design) |
-| `/api/rapport-heures` | ⚠️ Générateur PDF — à confirmer (pas de signal d'auth détecté) |
 | ~~`/api/jobroom/post`~~ | ✅ **CORRIGÉ v2.12.2** — `requireAuth()` ajouté (était : POST anonyme Job-Room avec creds SECO). |
+| ~~`/api/rapport-heures`~~ | ✅ **CORRIGÉ v2.12.3** — `requireAuth()` ajouté (outil dashboard ; ne touchait pas la DB, mais cohérence). |
 
-## ⚠️ À auditer (27) — aucun garde-fou détecté automatiquement
+> Les lignes encore listées `⚠️ PUBLIC ?` dans la table ci-dessous sont les **publiques par design** (auth/OAuth/webhook/signature) — le détecteur ne sait pas qu'elles sont intentionnelles. Aucune action requise.
+
+## ⚠️ À auditer (26) — aucun garde-fou détecté automatiquement
 
 Vérifier que chacune est intentionnellement publique. Routes d'auth/OAuth/webhook = normales.
 
@@ -63,7 +65,6 @@ Vérifier que chacune est intentionnellement publique. Routes d'auth/OAuth/webho
 | `/api/metier-categories` | GET PUT | `app/(dashboard)/api/metier-categories/route.ts` |
 | `/api/metiers` | GET PUT | `app/(dashboard)/api/metiers/route.ts` |
 | `/api/microsoft/callback` | GET | `app/(dashboard)/api/microsoft/callback/route.ts` |
-| `/api/rapport-heures` | POST | `app/(dashboard)/api/rapport-heures/route.ts` |
 | `/api/sign/attachment-check` | POST | `app/api/sign/attachment-check/route.ts` |
 | `/api/sign/attachment-url` | POST | `app/api/sign/attachment-url/route.ts` |
 | `/api/sign/consent` | POST | `app/api/sign/consent/route.ts` |
@@ -441,7 +442,7 @@ Vérifier que chacune est intentionnellement publique. Routes d'auth/OAuth/webho
 
 | Route | Méthodes | Accès |
 |---|---|---|
-| `/api/rapport-heures` | POST | ⚠️ PUBLIC ? |
+| `/api/rapport-heures` | POST | AUTH |
 | `/api/rapport-heures/send-email` | POST | AUTH |
 | `/api/rapport-heures/send-whatsapp` | POST | AUTH |
 

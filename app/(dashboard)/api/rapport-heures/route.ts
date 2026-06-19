@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
+import { requireAuth } from '@/lib/auth-guard'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -75,6 +76,9 @@ function wrapText(
 // ── PDF Generation ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // v2.12.3 — Garde-fou (audit routes 19/06) : outil dashboard, réservé connectés.
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const body: RapportPayload = await req.json()
     const { collaborateur, entreprise, semaine, dates, gridData, dayTypes } = body

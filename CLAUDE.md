@@ -105,7 +105,11 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.12.2** — 19/06/2026 (Sécurité : `requireAuth()` sur `/api/jobroom/post`)
+**v2.12.3** — 19/06/2026 (Sécurité : `requireAuth()` sur `/api/rapport-heures`)
+
+### v2.12.3 (19/06) — Fix sécurité : `/api/rapport-heures` protégé
+
+2e route flaggée par l'audit. `POST /api/rapport-heures` (générateur PDF, outil dashboard) n'avait pas de garde-fou. Ne touche pas la DB (pas de fuite, au pire abus de calcul) mais incohérent → `requireAuth()` ajouté. Toutes les routes « sans garde-fou » restantes dans la matrice sont publiques par design.
 
 ### v2.12.2 (19/06) — Fix sécurité : `/api/jobroom/post` protégé
 
