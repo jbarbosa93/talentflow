@@ -10,8 +10,8 @@ Le middleware exclut tout `/api/` → chaque route porte SON garde-fou. Deux pat
 
 | Niveau | Routes |
 |---|---|
-| AUTH | 135 |
-| ⚠️ PUBLIC ? | 28 |
+| AUTH | 136 |
+| ⚠️ PUBLIC ? | 27 |
 | SECRÉTARIAT | 19 |
 | PUBLIC (slug) | 16 |
 | PORTAIL (token) | 16 |
@@ -23,12 +23,12 @@ Le middleware exclut tout `/api/` → chaque route porte SON garde-fou. Deux pat
 
 ## Conclusions du triage manuel (19/06/2026)
 
-Sur les 28 routes marquées **⚠️ PUBLIC ?**, **27 sont publiques par design** et **1 est une vraie faille** :
+Les routes marquées **⚠️ PUBLIC ?** ont été vérifiées à la main : la quasi-totalité est publique par design.
 
-| Route | Verdict |
+| Route(s) | Verdict |
 |---|---|
 | `/admin` | ✅ Login bypass dev — **bloqué en prod** |
-| `/api/auth/*` (10 routes) | ✅ Flux d'auth (login/OTP/mdp) — publiques par nécessité |
+| `/api/auth/*` (≈11 routes) | ✅ Flux d'auth (login/OTP/mdp) — publiques par nécessité |
 | `/api/microsoft/callback` | ✅ Callback OAuth Microsoft |
 | `/api/whatsapp/webhook` | ✅ Webhook Meta — **signature HMAC-SHA256 vérifiée** (`WHATSAPP_APP_SECRET`) |
 | `/api/sign/{finalize,sign-field,consent,cross-fill,verify-token,attachment-check,attachment-url}` | ✅ Signature publique TF Sign — **token validé** (`verifyToken`, dans le body) |
@@ -37,11 +37,9 @@ Sur les 28 routes marquées **⚠️ PUBLIC ?**, **27 sont publiques par design*
 | `/api/avam/search` | ✅ Recherche offres externes (veille publique) |
 | `/api/demande-acces` | ✅ Formulaire de demande d'accès (public par design) |
 | `/api/rapport-heures` | ⚠️ Générateur PDF — à confirmer (pas de signal d'auth détecté) |
-| **`/api/jobroom/post`** | 🔴 **FAILLE** : aucun garde-fou → POST anonyme d'annonces Job-Room avec les identifiants SECO de L-Agence. **Ajouter `requireAuth()`.** |
+| ~~`/api/jobroom/post`~~ | ✅ **CORRIGÉ v2.12.2** — `requireAuth()` ajouté (était : POST anonyme Job-Room avec creds SECO). |
 
-**Action recommandée** : ajouter `requireAuth()` sur `/api/jobroom/post` (POST authentifié vers une API externe avec credentials d'entreprise) ; confirmer `/api/rapport-heures`.
-
-## ⚠️ À auditer (28) — aucun garde-fou détecté automatiquement
+## ⚠️ À auditer (27) — aucun garde-fou détecté automatiquement
 
 Vérifier que chacune est intentionnellement publique. Routes d'auth/OAuth/webhook = normales.
 
@@ -62,7 +60,6 @@ Vérifier que chacune est intentionnellement publique. Routes d'auth/OAuth/webho
 | `/api/demande-acces` | GET POST | `app/api/demande-acces/route.ts` |
 | `/api/geo` | GET | `app/(dashboard)/api/geo/route.ts` |
 | `/api/geocode/reverse` | GET | `app/api/geocode/reverse/route.ts` |
-| `/api/jobroom/post` | POST | `app/api/jobroom/post/route.ts` |
 | `/api/metier-categories` | GET PUT | `app/(dashboard)/api/metier-categories/route.ts` |
 | `/api/metiers` | GET PUT | `app/(dashboard)/api/metiers/route.ts` |
 | `/api/microsoft/callback` | GET | `app/(dashboard)/api/microsoft/callback/route.ts` |
@@ -308,7 +305,7 @@ Vérifier que chacune est intentionnellement publique. Routes d'auth/OAuth/webho
 
 | Route | Méthodes | Accès |
 |---|---|---|
-| `/api/jobroom/post` | POST | ⚠️ PUBLIC ? |
+| `/api/jobroom/post` | POST | AUTH |
 
 ## logs (1)
 

@@ -105,7 +105,11 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.12.1** — 19/06/2026 (Alertes cloche : masquer/vider · tests cœur métier · matrice routes API + README)
+**v2.12.2** — 19/06/2026 (Sécurité : `requireAuth()` sur `/api/jobroom/post`)
+
+### v2.12.2 (19/06) — Fix sécurité : `/api/jobroom/post` protégé
+
+Faille trouvée par l'audit routes (v2.12.1) : `POST /api/jobroom/post` n'avait **aucun garde-fou** → n'importe qui pouvait poster une annonce sur Job-Room avec les identifiants SECO de L-Agence. Ajout de `requireAuth()` (pattern standard). Matrice mise à jour (`docs/API-ROUTES-MATRIX.md`).
 
 ### v2.12.1 (19/06) — Alertes missions masquables + audit (tests, matrice routes, README)
 

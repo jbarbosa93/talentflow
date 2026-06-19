@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth-guard'
 
 const API_URL = process.env.JOBROOM_API_URL || 'https://api.job-room.ch/jobAdvertisements/v1'
 const USERNAME = process.env.JOBROOM_USERNAME
 const PASSWORD = process.env.JOBROOM_PASSWORD
 
 export async function POST(req: NextRequest) {
+  // v2.12.2 — Garde-fou (audit routes 19/06) : poste une annonce externe avec les
+  // identifiants SECO de L-Agence → réservé aux utilisateurs connectés.
+  const authError = await requireAuth()
+  if (authError) return authError
+
   if (!USERNAME || !PASSWORD || USERNAME === 'votre_username') {
     return NextResponse.json({
       error: 'Job-Room non configuré. Contactez jobroom-api@seco.admin.ch pour obtenir vos credentials, puis ajoutez JOBROOM_USERNAME et JOBROOM_PASSWORD dans .env.local'
