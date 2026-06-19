@@ -105,7 +105,13 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.12.0** — 18/06/2026 (Missions : durée rapide + projection ETP + alertes cloche · pack 4 bugs)
+**v2.12.1** — 19/06/2026 (Alertes cloche : masquer/vider · tests cœur métier · matrice routes API + README)
+
+### v2.12.1 (19/06) — Alertes missions masquables + audit (tests, matrice routes, README)
+
+- **Alertes cloche masquables** (`components/NotificationBell.tsx`) : les sections **🔚 Fins de mission** et **📄 Rapports manquants** (calculées serveur, donc pas de PATCH) ont désormais une **croix ×** par ligne + un bouton **« Vider »** par section. Masquage persisté en **localStorage** (`tf_mission_alerts_dismissed_v1`, clé par `mission_id`) → permanent, ne revient plus chaque jour. ⚠️ Par navigateur (pas synchro mobile — migration DB possible si besoin).
+- **Tests cœur métier (Vitest)** : `npm test` / `test:watch` / `typecheck` ajoutés. 80 tests purs figeant les règles métier absolues : `lib/__tests__/{candidat-matching,document-classification,merge-candidat}.test.ts` + `lib/sign/__tests__/pointage.test.ts`. Vitest = devDependency (zéro impact bundle). Commit `88281d0`.
+- **Audit (lecture seule)** : `docs/API-ROUTES-MATRIX.md` (242 routes générées + triage). 🔴 **1 faille trouvée** : `/api/jobroom/post` sans garde-fou (POST anonyme vers Job-Room avec creds SECO) → **à corriger** (`requireAuth()`). `/api/rapport-heures` à confirmer. README par défaut Next.js remplacé par un vrai README TalentFlow.
 
 ### v2.12.0 (18/06) — Missions (durée rapide, projection ETP, alertes cloche) + pack bugs
 

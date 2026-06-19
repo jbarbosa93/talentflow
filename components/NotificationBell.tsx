@@ -70,6 +70,19 @@ export function NotificationBell() {
   const bellRef = useRef<HTMLButtonElement | null>(null)
   const queryClient = useQueryClient()
 
+  // v2.12.1 — Masquage local des alertes missions (calculées côté serveur, donc
+  // pas de PATCH possible). Persisté en localStorage par mission_id → ne revient
+  // plus. Clés : `fin:<mission_id>` / `rap:<mission_id>`. João seul (alertes gated).
+  const DISMISS_KEY = 'tf_mission_alerts_dismissed_v1'
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set()
+    try { return new Set(JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]')) } catch { return new Set() }
+  })
+  const persistDismissed = useCallback((next: Set<string>) => {
+    setDismissed(next)
+    try { localStorage.setItem(DISMISS_KEY, JSON.stringify([...next])) } catch { /* quota/private mode */ }
+  }, [])
+
   const { data: pipelineData } = useQuery({
     queryKey: ['notif-bell-pipeline'],
     queryFn: async () => {
@@ -119,9 +132,28 @@ export function NotificationBell() {
   const pipelineRappels: PipelineRappel[] = pipelineData?.rappels ?? []
   const entretienRappels: EntretienRappel[] = entretienData?.rappels ?? []
   const documentAlerts: DocumentAlertLite[] = documentData?.alerts ?? []
-  const finsMission: FinMissionAlert[] = missionData?.finsMission ?? []
-  const rapportsManquants: RapportManquantAlert[] = missionData?.rapportsManquants ?? []
+  const finsMissionAll: FinMissionAlert[] = missionData?.finsMission ?? []
+  const rapportsManquantsAll: RapportManquantAlert[] = missionData?.rapportsManquants ?? []
+  // Filtre masquages locaux
+  const finsMission = finsMissionAll.filter(a => !dismissed.has(`fin:${a.mission_id}`))
+  const rapportsManquants = rapportsManquantsAll.filter(a => !dismissed.has(`rap:${a.mission_id}`))
   const total = pipelineRappels.length + entretienRappels.length + documentAlerts.length + finsMission.length + rapportsManquants.length
+
+  // Masquer une alerte mission (× sur la ligne)
+  const dismissMissionAlert = useCallback((key: string) => {
+    persistDismissed(new Set(dismissed).add(key))
+  }, [dismissed, persistDismissed])
+  // Vider toutes les alertes d'une catégorie (bouton « Vider »)
+  const clearFinsMission = useCallback(() => {
+    const next = new Set(dismissed)
+    finsMission.forEach(a => next.add(`fin:${a.mission_id}`))
+    persistDismissed(next)
+  }, [dismissed, finsMission, persistDismissed])
+  const clearRapportsManquants = useCallback(() => {
+    const next = new Set(dismissed)
+    rapportsManquants.forEach(a => next.add(`rap:${a.mission_id}`))
+    persistDismissed(next)
+  }, [dismissed, rapportsManquants, persistDismissed])
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['notif-bell-pipeline'] })
@@ -222,6 +254,9 @@ export function NotificationBell() {
           onValidatePipeline={validatePipeline}
           onDismissEntretien={dismissEntretien}
           onValidateEntretien={validateEntretien}
+          onDismissMission={dismissMissionAlert}
+          onClearFinsMission={clearFinsMission}
+          onClearRapportsManquants={clearRapportsManquants}
         />,
         document.body,
       )}
@@ -232,6 +267,7 @@ export function NotificationBell() {
 function NotifPopover({
   bellRect, pipelineRappels, entretienRappels, documentAlerts, finsMission, rapportsManquants, onClose,
   onDismissPipeline, onValidatePipeline, onDismissEntretien, onValidateEntretien,
+  onDismissMission, onClearFinsMission, onClearRapportsManquants,
 }: {
   bellRect: DOMRect
   pipelineRappels: PipelineRappel[]
@@ -244,6 +280,9 @@ function NotifPopover({
   onValidatePipeline: (id: string) => void
   onDismissEntretien: (id: string) => void
   onValidateEntretien: (id: string) => void
+  onDismissMission: (key: string) => void
+  onClearFinsMission: () => void
+  onClearRapportsManquants: () => void
 }) {
   const W = 380
   const H_MAX = 480
@@ -292,9 +331,9 @@ function NotifPopover({
             <>
               {finsMission.length > 0 && (
                 <div>
-                  <SectionHeader icon={CalendarClock} label="Fins de mission" count={finsMission.length} />
+                  <SectionHeader icon={CalendarClock} label="Fins de mission" count={finsMission.length} onClear={onClearFinsMission} />
                   {finsMission.map(a => (
-                    <FinMissionRow key={a.mission_id} alert={a} />
+                    <FinMissionRow key={a.mission_id} alert={a} onDismiss={() => onDismissMission(`fin:${a.mission_id}`)} />
                   ))}
                   <div style={{ padding: '8px 14px', textAlign: 'center', fontSize: 11 }}>
                     <Link href="/missions" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 700 }}>
@@ -305,9 +344,9 @@ function NotifPopover({
               )}
               {rapportsManquants.length > 0 && (
                 <div>
-                  <SectionHeader icon={FileWarning} label="Rapports manquants" count={rapportsManquants.length} />
+                  <SectionHeader icon={FileWarning} label="Rapports manquants" count={rapportsManquants.length} onClear={onClearRapportsManquants} />
                   {rapportsManquants.map(a => (
-                    <RapportManquantRow key={a.mission_id} alert={a} />
+                    <RapportManquantRow key={a.mission_id} alert={a} onDismiss={() => onDismissMission(`rap:${a.mission_id}`)} />
                   ))}
                 </div>
               )}
@@ -422,8 +461,26 @@ function DocumentAlertRow({ alert }: { alert: DocumentAlertLite }) {
   )
 }
 
-// v2.12 — Ligne « fin de mission » (lecture seule, se résout quand João renouvelle/passe en indéterminée)
-function FinMissionRow({ alert }: { alert: FinMissionAlert }) {
+// v2.12.1 — Bouton croix pour masquer une alerte mission (localStorage)
+function DismissX({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDismiss() }}
+      title="Masquer cette alerte"
+      style={{
+        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+        border: '1px solid var(--border)', background: 'var(--card)',
+        color: 'var(--muted-foreground)', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <X size={12} />
+    </button>
+  )
+}
+
+// v2.12 — Ligne « fin de mission » (+ v2.12.1 croix de masquage local)
+function FinMissionRow({ alert, onDismiss }: { alert: FinMissionAlert; onDismiss: () => void }) {
   let statusText = ''
   let statusColor = 'var(--muted-foreground)'
   if (alert.severity === 'expired') {
@@ -460,12 +517,13 @@ function FinMissionRow({ alert }: { alert: FinMissionAlert }) {
         </div>
         <ChevronRight size={12} color="var(--muted-foreground)" style={{ marginTop: 4, flexShrink: 0 }} />
       </Link>
+      <DismissX onDismiss={onDismiss} />
     </div>
   )
 }
 
-// v2.12 — Ligne « rapport manquant » (mission indéterminée, candidat lié aux rapports, sans soumission récente)
-function RapportManquantRow({ alert }: { alert: RapportManquantAlert }) {
+// v2.12 — Ligne « rapport manquant » (+ v2.12.1 croix de masquage local)
+function RapportManquantRow({ alert, onDismiss }: { alert: RapportManquantAlert; onDismiss: () => void }) {
   const sub = [alert.metier, alert.client_nom].filter(Boolean).join(' · ')
   const statusText = alert.last_report
     ? `Dernier rapport il y a ${alert.days_since}j`
@@ -488,15 +546,31 @@ function RapportManquantRow({ alert }: { alert: RapportManquantAlert }) {
         </div>
         <ChevronRight size={12} color="var(--muted-foreground)" style={{ marginTop: 4, flexShrink: 0 }} />
       </Link>
+      <DismissX onDismiss={onDismiss} />
     </div>
   )
 }
 
-function SectionHeader({ icon: Icon, label, count }: { icon: React.ElementType; label: string; count: number }) {
+function SectionHeader({ icon: Icon, label, count, onClear }: { icon: React.ElementType; label: string; count: number; onClear?: () => void }) {
   return (
     <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--secondary)', borderBottom: '1px solid var(--border)' }}>
       <Icon size={11} />
-      {label} <span style={{ marginLeft: 'auto', color: 'var(--destructive)', fontSize: 10, fontWeight: 800 }}>{count}</span>
+      {label}
+      <span style={{ marginLeft: 'auto', color: 'var(--destructive)', fontSize: 10, fontWeight: 800 }}>{count}</span>
+      {onClear && (
+        <button
+          onClick={onClear}
+          title="Masquer toutes ces alertes"
+          style={{
+            border: '1px solid var(--border)', background: 'var(--card)', cursor: 'pointer',
+            color: 'var(--muted-foreground)', fontSize: 9, fontWeight: 700, fontFamily: 'inherit',
+            padding: '2px 6px', borderRadius: 5, textTransform: 'none', letterSpacing: 0,
+            display: 'flex', alignItems: 'center', gap: 3,
+          }}
+        >
+          <X size={9} /> Vider
+        </button>
+      )}
     </div>
   )
 }
