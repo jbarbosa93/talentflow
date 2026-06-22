@@ -23,7 +23,13 @@ export function getPortalToken(): string | null {
   try { return localStorage.getItem(TOKEN_KEY) } catch { return null }
 }
 export function clearPortalToken(): void {
-  try { localStorage.removeItem(TOKEN_KEY) } catch { /* noop */ }
+  try {
+    localStorage.removeItem(TOKEN_KEY)
+    // v2.13.10 — efface aussi le raccourci "dernier rapport ouvert" : sinon après
+    // déconnexion, /report y redirige direct (lien public par slug) → l'utilisateur
+    // paraît encore connecté à la réouverture.
+    localStorage.removeItem('tf_report_last')
+  } catch { /* noop */ }
 }
 
 /**
