@@ -34,11 +34,15 @@ export default function PortalBottomNav() {
 
   // Réserve l'espace en bas SEULEMENT quand la barre est visible (ne touche pas
   // les autres pages : pas de padding inutile sur login/client).
+  // v2.13.16 — On pose une VARIABLE CSS (--tf-nav-pad) lue par le conteneur de
+  // scroll de la coque (app/report/layout.tsx), au lieu de body.paddingBottom :
+  // le body est désormais figé (overflow:hidden) → un padding sur lui rétrécirait
+  // la coque. La variable réserve l'espace dans le scroll, sans rien casser.
   const visible = !hidden && ready
   useEffect(() => {
     if (visible) {
-      document.body.style.paddingBottom = 'calc(66px + max(10px, env(safe-area-inset-bottom, 0px)))'
-      return () => { document.body.style.paddingBottom = '' }
+      document.documentElement.style.setProperty('--tf-nav-pad', 'calc(66px + max(10px, env(safe-area-inset-bottom, 0px)))')
+      return () => { document.documentElement.style.removeProperty('--tf-nav-pad') }
     }
   }, [visible])
 

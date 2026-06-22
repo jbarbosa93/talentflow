@@ -76,13 +76,15 @@ export default function ReportPublicLayout({ children }: { children: React.React
         className={jakarta.variable}
         style={{
           margin: 0,
-          // v2.13.15 — Le BODY défile (modèle d'origine, requis par PortalBottomNav
-          // qui réserve sa place via body.paddingBottom). 100dvh = écran réel iOS.
-          // paddingTop safe-area UNE SEULE FOIS ici (les pages ne le remettent plus).
-          // overscroll-behavior:none tue le rubber-band → pas de bande vide.
-          minHeight: '100dvh',
-          paddingTop: 'env(safe-area-inset-top, 0px)',
-          overscrollBehaviorY: 'none',
+          // v2.13.16 — Coque d'app figée : le body fait exactement 100dvh et NE DÉFILE
+          // JAMAIS (overflow:hidden) → aucun rubber-band iOS → aucune bande crème vide.
+          // Le SEUL élément qui défile = le conteneur .tf-scroll (flex:1) entre la
+          // Dynamic Island (paddingTop safe-area) et la bottom nav fixe (paddingBottom
+          // = var --tf-nav-pad posée par PortalBottomNav). Bottom nav + blur = fixes.
+          height: '100dvh',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
           background: '#FAFAF7',
           // v2.10.17 — Portail conçu en clair uniquement : empêche Android Chrome
           // (Auto Dark Theme) / iOS d'inverser les couleurs (sinon signature au
@@ -122,7 +124,19 @@ export default function ReportPublicLayout({ children }: { children: React.React
           .tf-press { transition: transform .12s ease, box-shadow .12s ease; }
           .tf-press:active { transform: scale(0.96); }
         `}</style>
-        {children}
+        {/* v2.13.16 — Conteneur de scroll UNIQUE (le body est figé). paddingTop pour
+            passer sous la Dynamic Island, paddingBottom pour la bottom nav fixe. */}
+        <div style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'none',
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingBottom: 'var(--tf-nav-pad, 0px)',
+        }}>
+          {children}
+        </div>
         {/* v2.9.35 — PWA : enregistrement SW. v2.10.13 — Bandeau « Installer
             l'application » retiré : on a désormais l'app native TalentFlow Sign ;
             le web reste pour les missions ponctuelles. */}
