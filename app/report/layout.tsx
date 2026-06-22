@@ -76,7 +76,10 @@ export default function ReportPublicLayout({ children }: { children: React.React
         className={jakarta.variable}
         style={{
           margin: 0,
-          minHeight: '100vh',
+          // v2.13.10 — 100dvh (viewport dynamique = écran réel) au lieu de 100vh :
+          // en WKWebView iOS, 100vh est plus GRAND que l'écran visible → la page
+          // dépassait → scroll révélant une bande crème vide en haut/bas.
+          minHeight: '100dvh',
           background: '#FAFAF7',
           // v2.10.17 — Portail conçu en clair uniquement : empêche Android Chrome
           // (Auto Dark Theme) / iOS d'inverser les couleurs (sinon signature au

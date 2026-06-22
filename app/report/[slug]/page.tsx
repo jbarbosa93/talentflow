@@ -707,7 +707,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   if (phase === 'landing') {
     return (
       <div style={{
-        minHeight: '100vh', overflowX: 'hidden',
+        minHeight: '100dvh', overflowX: 'hidden',
         background: '#FAFAF7',
         fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
         paddingBottom: 100,
@@ -849,7 +849,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   if (phase === 'select_client') {
     return (
       <div style={{
-        minHeight: '100vh', overflowX: 'hidden',
+        minHeight: '100dvh', overflowX: 'hidden',
         background: '#FAFAF7',
         fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
         paddingBottom: 100,
@@ -974,7 +974,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div style={{
-      minHeight: '100vh', overflowX: 'hidden',
+      minHeight: '100dvh', overflowX: 'hidden',
       background: '#FAFAF7',
       fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
       paddingTop: 'env(safe-area-inset-top, 0)',
@@ -1628,7 +1628,7 @@ function desktopSecondaryBtn(disabled: boolean): React.CSSProperties {
 function CenteredCard({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      minHeight: '100vh', overflowX: 'hidden',
+      minHeight: '100dvh', overflowX: 'hidden',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: 24, background: '#FAFAF7',
       fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
