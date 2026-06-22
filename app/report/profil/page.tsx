@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, MapPin, Phone, Mail, Briefcase, Cake } from 'lucide-react'
 import PortalLogoHeader from '@/components/report/PortalLogoHeader'
+import { fetchPortalSession } from '@/lib/report/session-fetch'
 
 interface Profile {
   prenom: string; nom: string; email: string; telephone: string; telephone_2: string
@@ -34,7 +35,7 @@ export default function ProfilPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/portal/profile')
+    fetchPortalSession('/api/portal/profile')
       .then(r => { if (r.status === 401) { router.replace('/report/login'); return null } return r.json() })
       .then(d => { if (d?.profile) setP(d.profile) })
       .catch(() => {})

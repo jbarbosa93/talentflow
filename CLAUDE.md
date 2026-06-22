@@ -105,7 +105,11 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.13.3** — 22/06/2026 (Fix racine app iOS : cookie session `SameSite=None` pour l'app — WKWebView cross-site)
+**v2.13.4** — 22/06/2026 (Fix app iOS : tous les onglets portail retentent un 401 transitoire)
+
+### v2.13.4 (22/06) — Onglets portail résilients au 401 (helper fetchPortalSession)
+
+L'onglet **Accueil** (`/report/accueil`) déconnectait sur 401 (« Indisponible » puis logout) — non durci en v2.13.2. Helper `lib/report/session-fetch.ts` `fetchPortalSession()` (retente un 401 transitoire ≤3× 350ms avec `credentials:'include'`) appliqué à `accueil`, `profil`, `documents`. Complète SameSite=None (v2.13.3) : plus aucun point de déconnexion non durci.
 
 ### v2.13.3 (22/06) — Cookie portail SameSite=None pour l'app (vraie cause WKWebView)
 

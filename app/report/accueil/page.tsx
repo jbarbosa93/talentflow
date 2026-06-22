@@ -11,6 +11,7 @@ import CandidatWelcomeHeader from '@/components/report/CandidatWelcomeHeader'
 import ContactAgenceButton from '@/components/report/ContactAgenceButton'
 import AppComingSoonBanner from '@/components/report/AppComingSoonBanner'
 import RecapPeriode from '@/components/report/RecapPeriode'
+import { fetchPortalSession } from '@/lib/report/session-fetch'
 
 interface Company { name: string; contact_name: string; contact_phone: string; start: string | null; end: string | null }
 interface Data {
@@ -46,7 +47,7 @@ export default function AccueilPage() {
   const [showRecap, setShowRecap] = useState(false)
 
   useEffect(() => {
-    fetch('/api/portal/profile')
+    fetchPortalSession('/api/portal/profile')
       .then(r => { if (r.status === 401) { router.replace('/report/login'); return null } return r.json() })
       .then(j => { if (j?.profile) setD(j) })
       .catch(() => {})

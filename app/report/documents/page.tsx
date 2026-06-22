@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, FolderOpen, Eye, Plus, UploadCloud, X, FileText, CheckCircle2, AlertTriangle, Camera } from 'lucide-react'
 import PortalLogoHeader from '@/components/report/PortalLogoHeader'
+import { fetchPortalSession } from '@/lib/report/session-fetch'
 
 interface Doc { id: string; label: string; type_name: string; status: string | null; expiry_date: string | null; hasRecto: boolean; hasVerso: boolean }
 interface DocType { id: string; name: string; requires_expiry: boolean }
@@ -36,7 +37,7 @@ export default function DocumentsPage() {
   const [versoName, setVersoName] = useState('')
 
   function load() {
-    fetch('/api/portal/documents')
+    fetchPortalSession('/api/portal/documents')
       .then(r => { if (r.status === 401) { router.replace('/report/login'); return null } return r.json() })
       .then(d => { if (d) { setDocs(d.documents || []); setTypes(d.types || []) } })
       .catch(() => {})
