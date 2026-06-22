@@ -76,12 +76,13 @@ export default function ReportPublicLayout({ children }: { children: React.React
         className={jakarta.variable}
         style={{
           margin: 0,
-          // v2.13.12 — Coque NON-scrollable : le body fait exactement la hauteur
-          // d'écran (100dvh) et ne défile JAMAIS ; le scroll est dans le conteneur
-          // interne (.tf-scroll) ci-dessous. Élimine le rubber-band iOS et la bande
-          // crème vide qui apparaissait en haut/bas.
-          height: '100dvh',
-          overflow: 'hidden',
+          // v2.13.15 — Le BODY défile (modèle d'origine, requis par PortalBottomNav
+          // qui réserve sa place via body.paddingBottom). 100dvh = écran réel iOS.
+          // paddingTop safe-area UNE SEULE FOIS ici (les pages ne le remettent plus).
+          // overscroll-behavior:none tue le rubber-band → pas de bande vide.
+          minHeight: '100dvh',
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          overscrollBehaviorY: 'none',
           background: '#FAFAF7',
           // v2.10.17 — Portail conçu en clair uniquement : empêche Android Chrome
           // (Auto Dark Theme) / iOS d'inverser les couleurs (sinon signature au
@@ -111,8 +112,9 @@ export default function ReportPublicLayout({ children }: { children: React.React
         }} />
         {/* v2.10.38 — Animations légères du portail candidat (fade-in + tap). */}
         <style>{`
-          /* v2.13.12 — Fond crème partout (aucune zone blanche possible). */
-          html, body { background: #FAFAF7; }
+          /* v2.13.15 — Fond crème partout + overscroll-behavior:none (bloque le
+             rubber-band iOS sur le document → plus de bande crème vide en haut/bas). */
+          html, body { background: #FAFAF7; overscroll-behavior: none; }
           @keyframes tfFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
           @keyframes tfPopIn { 0% { opacity: 0; transform: scale(0.92); } 60% { transform: scale(1.03); } 100% { opacity: 1; transform: scale(1); } }
           .tf-fadeup { animation: tfFadeUp .45s cubic-bezier(0.22,1,0.36,1) both; }
@@ -120,19 +122,7 @@ export default function ReportPublicLayout({ children }: { children: React.React
           .tf-press { transition: transform .12s ease, box-shadow .12s ease; }
           .tf-press:active { transform: scale(0.96); }
         `}</style>
-        {/* v2.13.12 — Conteneur de scroll interne : SEUL élément qui défile (le body
-            est figé à 100dvh). paddingTop pour passer sous la Dynamic Island.
-            overscroll-behavior:none + le fait que ce ne soit pas le document →
-            plus de rubber-band ni de bande vide en haut/bas. */}
-        <div style={{
-          height: '100%',
-          overflowY: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          overscrollBehavior: 'none',
-          paddingTop: 'env(safe-area-inset-top, 0px)',
-        }}>
-          {children}
-        </div>
+        {children}
         {/* v2.9.35 — PWA : enregistrement SW. v2.10.13 — Bandeau « Installer
             l'application » retiré : on a désormais l'app native TalentFlow Sign ;
             le web reste pour les missions ponctuelles. */}
