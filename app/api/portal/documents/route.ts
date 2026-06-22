@@ -12,20 +12,26 @@ import { uploadComplianceFile } from '@/lib/compliance/storage'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-async function resolveCandidateId(): Promise<string | null> {
+// v2.13.7 — { authed } distingue « pas connecté » (401) de « connecté sans
+// candidat lié » (candidateId null → 200 vide, pas de logout).
+async function resolveCandidateId(): Promise<{ authed: boolean; candidateId: string | null }> {
   const jwt = await getPortalJwt('candidat')
-  if (!jwt) return null
-  const session = await verifySession(jwt)
-  if (!session || session.accountType !== 'candidat' || !session.reportLinkId) return null
-  const admin = createAdminClient()
-  const { data: link } = await (admin as any)
-    .from('report_links').select('candidat_id').eq('id', session.reportLinkId).maybeSingle()
-  return (link?.candidat_id as string) || null
+  const session = jwt ? await verifySession(jwt) : null
+  if (!session || session.accountType !== 'candidat') return { authed: false, candidateId: null }
+  let candidateId: string | null = null
+  if (session.reportLinkId) {
+    const admin = createAdminClient()
+    const { data: link } = await (admin as any)
+      .from('report_links').select('candidat_id').eq('id', session.reportLinkId).maybeSingle()
+    candidateId = (link?.candidat_id as string) || null
+  }
+  return { authed: true, candidateId }
 }
 
 export async function GET() {
-  const candidateId = await resolveCandidateId()
-  if (!candidateId) return NextResponse.json({ error: 'non connecté' }, { status: 401 })
+  const { authed, candidateId } = await resolveCandidateId()
+  if (!authed) return NextResponse.json({ error: 'non connecté' }, { status: 401 })
+  if (!candidateId) return NextResponse.json({ documents: [], types: [] }) // connecté sans candidat lié
 
   const [docs, types] = await Promise.all([getCandidatDocuments(candidateId), getAllDocumentTypes()])
   const documents = (docs || []).map((d: any) => ({
@@ -45,8 +51,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const candidateId = await resolveCandidateId()
-  if (!candidateId) return NextResponse.json({ error: 'non connecté' }, { status: 401 })
+  const { authed, candidateId } = await resolveCandidateId()
+  if (!authed) return NextResponse.json({ error: 'non connecté' }, { status: 401 })
+  if (!candidateId) return NextResponse.json({ error: 'Aucun candidat lié à ce compte' }, { status: 400 })
 
   const form = await req.formData().catch(() => null)
   if (!form) return NextResponse.json({ error: 'Requête invalide' }, { status: 400 })

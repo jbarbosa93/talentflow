@@ -10,25 +10,34 @@ import { verifySession, getPortalJwt } from '@/lib/portal-auth'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-async function resolveContext(): Promise<{ candidateId: string; reportLinkId: string; slug: string } | null> {
+// v2.13.7 — Distingue « pas authentifié » (→ 401, déconnexion légitime) de
+// « authentifié mais aucun candidat lié » (→ candidateId null, on renverra 200
+// vide → la page reste connectée et affiche « pas de rapport », PAS de logout).
+async function resolveContext(): Promise<{ authed: boolean; candidateId: string | null; reportLinkId: string; slug: string } | null> {
   const jwt = await getPortalJwt('candidat')
-  if (!jwt) return null
-  const session = await verifySession(jwt)
-  if (!session || session.accountType !== 'candidat' || !session.reportLinkId) return null
-  const admin = createAdminClient()
-  const { data: link } = await (admin as any)
-    .from('report_links')
-    .select('candidat_id, slug')
-    .eq('id', session.reportLinkId)
-    .maybeSingle()
-  if (!link?.candidat_id) return null
-  return { candidateId: link.candidat_id as string, reportLinkId: session.reportLinkId, slug: (link.slug as string) || '' }
+  const session = jwt ? await verifySession(jwt) : null
+  if (!session || session.accountType !== 'candidat') return null // vraiment pas connecté
+  let candidateId: string | null = null
+  let slug = ''
+  if (session.reportLinkId) {
+    const admin = createAdminClient()
+    const { data: link } = await (admin as any)
+      .from('report_links')
+      .select('candidat_id, slug')
+      .eq('id', session.reportLinkId)
+      .maybeSingle()
+    candidateId = (link?.candidat_id as string) || null
+    slug = (link?.slug as string) || ''
+  }
+  return { authed: true, candidateId, reportLinkId: session.reportLinkId || '', slug }
 }
 
 export async function GET() {
   const ctx = await resolveContext()
   if (!ctx) return NextResponse.json({ error: 'non connecté' }, { status: 401 })
-  const { candidateId, reportLinkId, slug } = ctx
+  // Connecté mais aucun candidat lié au lien → 200 vide (la page reste connectée).
+  if (!ctx.candidateId) return NextResponse.json({ profile: null, reports: { count: 0, last: null }, companies: [] })
+  const { candidateId, reportLinkId, slug } = ctx as { candidateId: string; reportLinkId: string; slug: string }
 
   const admin = createAdminClient()
   const { data: c } = await (admin as any)

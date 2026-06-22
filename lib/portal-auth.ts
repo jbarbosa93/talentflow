@@ -126,15 +126,6 @@ export async function getPortalJwt(type: AccountType): Promise<string | null> {
   try {
     const h = await headers()
     const auth = h.get('authorization')
-    // ⚠️ DIAG TEMPORAIRE (v2.13.7) — à retirer. Trace UA app + présence du Bearer.
-    try {
-      const ua = h.get('user-agent') || ''
-      console.log('[AUTH-DIAG]', JSON.stringify({
-        type, app: /TalentFlowSignApp/.test(ua),
-        bearer: !!(auth && /^Bearer\s+/i.test(auth)),
-        ua: ua.slice(0, 80),
-      }))
-    } catch { /* noop */ }
     if (auth && /^Bearer\s+/i.test(auth)) {
       const t = auth.replace(/^Bearer\s+/i, '').trim()
       if (t) return t
