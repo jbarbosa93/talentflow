@@ -17,7 +17,7 @@ export default function AuthLayout({ children, title, subtitle }: Props) {
       // v2.13.13 — 100dvh (écran réel iOS) + contenu aligné EN HAUT (avant : centré
       // verticalement → grande bande crème vide au-dessus de la carte sur les pages
       // hautes comme « Mon compte »). Centrage vertical retiré.
-      minHeight: '100dvh',
+      minHeight: '100%',
       background: '#FAFAF7',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start',
       padding: '32px 16px 24px',

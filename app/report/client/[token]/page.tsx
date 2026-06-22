@@ -373,10 +373,9 @@ export default function PublicClientReportPage({
 
   return (
     <div style={{
-      minHeight: '100dvh',
+      minHeight: '100%',
       background: '#FAFAF7',
       fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
-      paddingTop: 'env(safe-area-inset-top, 0)',
       display: 'flex',
       flexDirection: 'column',
     }}>
@@ -947,7 +946,7 @@ function NotesClientModal({ value, onChange, saving, onSave, onClose }: {
 function CenteredCard({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      minHeight: '100dvh',
+      minHeight: '100%',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: 24, background: '#FAFAF7',
       fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
