@@ -37,7 +37,14 @@ export default function HelpGuideModal({ open, onClose, hasTimbreuse = true }: {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // v2.13.9 — verrouille le scroll de la page derrière le guide (sinon le fond
+    // défile sous le modal sur mobile).
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
   }, [open, onClose])
 
   if (!mounted || !open) return null
@@ -113,8 +120,8 @@ export default function HelpGuideModal({ open, onClose, hasTimbreuse = true }: {
           )}
         </div>
 
-        {/* Footer */}
-        <div style={{ flexShrink: 0, padding: '12px 18px', borderTop: '1px solid #E5E7EB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        {/* Footer — v2.13.9 : paddingBottom safe-area (boutons coupés par la barre home iPhone). */}
+        <div style={{ flexShrink: 0, padding: '12px 18px', paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))', borderTop: '1px solid #E5E7EB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
           <a
             href="https://wa.me/41762979795?text=Bonjour%2C%20j%27ai%20une%20question%20sur%20mon%20rapport%20d%27heures."
             target="_blank" rel="noopener noreferrer"

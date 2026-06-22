@@ -29,21 +29,44 @@ export default function CandidatWelcomeHeader({ prenom, actions }: Props) {
     setGreeting(getWelcomeGreeting(prenom))
   }, [prenom])
 
+  // v2.13.9 — Météo : on ne demande la position qu'UNE SEULE FOIS (WKWebView ne
+  // mémorise pas l'autorisation → sans cache, le prompt revient à chaque ouverture).
+  // On cache les coords (réutilisées pour rafraîchir la météo sans re-prompt) + la
+  // météo (< 1 h → affichage instantané).
   useEffect(() => {
+    const COORDS_KEY = 'tf_weather_coords'
+    const WEATHER_KEY = 'tf_weather_cache'
+    const fetchWeather = async (lat: number, lng: number) => {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}&current=temperature_2m,weathercode&timezone=auto`
+        const r = await fetch(url, { cache: 'no-store' })
+        if (!r.ok) return
+        const j = await r.json()
+        const temp = Math.round(j?.current?.temperature_2m)
+        const lbl = weatherLabel(j?.current?.weathercode)
+        if (!Number.isFinite(temp) || !lbl) return
+        const w = { temp, emoji: lbl.emoji, text: lbl.text }
+        setWeather(w)
+        try { localStorage.setItem(WEATHER_KEY, JSON.stringify({ ...w, ts: Date.now() })) } catch { /* quota */ }
+      } catch { /* silent */ }
+    }
+    // 1) météo en cache (< 1 h) → affichage direct, ni géoloc ni fetch
+    try {
+      const cw = JSON.parse(localStorage.getItem(WEATHER_KEY) || 'null')
+      if (cw && Date.now() - cw.ts < 3600_000) { setWeather({ temp: cw.temp, emoji: cw.emoji, text: cw.text }); return }
+    } catch { /* ignore */ }
+    // 2) coords en cache → rafraîchit la météo SANS redemander la position
+    try {
+      const cc = JSON.parse(localStorage.getItem(COORDS_KEY) || 'null')
+      if (cc && Number.isFinite(cc.lat) && Number.isFinite(cc.lng)) { fetchWeather(cc.lat, cc.lng); return }
+    } catch { /* ignore */ }
+    // 3) 1re fois SEULEMENT → demande la position une fois et cache les coords
     if (typeof navigator === 'undefined' || !navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const url = `https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude.toFixed(3)}&longitude=${pos.coords.longitude.toFixed(3)}&current=temperature_2m,weathercode&timezone=auto`
-          const r = await fetch(url, { cache: 'no-store' })
-          if (!r.ok) return
-          const j = await r.json()
-          const temp = Math.round(j?.current?.temperature_2m)
-          const code = j?.current?.weathercode
-          const lbl = weatherLabel(code)
-          if (!Number.isFinite(temp) || !lbl) return
-          setWeather({ temp, emoji: lbl.emoji, text: lbl.text })
-        } catch { /* silent */ }
+      (pos) => {
+        const lat = pos.coords.latitude, lng = pos.coords.longitude
+        try { localStorage.setItem(COORDS_KEY, JSON.stringify({ lat, lng })) } catch { /* quota */ }
+        fetchWeather(lat, lng)
       },
       () => { /* refus silencieux */ },
       { timeout: 5000, maximumAge: 30 * 60 * 1000 },

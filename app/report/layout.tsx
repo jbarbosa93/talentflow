@@ -10,6 +10,7 @@ import PushRegister from '@/components/report/PushRegister'
 import InAppMessage from '@/components/report/InAppMessage'
 import PortalBottomNav from '@/components/report/PortalBottomNav'
 import AppAuthInit from '@/components/report/AppAuthInit'
+import { Toaster } from 'sonner'
 
 const jakarta = DM_Sans({
   subsets: ['latin'],
@@ -109,6 +110,11 @@ export default function ReportPublicLayout({ children }: { children: React.React
         }} />
         {/* v2.10.38 — Animations légères du portail candidat (fade-in + tap). */}
         <style>{`
+          /* v2.13.9 — Bloque le rubber-band iOS (sinon une grande bande vide
+             apparaît en haut/bas quand on tire au-delà du contenu) + fond crème
+             sur html pour qu'aucune zone blanche ne se révèle. No-op sur Android. */
+          html, body { background: #FAFAF7; overscroll-behavior: none; }
+          html { height: 100%; }
           @keyframes tfFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
           @keyframes tfPopIn { 0% { opacity: 0; transform: scale(0.92); } 60% { transform: scale(1.03); } 100% { opacity: 1; transform: scale(1); } }
           .tf-fadeup { animation: tfFadeUp .45s cubic-bezier(0.22,1,0.36,1) both; }
@@ -122,6 +128,8 @@ export default function ReportPublicLayout({ children }: { children: React.React
             le web reste pour les missions ponctuelles. */}
         {/* v2.13.6 — Active l'auth par token (Bearer) dans l'app native iOS (tôt). */}
         <AppAuthInit />
+        {/* v2.13.9 — Toasts (confirmation changement mdp, etc.) — manquait sur /report. */}
+        <Toaster position="top-center" richColors offset={56} />
         <ServiceWorkerRegister />
         <PushRegister />
         {/* v2.10.26 — Message riche in-app (modal + animation festive) au chargement */}
