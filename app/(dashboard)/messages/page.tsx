@@ -528,14 +528,19 @@ function ClientPickerModal({
 
   const newCount = [...selected].filter(e => !alreadySelected.includes(e)).length
 
-  return (
+  // v2.13.x — Pattern #10 : modale position:fixed TOUJOURS via createPortal(document.body).
+  // Sans ça, un ancêtre avec transform/filter casse le fixed → modale coupée en bas et
+  // footer pas réellement collé (bug « page coupée quand petite » signalé par João).
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
       onClick={onClose}
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: 'var(--card)', borderRadius: 18, width: '100%', maxWidth: 680, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,0.3)', border: '2px solid var(--border)' }}
+        style={{ background: 'var(--card)', borderRadius: 18, width: '100%', maxWidth: 680, maxHeight: '90dvh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,0.3)', border: '2px solid var(--border)' }}
       >
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
@@ -698,7 +703,7 @@ function ClientPickerModal({
                     onMouseOut={e => e.currentTarget.style.background = 'none'}
                   >
                     <span style={{ fontWeight: 700 }}>{s.display.split(',')[0]}</span>
-                    <span style={{ color: 'var(--muted)', marginLeft: 6 }}>{s.display.split(',').slice(1, 3).join(',')}</span>
+                    <span style={{ color: 'var(--muted)', marginLeft: 6 }}>{s.display.split(',').slice(1, 2).join(',')}</span>
                   </button>
                 ))}
               </div>
@@ -858,7 +863,8 @@ function ClientPickerModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

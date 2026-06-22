@@ -670,20 +670,22 @@ function NewReportLinkPageInner() {
             </div>
           )}
           {/* v2.3.x Feature 5 — Contact pour la salutation des emails/WA client.
-              v2.7.3 — Masqué en mode portail (l'email va à l'adresse principale entreprise,
-              pas à un contact nommé → la salutation perd son sens). */}
-          {!useClientPortal && (
-            <Field label="Nom du contact client (optionnel)" hint="utilisé pour la salutation : Bonjour Marie, …">
-              <input
-                type="text"
-                value={clientContactName}
-                onChange={e => setClientContactName(e.target.value)}
-                placeholder="Ex: Marie Dupont ou Directeur RH"
-                className="neo-input"
-                style={{ height: 42 }}
-              />
-            </Field>
-          )}
+              v2.13.18 — Affiché AUSSI en mode portail : l'email saisi correspond à une
+              personne nommée (chef de chantier / RH). Sans ce champ, le contact était
+              enregistré sur la fiche client avec l'email SEUL → « Contact sans nom ». */}
+          <Field
+            label="Nom du contact client (optionnel)"
+            hint={useClientPortal ? 'Nom de la personne derrière l’email — enregistré sur la fiche client (évite « contact sans nom »)' : 'utilisé pour la salutation : Bonjour Marie, …'}
+          >
+            <input
+              type="text"
+              value={clientContactName}
+              onChange={e => setClientContactName(e.target.value)}
+              placeholder="Ex: Marie Dupont ou Directeur RH"
+              className="neo-input"
+              style={{ height: 42 }}
+            />
+          </Field>
           <Field label="Email client (optionnel)" hint={useClientPortal ? 'Destinataire de l’email « rapport à valider » (pré-rempli avec le dernier email utilisé pour cette entreprise)' : undefined}>
             <input
               type="email"

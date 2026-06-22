@@ -105,7 +105,13 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.13.17** — 22/06/2026 (Fix import CV faux-match nom de fichier + recherche clients par distance (coords DB) + portail rapports.)
+**v2.13.18** — 22/06/2026 (Envois : modale destinataires portalisée (pattern #10) + libellé lieu simplifié.)
+
+### v2.13.18 (22/06) — Envois : modale destinataires portalisée + libellé lieu
+
+**Modale « Choisir les destinataires »** (`app/(dashboard)/messages/page.tsx` `ClientPickerModal`) était la **seule modale non portalisée** de la page → un ancêtre `transform` cassait son `position:fixed` → modale **coupée en bas / footer non collé** sur petit écran (pattern #10). **Fix** : `createPortal(…, document.body)` + `maxHeight 85vh→90dvh`. Le bug distance v2.13.17 confirmé OK par João (56 mails au lieu de 17). + libellé du lieu : on n'affiche plus le **district** (« Monthey ») à côté de la localité dans la liste déroulante (`slice(1,3)`→`slice(1,2)`).
+
+**Contact « sans nom » en mode portail** (`app/(dashboard)/sign/rapports/new/page.tsx`) : le champ « Nom du contact client » était **masqué quand le portail rapports est activé** (`{!useClientPortal && …}`) → on ne pouvait saisir QUE l'email → le contact enregistré sur la fiche client n'avait pas de nom. **Fix** : champ affiché aussi en mode portail (hint adapté) → le contact est enregistré avec prénom/nom.
 
 ### v2.13.17 (22/06) — Pack 3 bugs : import CV, distance clients, portail rapports
 

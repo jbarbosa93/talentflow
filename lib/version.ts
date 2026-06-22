@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.17'
+export const APP_VERSION = '2.13.18'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.18',
+    date: '2026-06-22',
+    label: 'Envois : modale destinataires portalisée (plus coupée) · libellé lieu · contact rapport avec nom',
+    features: [
+      'Modale « Choisir les destinataires » : en-tête et bas toujours visibles, plus de coupure sur petit écran (createPortal + 90dvh)',
+      'Recherche du lieu : on n’affiche plus le district (« Monthey ») à côté de la localité',
+      'Lien rapport (mode portail) : le champ « Nom du contact » s’affiche → le contact n’est plus enregistré « sans nom »',
+    ],
+  },
   {
     version: '2.13.17',
     date: '2026-06-22',
