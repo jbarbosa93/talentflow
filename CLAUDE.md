@@ -105,7 +105,11 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.13.0** — 19/06/2026 (Cockpit Santé système — Outils, lecture seule, João seul)
+**v2.13.1** — 22/06/2026 (Fix login portails WKWebView : confirmer session avant nav — refus Apple 2.1a)
+
+### v2.13.1 (22/06) — Fix boucle login portails (app iOS, refus Apple 2.1a)
+
+`components/portal-auth/LoginForm.tsx` : après login réussi, on confirme que `/api/portal-auth/me` renvoie 200 (session lisible) **avant** `window.location.assign(next)`. En WKWebView, le cookie posé par la réponse XHR du login mettait un instant à être disponible → `/report` rappelait `me` trop tôt → 401 → retour login en boucle (« loading icon puis login screen sans erreur », testé iPad iOS 26.5). Boucle ≤6 essais × 300ms. Couvre candidat (`/report`) + client (`/client-portal`). Fix web → effet immédiat dans l'app (coque qui charge le site live), pas de rebuild pour le bug. (Complète v2.11.2 nav dure, insuffisante seule.)
 
 ### v2.13.0 (19/06) — Cockpit « Santé système » (Outils)
 

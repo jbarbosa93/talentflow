@@ -52,9 +52,20 @@ export default function LoginForm({ accountType, basePath }: Props) {
         setBusy(false)
         return
       }
-      // Navigation DURE (pas router.push) : en WKWebView (app native iOS), le cookie
-      // posé par la réponse XHR n'est pas garanti disponible pour les fetch d'une
-      // nav soft → 401 → re-redirect login en boucle (refus Apple 2.1a, 10/06/2026).
+      // WKWebView (app native iOS) : le cookie de session posé par la réponse XHR
+      // met un court instant à devenir disponible pour les requêtes suivantes.
+      // Avant v2.13.1 on naviguait direct → /report rappelait /me trop tôt → 401 →
+      // retour login EN BOUCLE (refus Apple 2.1a, iPad iOS 26.5). Fix : on confirme
+      // que la session est LISIBLE (me=200) AVANT de naviguer (on reste sur
+      // « Connexion… » pendant la confirmation, ≤ ~1,8 s).
+      for (let i = 0; i < 6; i++) {
+        try {
+          const check = await fetch(`/api/portal-auth/me?type=${accountType}`, { credentials: 'include' })
+          if (check.ok) break
+        } catch { /* réseau transitoire → on retente */ }
+        await new Promise(res => setTimeout(res, 300))
+      }
+      // Navigation DURE (pas router.push) : recharge complète, cookie désormais établi.
       window.location.assign(next)
     } catch {
       setError('Erreur réseau, réessayez')
