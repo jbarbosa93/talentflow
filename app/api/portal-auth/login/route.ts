@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
         reportLinkId: account.report_link_id,
       },
     })
-    res.cookies.set(cookieName(account.account_type), jwt, sessionCookieOptions())
+    res.cookies.set(cookieName(account.account_type), jwt, sessionCookieOptions(req.headers.get('user-agent')))
     return res
   } catch (e: any) {
     await logLoginAttempt(ip, null, false)

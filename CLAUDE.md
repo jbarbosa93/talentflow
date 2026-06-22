@@ -105,7 +105,11 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.13.2** — 22/06/2026 (Fix « connecté puis déconnecté » app iOS : 401 transitoire WKWebView retenté)
+**v2.13.3** — 22/06/2026 (Fix racine app iOS : cookie session `SameSite=None` pour l'app — WKWebView cross-site)
+
+### v2.13.3 (22/06) — Cookie portail SameSite=None pour l'app (vraie cause WKWebView)
+
+v2.13.1/2 insuffisants : le retry n'a rien changé → le cookie n'était **jamais** renvoyé aux XHR. Vraie cause : l'app démarre sur `capacitor://localhost` → WKWebView traite les requêtes API (`/api/portal-auth/me`, `/api/reports/...`) comme **cross-site** → un cookie `SameSite=Lax` n'est pas envoyé → 401 → « connecté puis déconnecté ». Fix : `lib/portal-auth.ts sessionCookieOptions(userAgent)` renvoie **`SameSite=None; Secure` SI UA `TalentFlowSignApp`** (l'app), sinon `Lax` (navigateurs → pas de surface CSRF hors app). Passé l'UA dans `app/api/portal-auth/{login,set-password}/route.ts`. Web-only, **aucun rebuild app**. Testé sur simulateur iOS.
 
 ### v2.13.2 (22/06) — Fix déconnexion immédiate post-login (app iOS WKWebView)
 
