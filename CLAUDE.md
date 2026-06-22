@@ -105,7 +105,17 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.13.4** — 22/06/2026 (Fix app iOS : tous les onglets portail retentent un 401 transitoire)
+**v2.13.6** — 22/06/2026 (SOLUTION DÉFINITIVE app iOS : auth par token Bearer, sans cookie)
+
+### v2.13.6 (22/06) — Auth portail par token Bearer dans l'app (fin du bug WKWebView)
+
+**Cause racine prouvée** (inspection conteneur simulateur + test vrai iPhone) : WKWebView (coque Capacitor `ch.talentflow.sign`) **ne stocke PAS** le cookie de session `httpOnly` posé par la réponse du `fetch()` de login → cookie jamais renvoyé → toute page authentifiée (`/api/portal/*` = Accueil/Profil/Documents) → 401 → déconnexion. Safari marche (le site n'expose pas ces onglets app-only). Ni SameSite, ni app-bound domains, ni server.url first-party ne fiabilisent ce cookie (confirmé sur **device réel**, pas le simulateur).
+
+**Fix définitif (web-only, pas de rebuild app)** : token JWT pour l'app, cookie inchangé pour le web.
+- `lib/portal-auth.ts` : `getPortalJwt(type)`/`getPortalSession(type)` lisent `Authorization: Bearer` d'abord, sinon le cookie. 11 routes migrées (`portal-auth/{me,change-password}`, `portal/{profile,documents,documents/[docId]/file,change-email/request,change-email/confirm}`, `push/{inapp,register}`, `reports/[slug]` + `client-portal/[slug]` branches auth_required).
+- `login`+`set-password` renvoient le `token` (JWT) dans le body.
+- Client `lib/report/app-auth.ts` : app (UA `TalentFlowSignApp`) → stocke le token (localStorage) + **patch global `fetch`** ajoutant `Authorization: Bearer` aux appels `/api/` **same-origin** (pas de fuite cross-origin). `AppAuthInit` monté tôt dans `app/report/layout.tsx`. `LoginForm`/`SetPasswordForm` stockent ; logout purge.
+- Installé par câble sur le vrai iPhone (Mode développeur + UDID `00008150-000C54210A42401C` enregistré au compte dev 4RBJRRF9R6) → contourne TestFlight (verrou backend Apple 90j). ⚠️ `talentflow-sign-app/capacitor.config.ts` a `server.url='.../report'` en TEST → à retirer pour restaurer le lanceur local une fois validé.
 
 ### v2.13.4 (22/06) — Onglets portail résilients au 401 (helper fetchPortalSession)
 

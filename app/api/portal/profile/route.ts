@@ -4,16 +4,14 @@
 // Lecture seule. Inclut la mission en cours + l'entreprise si dispo.
 
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { verifySession, cookieName } from '@/lib/portal-auth'
+import { verifySession, getPortalJwt } from '@/lib/portal-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 async function resolveContext(): Promise<{ candidateId: string; reportLinkId: string; slug: string } | null> {
-  const jar = await cookies()
-  const jwt = jar.get(cookieName('candidat'))?.value
+  const jwt = await getPortalJwt('candidat')
   if (!jwt) return null
   const session = await verifySession(jwt)
   if (!session || session.accountType !== 'candidat' || !session.reportLinkId) return null

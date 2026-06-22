@@ -655,6 +655,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         body: JSON.stringify({ accountType: 'candidat' }),
       })
     } catch {}
+    try { const { clearPortalToken } = await import('@/lib/report/app-auth'); clearPortalToken() } catch {} // v2.13.6
     if (typeof window !== 'undefined') {
       window.location.replace('/report/login')
     }

@@ -143,6 +143,9 @@ export async function POST(req: NextRequest) {
 
     const res = NextResponse.json({
       ok: true,
+      // v2.13.6 — JWT renvoyé dans le body : l'app native (WKWebView) le stocke et
+      // l'envoie en `Authorization: Bearer` (le cookie httpOnly n'y est pas fiable).
+      token: jwt,
       account: {
         id: account.id,
         email: account.email,

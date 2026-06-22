@@ -6,15 +6,8 @@
 // - Invalide les tokens reset/invitation actifs (sécurité)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
-import {
-  verifySession,
-  cookieName,
-  verifyPassword,
-  hashPassword,
-  type AccountType,
-} from '@/lib/portal-auth'
+import { verifySession, verifyPassword, hashPassword, type AccountType, getPortalJwt } from '@/lib/portal-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -36,8 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Le nouveau mot de passe doit être différent' }, { status: 400 })
     }
 
-    const jar = await cookies()
-    const jwt = jar.get(cookieName(accountType))?.value
+    const jwt = await getPortalJwt(accountType)
     const session = jwt ? await verifySession(jwt) : null
     if (!session) {
       return NextResponse.json({ error: 'Non connecté' }, { status: 401 })

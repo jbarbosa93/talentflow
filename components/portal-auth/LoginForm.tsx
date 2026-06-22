@@ -7,6 +7,7 @@ import { useState, FormEvent } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
 import AuthLayout, { inputStyle, labelStyle, primaryBtnStyle, linkBtnStyle, errorStyle, successStyle } from './AuthLayout'
+import { storePortalToken, installAppFetchAuth } from '@/lib/report/app-auth'
 
 type AccountType = 'client' | 'candidat'
 type Mode = 'login' | 'forgot'
@@ -52,6 +53,10 @@ export default function LoginForm({ accountType, basePath }: Props) {
         setBusy(false)
         return
       }
+      // v2.13.6 — App native : on stocke le JWT et on active le patch fetch
+      // (Authorization: Bearer) → l'app n'a plus besoin du cookie (non fiable en
+      // WKWebView). Les navigateurs ignorent ça et continuent avec le cookie.
+      if (d.token) { storePortalToken(d.token); installAppFetchAuth() }
       // WKWebView (app native iOS) : le cookie de session posé par la réponse XHR
       // met un court instant à devenir disponible pour les requêtes suivantes.
       // Avant v2.13.1 on naviguait direct → /report rappelait /me trop tôt → 401 →

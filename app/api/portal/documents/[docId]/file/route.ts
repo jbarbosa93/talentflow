@@ -3,17 +3,15 @@
 // Vérifie strictement que le document appartient au candidat de la session.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { verifySession, cookieName } from '@/lib/portal-auth'
+import { verifySession, getPortalJwt } from '@/lib/portal-auth'
 import { downloadComplianceFile } from '@/lib/compliance/storage'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 async function resolveCandidateId(): Promise<string | null> {
-  const jar = await cookies()
-  const jwt = jar.get(cookieName('candidat'))?.value
+  const jwt = await getPortalJwt('candidat')
   if (!jwt) return null
   const session = await verifySession(jwt)
   if (!session || session.accountType !== 'candidat' || !session.reportLinkId) return null

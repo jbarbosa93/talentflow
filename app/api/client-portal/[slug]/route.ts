@@ -9,12 +9,11 @@
 // Sécurité : le slug est imprévisible (16 chars random). Vérifie is_active=true.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCandidatDocuments } from '@/lib/compliance/queries'
 import { isDriver } from '@/lib/compliance/driver-detection'
 import type { CandidatDocumentWithStatus } from '@/lib/compliance/types'
-import { verifySession, cookieName } from '@/lib/portal-auth'
+import { verifySession, getPortalJwt } from '@/lib/portal-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -117,8 +116,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
 
     // 1bis. v2.9.0 — Si auth_required, vérifier la session (cookie JWT)
     if (portal.auth_required) {
-      const jar = await cookies()
-      const jwt = jar.get(cookieName('client'))?.value
+      const jwt = await getPortalJwt('client')
       const session = jwt ? await verifySession(jwt) : null
       if (!session || session.portalId !== portal.id) {
         return NextResponse.json({ error: 'Authentification requise' }, { status: 401 })

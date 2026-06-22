@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Mail, User, CheckCircle2, Bookmark, Copy, Check } from 'lucide-react'
 import AuthLayout, { inputStyle, labelStyle, primaryBtnStyle, errorStyle } from './AuthLayout'
 import ClientLogo from '@/components/ClientLogo'
+import { storePortalToken, installAppFetchAuth } from '@/lib/report/app-auth'
 
 interface Props {
   accountType: 'client' | 'candidat'
@@ -93,6 +94,8 @@ export default function SetPasswordForm({ accountType, basePath }: Props) {
         setBusy(false)
         return
       }
+      // v2.13.6 — App native : stocke le JWT (auto-login) + active le patch fetch.
+      if (d.token) { storePortalToken(d.token); installAppFetchAuth() }
       // Succès : on affiche la page de confirmation avec le bon slug pour aller au portail
       setSuccess({ targetSlug: d.targetSlug || null })
       setBusy(false)

@@ -6,6 +6,7 @@
 import bcrypt from 'bcryptjs'
 import { SignJWT, jwtVerify } from 'jose'
 import { randomBytes } from 'crypto'
+import { cookies, headers } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -109,6 +110,40 @@ export async function verifySession(jwt: string): Promise<PortalSession | null> 
 
 export function cookieName(type: AccountType): string {
   return type === 'client' ? COOKIE_NAME_CLIENT : COOKIE_NAME_CANDIDAT
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// v2.13.6 — Lecture du JWT de session : header Authorization (app native iOS)
+// OU cookie (navigateurs).
+//
+// L'app TalentFlow Sign (WKWebView) ne persiste PAS de façon fiable le cookie
+// httpOnly posé par la réponse d'un fetch() → on bascule l'app sur un token
+// `Authorization: Bearer <jwt>` (le client le stocke et l'ajoute aux requêtes).
+// Le cookie reste la voie normale pour les navigateurs (web inchangé).
+// À appeler dans un contexte de requête (route handler) uniquement.
+export async function getPortalJwt(type: AccountType): Promise<string | null> {
+  // 1) Header Authorization: Bearer <jwt> (app)
+  try {
+    const h = await headers()
+    const auth = h.get('authorization')
+    if (auth && /^Bearer\s+/i.test(auth)) {
+      const t = auth.replace(/^Bearer\s+/i, '').trim()
+      if (t) return t
+    }
+  } catch { /* headers() indisponible hors requête */ }
+  // 2) Cookie de session (navigateurs)
+  try {
+    const jar = await cookies()
+    return jar.get(cookieName(type))?.value || null
+  } catch {
+    return null
+  }
+}
+
+/** Session vérifiée depuis le header Bearer OU le cookie (null si absente/invalide). */
+export async function getPortalSession(type: AccountType): Promise<PortalSession | null> {
+  const jwt = await getPortalJwt(type)
+  return jwt ? verifySession(jwt) : null
 }
 
 export function sessionCookieOptions(_userAgent?: string | null) {

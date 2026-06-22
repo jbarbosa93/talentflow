@@ -3,9 +3,8 @@
 // Utilisé par les pages publiques pour vérifier l'auth côté client.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { verifySession, cookieName, type AccountType } from '@/lib/portal-auth'
+import { verifySession, type AccountType, getPortalJwt } from '@/lib/portal-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -14,8 +13,7 @@ export async function GET(req: NextRequest) {
   const type = req.nextUrl.searchParams.get('type')
   const accountType: AccountType = type === 'candidat' ? 'candidat' : 'client'
 
-  const jar = await cookies()
-  const jwt = jar.get(cookieName(accountType))?.value
+  const jwt = await getPortalJwt(accountType)
   if (!jwt) {
     return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
   }

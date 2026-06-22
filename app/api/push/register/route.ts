@@ -5,9 +5,8 @@
 // Upsert sur le token (un appareil = un token unique).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { verifySession, cookieName } from '@/lib/portal-auth'
+import { verifySession, getPortalJwt } from '@/lib/portal-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -22,12 +21,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Résout le compte portail connecté (candidat OU client) via le cookie.
-    const jar = await cookies()
-    let accountId: string | null = null
+        let accountId: string | null = null
     let accountType: string | null = null
     let reportLinkId: string | null = null
     for (const type of ['candidat', 'client'] as const) {
-      const jwt = jar.get(cookieName(type))?.value
+      const jwt = await getPortalJwt(type)
       if (!jwt) continue
       const session = await verifySession(jwt)
       if (session) {

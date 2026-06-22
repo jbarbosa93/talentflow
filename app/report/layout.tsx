@@ -9,6 +9,7 @@ import ServiceWorkerRegister from '@/components/report/ServiceWorkerRegister'
 import PushRegister from '@/components/report/PushRegister'
 import InAppMessage from '@/components/report/InAppMessage'
 import PortalBottomNav from '@/components/report/PortalBottomNav'
+import AppAuthInit from '@/components/report/AppAuthInit'
 
 const jakarta = DM_Sans({
   subsets: ['latin'],
@@ -119,6 +120,8 @@ export default function ReportPublicLayout({ children }: { children: React.React
         {/* v2.9.35 — PWA : enregistrement SW. v2.10.13 — Bandeau « Installer
             l'application » retiré : on a désormais l'app native TalentFlow Sign ;
             le web reste pour les missions ponctuelles. */}
+        {/* v2.13.6 — Active l'auth par token (Bearer) dans l'app native iOS (tôt). */}
+        <AppAuthInit />
         <ServiceWorkerRegister />
         <PushRegister />
         {/* v2.10.26 — Message riche in-app (modal + animation festive) au chargement */}

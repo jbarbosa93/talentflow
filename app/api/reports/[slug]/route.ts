@@ -9,12 +9,11 @@
 // Pas d'auth (lien permanent). Si status != 'active' → erreur 403.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import {
   getReportLinkBySlug, getTemplateForLink, listSubmissions,
 } from '@/lib/report/queries'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { verifySession, cookieName } from '@/lib/portal-auth'
+import { verifySession, getPortalJwt } from '@/lib/portal-auth'
 
 export const runtime = 'nodejs'
 
@@ -38,8 +37,7 @@ export async function GET(
 
   // v2.9.0 — Si auth_required, vérifier la session candidat
   if ((link as any).auth_required) {
-    const jar = await cookies()
-    const jwt = jar.get(cookieName('candidat'))?.value
+    const jwt = await getPortalJwt('candidat')
     const session = jwt ? await verifySession(jwt) : null
     if (!session || session.reportLinkId !== link.id) {
       return NextResponse.json({ valid: false, reason: 'auth_required' }, { status: 401 })

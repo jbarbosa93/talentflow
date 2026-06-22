@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Mail, Calendar, Clock, ArrowLeft, LogOut, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import AuthLayout, { inputStyle, labelStyle, primaryBtnStyle, errorStyle } from './AuthLayout'
+import { clearPortalToken } from '@/lib/report/app-auth'
 import PortalEmailChange from './PortalEmailChange'
 
 interface Props {
@@ -77,6 +78,7 @@ export default function AccountPage({ accountType, basePath }: Props) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accountType }),
     })
+    clearPortalToken() // v2.13.6 — purge le token app (Bearer)
     router.push(`${basePath}/login`)
   }
 

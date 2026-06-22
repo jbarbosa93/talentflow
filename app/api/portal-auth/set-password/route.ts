@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
 
     const res = NextResponse.json({
       ok: true,
+      token: jwt, // v2.13.6 — pour l'app native (Authorization: Bearer)
       account: {
         id: account.id,
         email: account.email,
