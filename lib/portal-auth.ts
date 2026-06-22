@@ -111,21 +111,17 @@ export function cookieName(type: AccountType): string {
   return type === 'client' ? COOKIE_NAME_CLIENT : COOKIE_NAME_CANDIDAT
 }
 
-export function sessionCookieOptions(userAgent?: string | null) {
-  // v2.13.3 — App native iOS (TalentFlow Sign) : la webview démarre sur
-  // `capacitor://localhost` puis charge le site distant. WKWebView traite alors
-  // les requêtes XHR (`/api/portal-auth/me`, `/api/reports/...`) comme CROSS-SITE
-  // → un cookie SameSite=Lax n'est PAS renvoyé → 401 → « connecté puis déconnecté ».
-  // Pour l'app UNIQUEMENT (détectée par l'UA `TalentFlowSignApp`), on passe en
-  // SameSite=None (envoyé en cross-site). Les navigateurs (Safari/desktop) restent
-  // en Lax → aucune surface CSRF supplémentaire hors app.
-  const isApp = !!userAgent && userAgent.includes('TalentFlowSignApp')
+export function sessionCookieOptions(_userAgent?: string | null) {
+  // v2.13.5 — SameSite=Lax (revient sur le None de v2.13.3). L'app native charge
+  // désormais le site DIRECTEMENT comme origine (server.url → first-party), donc
+  // les requêtes API sont same-origin et le cookie est first-party. En first-party,
+  // SameSite=None est CONTRE-PRODUCTIF (cible n°1 de l'ITP iOS → cookie bloqué) ;
+  // Lax est le bon réglage → cookie persisté + envoyé, exactement comme sur le site
+  // dans Safari. Lax bloque toujours le CSRF cross-site POST.
   return {
     httpOnly: true,
-    // SameSite=None EXIGE Secure. En prod (https) secure=true → OK. L'app n'utilise
-    // que la prod https, donc None+Secure est toujours valide pour elle.
-    secure: process.env.NODE_ENV === 'production' || isApp,
-    sameSite: (isApp ? 'none' : 'lax') as 'none' | 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
     path: '/',
     maxAge: SESSION_TTL_DAYS * 24 * 60 * 60, // 30j en secondes
   }
