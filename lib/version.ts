@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.12.0'
+export const APP_VERSION = '2.13.17'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.17',
+    date: '2026-06-22',
+    label: 'Fix import CV (faux match nom de fichier) · recherche clients par distance · portail rapports',
+    features: [
+      'Import CV : un nom de fichier générique (« CV 2025.pdf », « scan.pdf »…) ne réactive plus par erreur un autre candidat — matching par contenu uniquement',
+      'Envois : recherche clients par distance basée sur les coordonnées GPS en base (des centaines d’entreprises retrouvées au lieu de quelques-unes) + distance routière',
+      'Rapports : email client pré-rempli avec le dernier email utilisé pour l’entreprise + texte du portail clarifié',
+    ],
+  },
   {
     version: '2.12.0',
     date: '2026-06-18',

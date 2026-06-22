@@ -150,23 +150,38 @@ function NewReportLinkPageInner() {
       return
     }
     let cancelled = false
-    fetch(`/api/clients/${clientId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then((d: any) => {
-        if (cancelled) return
-        const principal = (d?.client?.email || d?.email || '').trim() || null
-        setClientPrincipalEmail(principal)
-        // Pré-remplit clientEmail si vide (ou si la valeur actuelle correspond à l'ancien contact)
-        if (principal) {
-          setClientEmail(prev => {
-            const cur = (prev || '').trim()
-            if (!cur) return principal
-            // Si l'utilisateur a déjà saisi un email différent, on ne l'écrase pas.
-            return cur
-          })
+    ;(async () => {
+      // 1. Email principal de l'entreprise (pour l'aide « utiliser celui-ci »)
+      let principal: string | null = null
+      try {
+        const r = await fetch(`/api/clients/${clientId}`)
+        if (r.ok) {
+          const d: any = await r.json()
+          principal = (d?.client?.email || d?.email || '').trim() || null
         }
-      })
-      .catch(() => { if (!cancelled) setClientPrincipalEmail(null) })
+      } catch {}
+      if (cancelled) return
+      setClientPrincipalEmail(principal)
+
+      // 2. v2.13.x — Dernier email client déjà utilisé pour CETTE entreprise (mémorisation).
+      //    Prioritaire sur l'email générique : réutilise le chef de chantier / RH saisi
+      //    au lien précédent, pour ne pas le re-choisir à chaque nouveau candidat.
+      let lastUsed: string | null = null
+      try {
+        const r2 = await fetch(`/api/admin/reports/last-client-email?client_id=${clientId}`)
+        if (r2.ok) {
+          const d2: any = await r2.json()
+          lastUsed = (d2?.email || '').trim() || null
+        }
+      } catch {}
+      if (cancelled) return
+
+      const prefill = lastUsed || principal
+      if (prefill) {
+        // N'écrase jamais une saisie manuelle de l'utilisateur.
+        setClientEmail(prev => (prev || '').trim() ? prev : prefill)
+      }
+    })()
     return () => { cancelled = true }
   }, [useClientPortal, clientId])
 
@@ -646,9 +661,9 @@ function NewReportLinkPageInner() {
                     🪟 Utiliser le portail rapports
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
-                    Les notifications de signature candidat vont à l&apos;email principal de l&apos;entreprise (en DB clients).
-                    Le client clique le lien → arrive sur son portail avec <strong>tous</strong> les rapports à valider en un endroit.
-                    {useClientPortal && ' Le portail sera créé automatiquement si nécessaire.'}
+                    Le client reçoit un email <strong>uniquement quand le candidat signe sa semaine</strong> (pas maintenant à la création).
+                    Cet email pointe vers son portail où il retrouve <strong>tous</strong> les rapports de l&apos;entreprise à valider en un endroit.
+                    {useClientPortal && ' Le portail est créé automatiquement si nécessaire — aucun mot de passe à créer (accès par le lien).'}
                   </div>
                 </div>
               </label>
@@ -669,7 +684,7 @@ function NewReportLinkPageInner() {
               />
             </Field>
           )}
-          <Field label="Email client (optionnel)" hint={useClientPortal ? 'Mode portail actif → destinataire = email principal entreprise' : undefined}>
+          <Field label="Email client (optionnel)" hint={useClientPortal ? 'Destinataire de l’email « rapport à valider » (pré-rempli avec le dernier email utilisé pour cette entreprise)' : undefined}>
             <input
               type="email"
               value={clientEmail}

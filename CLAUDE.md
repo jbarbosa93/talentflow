@@ -105,7 +105,34 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.13.6** — 22/06/2026 (SOLUTION DÉFINITIVE app iOS : auth par token Bearer, sans cookie)
+**v2.13.17** — 22/06/2026 (Fix import CV faux-match nom de fichier + recherche clients par distance (coords DB) + portail rapports.)
+
+### v2.13.17 (22/06) — Pack 3 bugs : import CV, distance clients, portail rapports
+
+**🔴 Import CV — faux « Réactivé » par nom de fichier générique** (`lib/cv-filename.ts` NOUVEAU + `app/(dashboard)/api/cv/parse/route.ts:201`) :
+Le pré-check d'idempotence « fichier déjà importé » comparait `file.name` (puis un fallback nettoyé `replace(/^(\d+_)+/,'').replace(/_/g,' ')`) à `candidats.cv_nom_fichier`. Sur un nom **générique** (`CV 2025.pdf`, `cv.pdf`, `scan.pdf`…), ce nom est partagé par plusieurs fiches → collision → faux « Réactivé — <autre personne> ». Cas réel : importer José Batista réactivait Duarte Barbacena (seul candidat portant `cv_nom_fichier='CV 2025.pdf'`, **aucun** signal d'identité commun). Viole la règle métier « jamais matcher sur le nom de fichier ». **Fix** : `isGenericCvFilename()` gate le pré-check → ne s'applique qu'aux noms **discriminants** (≥1 token ≥3 lettres, hors mots génériques/nombres). Les noms génériques passent direct au matching par **contenu (SHA256 + IA)**. Test `lib/__tests__/cv-filename.test.ts`. Cause latente depuis v1.8.28, pas une régression récente.
+
+**🟠 Envois — recherche clients par distance** (`app/(dashboard)/messages/page.tsx` `ClientPickerModal`) :
+La modale re-géocodait **chaque ville via Nominatim côté client** (rate-limit + échecs sur formats `"Villeneuve VD 1844 VD"`, `"Muraz (Collombey)"`…) → `dist===null` **exclu** → ~17 entreprises au lieu de centaines. **Fix** : utilise les **coords GPS déjà en base** (`c.latitude/longitude`, sur 1204/1205 clients ; Nominatim = repli pour les rares sans coords). + **distance routière** (`ROAD_DETOUR_FACTOR=1.35`, comme `api/candidats/route.ts`) au lieu du vol d'oiseau pur. + recherche du lieu biaisée `countrycodes=ch,fr`. Résultat : ~285 entreprises dans 20 km du Bouveret.
+
+**🟡 Rapports — portail + email client** (`app/(dashboard)/sign/rapports/new/page.tsx` + `app/(dashboard)/api/admin/reports/last-client-email/route.ts` NOUVEAU) :
+Surtout un malentendu (le flux marchait). (1) **email client pré-rempli avec le dernier email réellement utilisé pour l'entreprise** (`report_link_clients.client_email` le plus récent par `client_id`), prioritaire sur l'email générique → plus de re-saisie à chaque candidat ; (2) **texte du toggle clarifié** : l'email part **quand le candidat signe sa semaine** (pas à la création), aucun mot de passe à créer. Rappel : cocher « Utiliser le portail rapports » **auto-crée** le `client_portals` (public, slug) — `/missions/portails` ne sert qu'à gérer/protéger après (optionnel, jamais obligatoire).
+
+### v2.13.7→16 (22/06) — Portail app iOS : fixes UI + app 100% collaborateur resoumise
+
+**Web (déployé, v2.13.16) — corrections portail rapport candidat (`/report`)** :
+- **Météo** (`CandidatWelcomeHeader`) : géoloc demandée **une seule fois**, coords+météo en **cache localStorage** (WKWebView ne mémorise pas l'autorisation → sinon prompt à chaque ouverture).
+- **`<Toaster>` Sonner** ajouté à `app/report/layout.tsx` (manquait → la confirmation « Mot de passe modifié » ne s'affichait pas).
+- **Déconnexion** : `clearPortalToken()` efface aussi `tf_report_last` (sinon `/report` rouvrait le dernier rapport public → semblait encore connecté).
+- **`HelpGuideModal`** : verrou scroll de fond + `paddingBottom` safe-area (boutons coupés).
+- **Overscroll « bande crème vide »** : `100vh`→`100dvh` partout + suppression du **double `paddingTop` safe-area** (les pages `/report/*` ajoutaient le même que le layout) + `AuthLayout` aligné en haut (`flex-start`, plus de centrage vertical). ⚠️ Le **rebond résiduel** (coque figée vs body-scroll) reste à peaufiner — non bloquant, reporté.
+
+**App native (`~/Dev/talentflow-sign-app`, build 1.0(4), resoumise App Store)** :
+- **100% collaborateur** : suppression de la page « Choisis ton espace » + du côté client (les clients passent par le **web**, inchangé). `www/index.html` = **splash logo animé** → redirige vers `/report` (login candidat, ou son rapport si connecté).
+- `capacitor.config.ts` : **`server.url` retiré** (le token-auth marche cross-origin) + **`backgroundColor:'#FAFAF7'`** (fin de la bande blanche en bas).
+- Build 3→4, archive Release signée (`xcodebuild archive -allowProvisioningUpdates`), upload via **Xcode Organizer → Distribute App**, build 4 sélectionné sur App Store Connect → **version 1.0 « En attente de vérification »** (review 24-48h). Le refus 2.1a (login loop) est corrigé par le token-auth ; 3.2 réglé via unlisted.
+
+→ Détails app + pièges WKWebView : `memory/app-ios-wkwebview-portail.md`.
 
 ### v2.13.6 (22/06) — Auth portail par token Bearer dans l'app (fin du bug WKWebView)
 

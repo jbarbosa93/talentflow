@@ -284,8 +284,14 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const dLat = (lat2 - lat1) * Math.PI / 180
   const dLon = (lon2 - lon1) * Math.PI / 180
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
+
+// v2.13.x — Facteur de détour routier : la distance par la route vaut ~1,35× la
+// distance à vol d'oiseau. Même facteur que le filtre rayon des candidats
+// (app/(dashboard)/api/candidats/route.ts). La distance affichée et le filtre rayon
+// sont donc en km routiers estimés, pas en ligne droite.
+const ROAD_DETOUR_FACTOR = 1.35
 
 // ─── Client Picker Modal ──────────────────────────────────────────────────────
 
@@ -326,7 +332,9 @@ function ClientPickerModal({
     debounceRef.current = setTimeout(async () => {
       setRefLoading(true)
       try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&limit=5&accept-language=fr`, { headers: { 'User-Agent': 'TalentFlow/1.0' } })
+        // v2.13.x — biais Suisse/France (countrycodes) : "Le Bouveret", "Muraz", "Roche"…
+        // sont des localités CH/FR souvent introuvables sans ce contexte pays.
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&limit=5&accept-language=fr&countrycodes=ch,fr`)
         const data = await r.json()
         setRefSuggestions(data.slice(0, 5).map((d: any) => ({ lat: +d.lat, lng: +d.lon, display: d.display_name })))
       } catch {}
@@ -385,13 +393,26 @@ function ClientPickerModal({
 
   const getCityKey = (c: Client) => [c.ville, c.npa, c.canton].filter(Boolean).join(' ')
 
+  // v2.13.x — Coordonnées du client : on PRIVILÉGIE les coords GPS déjà en base
+  // (latitude/longitude, présentes sur ~1204/1205 clients) au lieu de re-géocoder
+  // chaque ville via Nominatim (lent, rate-limité → la plupart échouaient → clients
+  // exclus à tort, d'où "17 entreprises" au lieu de plusieurs centaines).
+  // Le géocodage Nominatim ne sert plus que de repli pour les rares clients sans coords.
+  const getCoords = useCallback((c: Client): { lat: number; lng: number } | null => {
+    const lat = Number(c.latitude), lng = Number(c.longitude)
+    if (c.latitude != null && c.longitude != null && Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng }
+    }
+    return cityCoords[getCityKey(c)] || null
+  }, [cityCoords])
+
   const getDistance = useCallback((c: Client): number | null => {
     if (!refLoc) return null
-    const key = getCityKey(c)
-    const coords = cityCoords[key]
+    const coords = getCoords(c)
     if (!coords) return null
-    return haversineKm(refLoc.lat, refLoc.lng, coords.lat, coords.lng)
-  }, [refLoc, cityCoords])
+    // Distance routière estimée = vol d'oiseau × facteur de détour
+    return Math.round(haversineKm(refLoc.lat, refLoc.lng, coords.lat, coords.lng) * ROAD_DETOUR_FACTOR)
+  }, [refLoc, getCoords])
 
   // v1.9.70 : per_page 500 → 2000 (la base a 1200+ clients, 500 était trop bas → résultats manquants)
   const { data } = useClients({ per_page: 2000 })
@@ -435,8 +456,12 @@ function ClientPickerModal({
   const secteursFilterKey = [...secteursFilter].sort().join(',')
   useEffect(() => {
     if (!refLoc) return
-    const keys = filtered.map(getCityKey).filter(Boolean)
-    queueGeocode([...new Set(keys)])
+    // v2.13.x — Ne géocoder via Nominatim QUE les clients sans coords GPS en base
+    // (cas rare). Les autres utilisent déjà latitude/longitude → zéro appel réseau.
+    const keys = filtered
+      .filter(c => !(c.latitude != null && c.longitude != null && Number.isFinite(Number(c.latitude)) && Number.isFinite(Number(c.longitude))))
+      .map(getCityKey).filter(Boolean)
+    if (keys.length) queueGeocode([...new Set(keys)])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refLoc, search, secteursFilterKey])
 

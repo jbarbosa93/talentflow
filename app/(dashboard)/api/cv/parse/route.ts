@@ -13,6 +13,7 @@ import { analyserDocumentMultiType } from '@/lib/document-splitter'
 import { normaliserGenre } from '@/lib/normaliser-genre'
 import { requireAuth } from '@/lib/auth-guard'
 import { findExistingCandidat } from '@/lib/candidat-matching'
+import { isGenericCvFilename } from '@/lib/cv-filename'
 import { mergeCandidat, mergeReportToText } from '@/lib/merge-candidat'
 import { getCachedAnalyse, setCachedAnalyse, invalidateCachedAnalyse } from '@/lib/analyse-cache'
 import { normalizeCandidat } from '@/lib/normalize-candidat'
@@ -201,7 +202,19 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // 3b. Vérification rapide : fichier déjà importé ? (par nom de fichier)
   //     Évite de consommer l'API Claude pour des CVs déjà en base
   //     Note : on utilise file.name ici (avant split) pour détecter le doublon du fichier source
-  if (!forceInsert && !replaceId && !updateId) {
+  // v2.13.x — Garde-fou RÈGLE MÉTIER « jamais matcher sur le nom de fichier » :
+  //   ce pré-check d'idempotence ne s'applique QUE si le nom est DISCRIMINANT.
+  //   Les noms génériques ("CV 2025.pdf", "scan.pdf"…) sont partagés par plusieurs
+  //   candidats → ils provoquaient un faux "Réactivé — <autre personne>".
+  //   (Bug José Batista → Duarte Barbacena, le seul portant déjà "CV 2025.pdf".)
+  //   Un nom générique tombe directement dans le matching par CONTENU (SHA256 + IA).
+  const cleanName = file.name.replace(/^(\d+_)+/, '').replace(/_/g, ' ')
+  const filenameIsDiscriminant = !isGenericCvFilename(file.name) && !isGenericCvFilename(cleanName)
+  if (!filenameIsDiscriminant) {
+    dbg(`[CV Parse] Nom de fichier générique ("${file.name}") → pré-check filename ignoré (anti faux-match), passage au matching par contenu.`)
+  }
+
+  if (!forceInsert && !replaceId && !updateId && filenameIsDiscriminant) {
     let existingByFile = null
     const { data: exactMatch } = await supabase
       .from('candidats')
@@ -212,16 +225,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     // Fix v1.8.28 — fallback : file.name vient du storage path (timestamp + underscores)
     // Convertir "1776xxx_BENCHAAR_salim_20.10.2025.pdf" → "BENCHAAR salim 20.10.2025.pdf"
-    if (!existingByFile) {
-      const cleanName = file.name.replace(/^(\d+_)+/, '').replace(/_/g, ' ')
-      if (cleanName !== file.name) {
-        const { data: fuzzy } = await supabase
-          .from('candidats')
-          .select('id, prenom, nom, email, titre_poste, created_at')
-          .eq('cv_nom_fichier', cleanName)
-          .maybeSingle()
-        existingByFile = fuzzy
-      }
+    if (!existingByFile && cleanName !== file.name) {
+      const { data: fuzzy } = await supabase
+        .from('candidats')
+        .select('id, prenom, nom, email, titre_poste, created_at')
+        .eq('cv_nom_fichier', cleanName)
+        .maybeSingle()
+      existingByFile = fuzzy
     }
 
     if (existingByFile) {
