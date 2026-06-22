@@ -105,7 +105,11 @@ Si la tâche demandée dépasse le modèle recommandé (ex : bug fix qui révèl
 
 ## Version actuelle
 
-**v2.13.1** — 22/06/2026 (Fix login portails WKWebView : confirmer session avant nav — refus Apple 2.1a)
+**v2.13.2** — 22/06/2026 (Fix « connecté puis déconnecté » app iOS : 401 transitoire WKWebView retenté)
+
+### v2.13.2 (22/06) — Fix déconnexion immédiate post-login (app iOS WKWebView)
+
+Suite v2.13.1 : le login passait mais l'app déconnectait « à la seconde ». Cause : l'app charge le site distant depuis l'origine `capacitor://localhost` → iOS ne rend pas le cookie de session disponible immédiatement pour la 1re requête de la **page suivante** (`/report` puis `/report/{slug}`) → 401 → retour login. Fix web-only : `app/report/page.tsx` (check `me`) et `app/report/[slug]/page.tsx` (fetch `/api/reports/{slug}`) **retentent un 401 transitoire** (≤3-4 essais × 350ms, ~1-1,4s) avant de rediriger vers le login. Testé sur **simulateur iOS** (build local de `~/Dev/talentflow-sign-app`). Si insuffisant (cookie jamais stocké = ITP dur) → correctif natif `WKAppBoundDomains` (Info.plist, rebuild). ⚠️ **TestFlight bloqué** par un verrou backend Apple (build 1 expiré à 90j) — diagnostic dans [[apple-rejection-sign-ios]] ; contournement = simulateur.
 
 ### v2.13.1 (22/06) — Fix boucle login portails (app iOS, refus Apple 2.1a)
 

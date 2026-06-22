@@ -140,27 +140,41 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
 
   // ─── Fetch initial ──────────────────────────────────────────────────
   // v2.9.0 — Si l'API renvoie 401 (auth_required=true sans session), redirect login
+  // v2.13.2 — App iOS (WKWebView) : juste après le login, le cookie de session
+  // n'est pas toujours disponible immédiatement pour la 1re requête de cette page
+  // (la nav vient de /report). Un 401 TRANSITOIRE ne doit PAS déconnecter : on
+  // retente brièvement (≤ ~1,4 s) avant de rediriger vers le login. Corrige la
+  // « connexion puis déconnexion à la seconde » dans l'app (refus Apple 2.1a).
   useEffect(() => {
-    fetch(`/api/reports/${slug}`)
-      .then(async r => {
-        if (r.status === 401) {
-          if (typeof window !== 'undefined') {
-            const next = encodeURIComponent(window.location.pathname + window.location.search)
-            window.location.replace(`/report/login?next=${next}`)
+    let cancelled = false
+    async function load() {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          const r = await fetch(`/api/reports/${slug}`, { credentials: 'include' })
+          if (r.status === 401) {
+            if (attempt < 3) { await new Promise(res => setTimeout(res, 350)); continue }
+            if (typeof window !== 'undefined') {
+              const next = encodeURIComponent(window.location.pathname + window.location.search)
+              window.location.replace(`/report/login?next=${next}`)
+            }
+            return
           }
-          return null
+          const d: VerifyResponse = await r.json()
+          if (cancelled) return
+          setData(d)
+          if (d.valid) setState('ok')
+          else if (d.reason === 'paused') setState('paused')
+          else if (d.reason === 'revoked') setState('revoked')
+          else setState('invalid')
+          return
+        } catch {
+          if (attempt >= 3) { if (!cancelled) setState('error'); return }
+          await new Promise(res => setTimeout(res, 350))
         }
-        return r.json()
-      })
-      .then((d: VerifyResponse | null) => {
-        if (!d) return
-        setData(d)
-        if (d.valid) setState('ok')
-        else if (d.reason === 'paused') setState('paused')
-        else if (d.reason === 'revoked') setState('revoked')
-        else setState('invalid')
-      })
-      .catch(() => setState('error'))
+      }
+    }
+    load()
+    return () => { cancelled = true }
   }, [slug])
 
   // v2.4.0 — Fetch entreprises autorisées

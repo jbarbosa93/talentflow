@@ -27,19 +27,26 @@ export default function ReportEntryPage() {
       if (slug) { router.replace(`/report/${slug}`); return }
 
       // 2. Candidat déjà connecté → son rapport
-      try {
-        const r = await fetch('/api/portal-auth/me?type=candidat&full=1', { credentials: 'include' })
-        if (r.ok) {
-          const d = await r.json().catch(() => null)
-          const target = d?.account?.targetSlug as string | undefined
-          if (cancelled) return
-          if (target) { router.replace(`/report/${target}`); return }
-          setPhase('no-report')  // connecté mais aucun rapport lié
-          return
-        }
-      } catch { /* réseau KO → on bascule sur la connexion */ }
+      // v2.13.2 — App iOS (WKWebView) : le cookie de session peut arriver avec un
+      // léger décalage juste après le login → un 401 transitoire ne doit PAS
+      // renvoyer au login. On retente brièvement (≤ ~1 s) avant d'abandonner.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const r = await fetch('/api/portal-auth/me?type=candidat&full=1', { credentials: 'include' })
+          if (r.ok) {
+            const d = await r.json().catch(() => null)
+            const target = d?.account?.targetSlug as string | undefined
+            if (cancelled) return
+            if (target) { router.replace(`/report/${target}`); return }
+            setPhase('no-report')  // connecté mais aucun rapport lié
+            return
+          }
+        } catch { /* réseau KO → on retente */ }
+        if (cancelled) return
+        if (attempt < 2) await new Promise(res => setTimeout(res, 350))
+      }
 
-      // 3. Pas connecté → connexion
+      // 3. Toujours pas de session après retries → connexion
       if (!cancelled) router.replace('/report/login')
     }
 
