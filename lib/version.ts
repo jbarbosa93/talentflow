@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.21'
+export const APP_VERSION = '2.13.22'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.22',
+    date: '2026-06-24',
+    label: 'Rapports : menu ⋮ plus coupé en bas + tri par colonnes · CV : Expériences avant Formations',
+    features: [
+      'Liste des rapports : le menu ⋮ (actions) s’ouvre vers le haut quand la ligne est en bas d’écran → il n’est plus coupé',
+      'Liste des rapports : colonnes Candidat / Client / Dernière cliquables pour trier (A→Z, Z→A)',
+      'Personnaliser le CV : les Expériences s’affichent maintenant avant les Formations',
+    ],
+  },
   {
     version: '2.13.21',
     date: '2026-06-24',

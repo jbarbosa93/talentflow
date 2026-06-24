@@ -18,11 +18,16 @@ export type MissionStatus =
   | { kind: 'ended'; clientNom: string | null }
   | { kind: 'none' }
 
+export type SortKey = 'candidat' | 'client' | 'date'
+
 interface Props {
   links: ReportLink[]
   candidateNameByLink: Record<string, string>
   lastByLink: Record<string, ReportSubmission | null>
   missionStatusByLink?: Record<string, MissionStatus>
+  sortKey?: SortKey | null
+  sortDir?: 'asc' | 'desc'
+  onSort?: (key: SortKey) => void
   onCopyLink?: (link: ReportLink) => void
   onSendWhatsApp?: (link: ReportLink) => void
   onPause?: (link: ReportLink) => void
@@ -34,6 +39,7 @@ interface Props {
 
 export default function ReportLinksTable({
   links, candidateNameByLink, lastByLink, missionStatusByLink,
+  sortKey, sortDir, onSort,
   onCopyLink, onSendWhatsApp, onPause, onResume, onRevoke, onDelete, onEdit,
 }: Props) {
   if (links.length === 0) return null
@@ -59,11 +65,11 @@ export default function ReportLinksTable({
         borderBottom: '1px solid var(--border)',
       }}>
         <span></span>
-        <span>Candidat</span>
-        <span>Client</span>
+        <SortHeader label="Candidat" col="candidat" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+        <SortHeader label="Client" col="client" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
         <span>Contact client</span>
         <span>Statut</span>
-        <span>Dernière</span>
+        <SortHeader label="Dernière" col="date" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
         <span style={{ textAlign: 'right' }}>Actions</span>
       </div>
 
@@ -115,8 +121,12 @@ function Row({
   useEffect(() => {
     if (!menuOpen || !triggerRef.current) { setMenuPos(null); return }
     const r = triggerRef.current.getBoundingClientRect()
+    // v2.13.22 — Si pas assez de place sous le bouton (ligne en bas d'écran), on
+    // ouvre le menu VERS LE HAUT pour qu'il ne soit plus coupé par le bas de fenêtre.
+    const MENU_H = 300
+    const openUp = r.bottom + MENU_H > window.innerHeight
     setMenuPos({
-      top: r.bottom + 4,
+      top: openUp ? Math.max(8, r.top - MENU_H) : r.bottom + 4,
       right: window.innerWidth - r.right,
     })
   }, [menuOpen])
@@ -292,6 +302,37 @@ function Row({
         )}
       </div>
     </div>
+  )
+}
+
+// v2.13.22 — En-tête de colonne cliquable pour trier (Candidat / Client / Dernière).
+function SortHeader({ label, col, sortKey, sortDir, onSort }: {
+  label: string
+  col: SortKey
+  sortKey?: SortKey | null
+  sortDir?: 'asc' | 'desc'
+  onSort?: (key: SortKey) => void
+}) {
+  if (!onSort) return <span>{label}</span>
+  const active = sortKey === col
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(col)}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 3,
+        background: 'none', border: 'none', padding: 0, margin: 0,
+        font: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit',
+        color: active ? 'var(--foreground)' : 'inherit',
+        fontWeight: active ? 800 : 700, cursor: 'pointer',
+      }}
+      title={`Trier par ${label.toLowerCase()}`}
+    >
+      {label}
+      <span style={{ fontSize: 8, opacity: active ? 1 : 0.4 }}>
+        {active ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}
+      </span>
+    </button>
   )
 }
 

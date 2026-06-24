@@ -198,6 +198,33 @@ export default function ReportsListPage() {
     return links.filter(l => sectionStatus === null || l.status === sectionStatus)
   }, [links, section])
 
+  // v2.13.22 — Tri colonnes (Candidat / Client / Dernière), en-têtes cliquables.
+  const [sortKey, setSortKey] = useState<'candidat' | 'client' | 'date' | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const handleSort = (key: 'candidat' | 'client' | 'date') => {
+    if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortDir('asc') }
+  }
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered
+    const valueOf = (l: ReportLink): string => {
+      if (sortKey === 'candidat') return (candidateNameByLink[l.id] || l.candidat_name || '').toLowerCase()
+      if (sortKey === 'client') {
+        const ms = missionStatusByLink[l.id]
+        const lbl = ms && ms.kind !== 'none' ? (ms.clientNom || l.client_name) : l.client_name
+        return (lbl || '').toLowerCase()
+      }
+      return lastByLink[l.id]?.week_start || '' // date
+    }
+    return [...filtered].sort((a, b) => {
+      const va = valueOf(a), vb = valueOf(b)
+      if (!va && vb) return 1          // valeurs vides toujours en fin
+      if (va && !vb) return -1
+      const cmp = va.localeCompare(vb, 'fr')
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [filtered, sortKey, sortDir, candidateNameByLink, missionStatusByLink, lastByLink])
+
   // ─── Actions ───
   const handleCopyLink = (link: ReportLink) => {
     const url = `${window.location.origin}/report/${link.slug}`
@@ -433,10 +460,13 @@ export default function ReportsListPage() {
             </div>
           ) : (
             <ReportLinksTable
-              links={filtered}
+              links={sorted}
               candidateNameByLink={candidateNameByLink}
               lastByLink={lastByLink}
               missionStatusByLink={missionStatusByLink}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={handleSort}
               onCopyLink={handleCopyLink}
               onSendWhatsApp={handleSendWhatsApp}
               onPause={l => handlePauseResume(l, 'paused')}

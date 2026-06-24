@@ -851,145 +851,6 @@ export default function CVCustomizerModal({
               )}
             </div>
 
-            {/* v1.9.71 — Formations éditables (array, même structure qu'Expériences) */}
-            {sections.formations && (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
-                    Formations ({formations.length})
-                  </h3>
-                  <button
-                    onClick={addFormation}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      border: '1.5px solid var(--primary)', borderRadius: 6,
-                      padding: '4px 8px', fontSize: 11, fontWeight: 700,
-                      background: 'transparent', color: 'var(--primary)',
-                      cursor: 'pointer', fontFamily: 'inherit',
-                    }}
-                  >
-                    <Plus size={12} /> Ajouter
-                  </button>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {formations.map((f, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        border: '1px solid var(--border)', borderRadius: 10,
-                        padding: 12, background: 'var(--secondary)',
-                        display: 'flex', flexDirection: 'column', gap: 8,
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <input
-                          value={f.diplome || ''}
-                          onChange={e => updateFormation(idx, { diplome: e.target.value })}
-                          placeholder="Diplôme / formation"
-                          style={{ ...inputStyle, fontWeight: 700, fontSize: 12 }}
-                        />
-                        <button
-                          onClick={() => moveFormation(idx, -1)}
-                          disabled={idx === 0}
-                          title="Monter"
-                          style={{
-                            width: 28, height: 32, flexShrink: 0,
-                            border: '1.5px solid var(--border)', borderRadius: 6,
-                            background: 'transparent', color: idx === 0 ? 'var(--border)' : 'var(--foreground)',
-                            cursor: idx === 0 ? 'not-allowed' : 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <ChevronUp size={14} />
-                        </button>
-                        <button
-                          onClick={() => moveFormation(idx, 1)}
-                          disabled={idx === formations.length - 1}
-                          title="Descendre"
-                          style={{
-                            width: 28, height: 32, flexShrink: 0,
-                            border: '1.5px solid var(--border)', borderRadius: 6,
-                            background: 'transparent', color: idx === formations.length - 1 ? 'var(--border)' : 'var(--foreground)',
-                            cursor: idx === formations.length - 1 ? 'not-allowed' : 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <ChevronDown size={14} />
-                        </button>
-                        <button
-                          onClick={() => deleteFormation(idx)}
-                          title="Supprimer cette formation"
-                          style={{
-                            width: 32, height: 32, flexShrink: 0,
-                            border: '1.5px solid var(--border)', borderRadius: 6,
-                            background: 'transparent', color: '#DC2626',
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                      <input
-                        value={f.etablissement || ''}
-                        onChange={e => updateFormation(idx, { etablissement: e.target.value })}
-                        placeholder="Établissement / école"
-                        style={{ ...inputStyle, fontSize: 12 }}
-                      />
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Début</label>
-                          <input
-                            type="month"
-                            value={f.date_debut || ''}
-                            onChange={e => updateFormation(idx, { date_debut: e.target.value })}
-                            style={{ ...inputStyle, fontSize: 12 }}
-                          />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Fin</label>
-                          <input
-                            type="month"
-                            value={f.current ? '' : (f.date_fin || '')}
-                            disabled={!!f.current}
-                            onChange={e => updateFormation(idx, { date_fin: e.target.value })}
-                            style={{
-                              ...inputStyle, fontSize: 12,
-                              opacity: f.current ? 0.5 : 1,
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--foreground)', cursor: 'pointer' }}>
-                        <Checkbox
-                          checked={!!f.current}
-                          onClick={() => updateFormation(idx, { current: !f.current, ...(!f.current ? { date_fin: '' } : {}) })}
-                          size={16}
-                        />
-                        <span>En cours</span>
-                      </label>
-                      <textarea
-                        value={f.description || ''}
-                        onChange={e => updateFormation(idx, { description: e.target.value })}
-                        placeholder="Description (optionnel)"
-                        rows={2}
-                        style={{ ...inputStyle, fontSize: 12, resize: 'vertical' }}
-                      />
-                      {f.annee && !f.date_debut && !f.date_fin && (
-                        <div style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic' }}>
-                          Ancienne année (non parseable) : <strong>{f.annee}</strong>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {formations.length === 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>
-                      Aucune formation. Cliquez sur <strong>Ajouter</strong> pour en créer une.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Expériences éditables */}
             {sections.experiences && (
               <div>
@@ -1130,6 +991,145 @@ export default function CVCustomizerModal({
                   {experiences.length === 0 && (
                     <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>
                       Aucune expérience. Cliquez sur <strong>Ajouter</strong> pour en créer une.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* v1.9.71 — Formations éditables (array, même structure qu'Expériences) */}
+            {sections.formations && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
+                    Formations ({formations.length})
+                  </h3>
+                  <button
+                    onClick={addFormation}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      border: '1.5px solid var(--primary)', borderRadius: 6,
+                      padding: '4px 8px', fontSize: 11, fontWeight: 700,
+                      background: 'transparent', color: 'var(--primary)',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    <Plus size={12} /> Ajouter
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {formations.map((f, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        border: '1px solid var(--border)', borderRadius: 10,
+                        padding: 12, background: 'var(--secondary)',
+                        display: 'flex', flexDirection: 'column', gap: 8,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                          value={f.diplome || ''}
+                          onChange={e => updateFormation(idx, { diplome: e.target.value })}
+                          placeholder="Diplôme / formation"
+                          style={{ ...inputStyle, fontWeight: 700, fontSize: 12 }}
+                        />
+                        <button
+                          onClick={() => moveFormation(idx, -1)}
+                          disabled={idx === 0}
+                          title="Monter"
+                          style={{
+                            width: 28, height: 32, flexShrink: 0,
+                            border: '1.5px solid var(--border)', borderRadius: 6,
+                            background: 'transparent', color: idx === 0 ? 'var(--border)' : 'var(--foreground)',
+                            cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <ChevronUp size={14} />
+                        </button>
+                        <button
+                          onClick={() => moveFormation(idx, 1)}
+                          disabled={idx === formations.length - 1}
+                          title="Descendre"
+                          style={{
+                            width: 28, height: 32, flexShrink: 0,
+                            border: '1.5px solid var(--border)', borderRadius: 6,
+                            background: 'transparent', color: idx === formations.length - 1 ? 'var(--border)' : 'var(--foreground)',
+                            cursor: idx === formations.length - 1 ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+                        <button
+                          onClick={() => deleteFormation(idx)}
+                          title="Supprimer cette formation"
+                          style={{
+                            width: 32, height: 32, flexShrink: 0,
+                            border: '1.5px solid var(--border)', borderRadius: 6,
+                            background: 'transparent', color: '#DC2626',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <input
+                        value={f.etablissement || ''}
+                        onChange={e => updateFormation(idx, { etablissement: e.target.value })}
+                        placeholder="Établissement / école"
+                        style={{ ...inputStyle, fontSize: 12 }}
+                      />
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Début</label>
+                          <input
+                            type="month"
+                            value={f.date_debut || ''}
+                            onChange={e => updateFormation(idx, { date_debut: e.target.value })}
+                            style={{ ...inputStyle, fontSize: 12 }}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Fin</label>
+                          <input
+                            type="month"
+                            value={f.current ? '' : (f.date_fin || '')}
+                            disabled={!!f.current}
+                            onChange={e => updateFormation(idx, { date_fin: e.target.value })}
+                            style={{
+                              ...inputStyle, fontSize: 12,
+                              opacity: f.current ? 0.5 : 1,
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--foreground)', cursor: 'pointer' }}>
+                        <Checkbox
+                          checked={!!f.current}
+                          onClick={() => updateFormation(idx, { current: !f.current, ...(!f.current ? { date_fin: '' } : {}) })}
+                          size={16}
+                        />
+                        <span>En cours</span>
+                      </label>
+                      <textarea
+                        value={f.description || ''}
+                        onChange={e => updateFormation(idx, { description: e.target.value })}
+                        placeholder="Description (optionnel)"
+                        rows={2}
+                        style={{ ...inputStyle, fontSize: 12, resize: 'vertical' }}
+                      />
+                      {f.annee && !f.date_debut && !f.date_fin && (
+                        <div style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic' }}>
+                          Ancienne année (non parseable) : <strong>{f.annee}</strong>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {formations.length === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>
+                      Aucune formation. Cliquez sur <strong>Ajouter</strong> pour en créer une.
                     </div>
                   )}
                 </div>
