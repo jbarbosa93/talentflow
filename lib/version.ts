@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.20'
+export const APP_VERSION = '2.13.21'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.21',
+    date: '2026-06-24',
+    label: 'Rapports : déliement auto à la fin de mission + statut basé sur les missions du candidat',
+    features: [
+      'Liste des rapports : le statut (entreprise / « Fin de mission » / « Sans mission ») se base sur les missions réelles du candidat → reste juste même après déliement',
+      'Page d’un lien : quand la mission liée est terminée, elle se délie automatiquement → le bouton « Lier une mission » réapparaît pour la mission suivante',
+      'Titres des 25 rapports existants nettoyés (« Rapport {Candidat} » sans entreprise)',
+    ],
+  },
   {
     version: '2.13.20',
     date: '2026-06-24',

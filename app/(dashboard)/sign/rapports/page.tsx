@@ -151,8 +151,11 @@ export default function ReportsListPage() {
     return () => { cancelled = true }
   }, [links])
 
-  // v2.13.20 — Statut de la mission liée à chaque lien (1 seul fetch /api/missions).
-  // active → entreprise · ended (date_fin passée) → « Fin de mission » · none → « Sans mission ».
+  // v2.13.21 — Statut affiché en colonne Client, basé sur les MISSIONS DU CANDIDAT
+  // (et non sur report_links.mission_id) → « Fin de mission » reste correct même
+  // après le déliement auto de la mission terminée (voir fiche [id]).
+  // active → entreprise de la mission en cours · ended → dernière entreprise + « Fin de
+  // mission » · none → « Sans mission ». 1 seul fetch /api/missions.
   useEffect(() => {
     if (links.length === 0) { setMissionStatusByLink({}); return }
     let cancelled = false
@@ -160,17 +163,28 @@ export default function ReportsListPage() {
       try {
         const r = await fetch('/api/missions', { cache: 'no-store' })
         const d = await r.json()
-        const byId = new Map<string, any>(((d.missions || []) as any[]).map(m => [m.id, m]))
         const today = new Date().toISOString().slice(0, 10)
+        // Missions groupées par candidat
+        const byCandidat = new Map<string, any[]>()
+        for (const m of ((d.missions || []) as any[])) {
+          if (!m.candidat_id) continue
+          const arr = byCandidat.get(m.candidat_id) || []
+          arr.push(m)
+          byCandidat.set(m.candidat_id, arr)
+        }
         const map: Record<string, MissionStatus> = {}
         for (const l of links) {
-          const mid = (l as any).mission_id as string | null
-          const m = mid ? byId.get(mid) : null
-          if (!m) { map[l.id] = { kind: 'none' }; continue }
-          const ended = !!m.date_fin && m.date_fin < today
-          map[l.id] = ended
-            ? { kind: 'ended', clientNom: m.client_nom ?? null }
-            : { kind: 'active', clientNom: m.client_nom ?? null }
+          const cms = l.candidat_id ? (byCandidat.get(l.candidat_id) || []) : []
+          if (cms.length === 0) { map[l.id] = { kind: 'none' }; continue }
+          // Mission active = sans date_fin (indéterminée) ou date_fin ≥ aujourd'hui
+          const active = cms.find(m => !m.date_fin || m.date_fin >= today)
+          if (active) {
+            map[l.id] = { kind: 'active', clientNom: active.client_nom ?? null }
+          } else {
+            // Toutes terminées → on garde la plus récente pour le contexte
+            const last = cms.reduce((a, b) => ((a.date_fin || '') >= (b.date_fin || '') ? a : b))
+            map[l.id] = { kind: 'ended', clientNom: last.client_nom ?? null }
+          }
         }
         if (!cancelled) setMissionStatusByLink(map)
       } catch { /* garde l'état précédent en cas d'échec réseau */ }

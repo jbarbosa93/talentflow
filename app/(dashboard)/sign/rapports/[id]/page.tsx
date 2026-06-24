@@ -62,16 +62,33 @@ export default function ReportLinkDetailPage({
   }, [id])
 
   // v2.7.1 — Charge la mission liée si présente
+  // v2.13.21 — Si la mission liée est TERMINÉE (date_fin passée), on la délie
+  // automatiquement : le lien reste (le candidat garde l'accès), le bouton
+  // « Lier une mission » réapparaît pour la prochaine, et la liste continue
+  // d'afficher « Fin de mission » (basé sur les missions du candidat, pas sur le lien).
   useEffect(() => {
     const missionId = (link as any)?.mission_id
     if (!missionId) { setMission(null); return }
     let cancelled = false
     fetch(`/api/missions`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => {
+      .then(async d => {
         if (cancelled || !d?.missions) return
         const m = d.missions.find((x: any) => x.id === missionId)
-        if (m) setMission({
+        if (!m) { setMission(null); return }
+        const today = new Date().toISOString().slice(0, 10)
+        const ended = !!m.date_fin && m.date_fin < today
+        if (ended) {
+          // Déliement auto (best-effort) — idempotent : une fois mission_id=null, plus rien à faire.
+          await fetch(`/api/admin/reports/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mission_id: null }),
+          }).catch(() => {})
+          if (!cancelled) { setMission(null); setLink(prev => prev ? { ...prev, mission_id: null } as ReportLink : prev) }
+          return
+        }
+        if (!cancelled) setMission({
           id: m.id,
           client_nom: m.client_nom,
           metier: m.metier,
@@ -82,7 +99,7 @@ export default function ReportLinkDetailPage({
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [link])
+  }, [link, id])
 
   const publicUrl = link
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/report/${link.slug}`
