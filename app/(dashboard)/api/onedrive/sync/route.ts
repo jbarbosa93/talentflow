@@ -1283,8 +1283,15 @@ export async function POST(request: Request) {
 
           // h. Vérification anti-race juste avant INSERT
           // (deux fichiers du même batch peuvent passer les checks en parallèle)
+          // v2.13.19 : FENÊTRE TEMPORELLE 10 min — ce filet ne doit attraper que les
+          // candidats créés dans le batch courant (vraie race condition). Sans cette
+          // borne, il se comportait comme un 2e matching laxiste et absorbait des CV
+          // sur de vieux candidats homonymes (faux match → CV perdu, ex. Joel Ribeiro
+          // collé à Rafaela Ribeiro). Les vrais doublons anciens sont gérés en amont
+          // par findExistingCandidat (matching strict nom + signal de confirmation).
+          const raceWindowIso = new Date(Date.now() - 10 * 60 * 1000).toISOString()
           if (candidatEmail) {
-            const { data: lateCandidatEmail } = await supabase.from('candidats').select('id, nom, prenom').ilike('email', candidatEmail).maybeSingle()
+            const { data: lateCandidatEmail } = await supabase.from('candidats').select('id, nom, prenom').ilike('email', candidatEmail).gte('created_at', raceWindowIso).maybeSingle()
             if (lateCandidatEmail && nomsSimilaires(analyse, lateCandidatEmail)) {
               await upsertFichier({
                 integration_id: integrationId,
@@ -1301,8 +1308,8 @@ export async function POST(request: Request) {
             }
           }
           if (candidatNom && candidatPrenom) {
-            const { data: lateCandidatNom } = await supabase.from('candidats').select('id, nom, prenom').ilike('nom', candidatNom).ilike('prenom', candidatPrenom).maybeSingle()
-            if (lateCandidatNom) {
+            const { data: lateCandidatNom } = await supabase.from('candidats').select('id, nom, prenom').ilike('nom', candidatNom).ilike('prenom', candidatPrenom).gte('created_at', raceWindowIso).maybeSingle()
+            if (lateCandidatNom && nomsSimilaires(analyse, lateCandidatNom)) {
               await upsertFichier({
                 integration_id: integrationId,
                 onedrive_item_id: fichier.id,
@@ -1321,7 +1328,7 @@ export async function POST(request: Request) {
           // sont traités en parallèle et le match original était uniquement par téléphone
           if (candidatTel.length >= 8) {
             const tel9 = candidatTel.slice(-9)
-            const { data: telCandidats } = await supabase.from('candidats').select('id, nom, prenom, telephone').not('telephone', 'is', null).limit(300)
+            const { data: telCandidats } = await supabase.from('candidats').select('id, nom, prenom, telephone').not('telephone', 'is', null).gte('created_at', raceWindowIso).limit(300)
             if (telCandidats) {
               const lateCandidatTel = telCandidats.find((c: any) => {
                 const stored = (c.telephone || '').replace(/\D/g, '')

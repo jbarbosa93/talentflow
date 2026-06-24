@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.18'
+export const APP_VERSION = '2.13.19'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.19',
+    date: '2026-06-24',
+    label: 'Import OneDrive : fix CV silencieusement collé à un mauvais candidat (anti-race trop large)',
+    features: [
+      'Import CV : le filet « anti-doublon simultané » ne rattache plus un nouveau CV à un ancien candidat homonyme (fenêtre limitée à 10 min = vraie création simultanée) — fini les CV perdus collés au mauvais profil',
+      'Import CV : le rattachement par nom exige désormais un nom réellement similaire (garde-fou aligné sur les chemins email et téléphone)',
+      'Liste candidats : recherche un peu moins gourmande (anti-rebond 300 ms)',
+    ],
+  },
   {
     version: '2.13.18',
     date: '2026-06-22',

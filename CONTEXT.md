@@ -7,22 +7,22 @@
 
 | Clé | Valeur |
 |-----|--------|
-| Version | **v2.13.18** |
+| Version | **v2.13.19** |
 | URL | talent-flow.ch |
 | Supabase | rdpbqnhwhjkngxxitupg (eu-west-1 Frankfurt) |
 | Vercel | Pro — région dub1 |
 | Dev local | port 3001 — `next dev --port 3001 --webpack` (Turbopack désactivé) |
-| **Dernière sync** | **2026-06-23** |
+| **Dernière sync** | **2026-06-24 11:30** |
 
 ---
 
-## Dernière session (22/06/2026 — v2.13.18)
+## Dernière session (24/06/2026 — v2.13.19)
 
-- Fix modale destinataires portalisée (`createPortal` → pattern #10)
-- Fix contact « sans nom » en mode portail rapports
-- Fix import CV faux « Réactivé » par nom de fichier générique (`lib/cv-filename.ts`)
-- Fix distance clients — coords GPS en base au lieu de Nominatim côté client
-- Fix email client pré-rempli avec le dernier email utilisé
+- **Fix import OneDrive — CV collé au mauvais candidat** : le filet « anti-race » (`onedrive/sync/route.ts` ~1284) matchait nom+prénom sur TOUTE la table sans fenêtre temporelle → absorbait un nouveau CV sur un vieux candidat homonyme (ex. Joel Ribeiro → Rafaela Ribeiro, Beau Gosse → Mora 2023). Fix : fenêtre **10 min** sur les 3 chemins (email/nom/tél) + garde-fou `nomsSimilaires` sur le chemin nom. CV perdus → désormais créés.
+- 7 fichiers suspects à remettre en file **après déploiement** (cv joel Ribeiro, Beau Gosse ×2, 20260609142547, 20260518090117, CV di LUCA, CV Monteur Poseur)
+- Debounce liste candidats 150→300 ms (la RPC recherche fait un seq scan ~640 ms — vrai fix RPC reporté)
+- Restructuration fichiers contexte (CLAUDE.md −52%, MEMORY.md −62%, persona dev senior)
+- Audit français (82/100) + audit perf liste candidats (5,5/10) — rapports complets, corrections non encore appliquées
 
 ---
 
@@ -37,7 +37,9 @@
 
 ## TODO actif
 
-- [ ] _(João : ajoute ici la prochaine tâche avant de démarrer la session)_
+- [ ] **Après déploiement v2.13.19** : remettre en file les 7 fichiers suspects + sync manuel + vérifier qu'ils repartent bien (⚠️ Beau Gosse en 404 → peut nécessiter re-dépôt)
+- [ ] **Perf recherche candidats** : RPC `search_candidats_filtered` fait un seq scan ~640 ms (OR avec ILIKE unaccent non-indexables). Fix = RPC v4 indexée (fts élargi + index trgm f_unaccent) avec compromis substring→lexème sur CV/compétences. À construire + benchmarker en parallèle avant bascule.
+- [ ] **Corrections français** (audit 82/100) : accents `integrations/page.tsx` + `activites/page.tsx` + `doublons` ; tutoiement portail candidat ; `MB`→`Mo` (6 fichiers sign). NE PAS toucher `template`/`wizard` internes.
 
 ---
 

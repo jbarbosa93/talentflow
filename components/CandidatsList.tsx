@@ -650,11 +650,14 @@ export default function CandidatsList() {
   useEffect(() => { ssSet('importStatus', importStatusFilter) }, [importStatusFilter])
 
   // Debounced search pour ne pas spammer l'API
-  // v1.9.65 : 300ms → 150ms. Couplé avec placeholderData=(prev)=>prev dans useCandidats,
-  // la liste ne flicker pas entre deux fetchs → feel quasi-instantané.
+  // v1.9.65 : 300ms → 150ms (feel quasi-instantané couplé à placeholderData).
+  // v2.13.19 : 150ms → 300ms. La RPC search_candidats_filtered fait un seq scan
+  // ~640ms (OR avec ILIKE unaccent non-indexables). À 150ms, une frappe rapide
+  // lançait des requêtes 640ms qui se chevauchaient. 300ms = 1 requête par pause
+  // de frappe, moins de charge serveur. Le vrai fix (RPC indexée) est à part.
   const [debouncedSearch, setDebouncedSearch] = useState(search)
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 150)
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
     return () => clearTimeout(timer)
   }, [search])
 
