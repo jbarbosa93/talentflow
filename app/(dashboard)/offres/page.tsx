@@ -557,9 +557,9 @@ const SOURCE_COLORS: Record<string, { bg: string; color: string; border: string 
 }
 
 const STATUT_TABS: { key: OffreExterneStatut; label: string }[] = [
-  { key: 'a_traiter', label: 'A traiter' },
+  { key: 'a_traiter', label: 'À traiter' },
   { key: 'ouverte', label: 'Ouvertes' },
-  { key: 'ignoree', label: 'Ignorees' },
+  { key: 'ignoree', label: 'Ignorées' },
 ]
 
 function OffresExternesTab() {
@@ -584,7 +584,7 @@ function OffresExternesTab() {
   const handleStatutChange = (id: string, newStatut: OffreExterneStatut) => {
     updateStatut.mutate({ id, statut: newStatut }, {
       onSuccess: () => {
-        toast.success(newStatut === 'ouverte' ? 'Offre ouverte' : 'Offre ignoree')
+        toast.success(newStatut === 'ouverte' ? 'Offre ouverte' : 'Offre ignorée')
       },
     })
   }
@@ -636,7 +636,7 @@ function OffresExternesTab() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher un poste..."
+            placeholder="Rechercher un poste…"
             style={{
               width: '100%', padding: '7px 12px 7px 32px', border: '1.5px solid var(--border)',
               borderRadius: 8, fontSize: 12, fontFamily: 'inherit', color: 'var(--foreground)',
@@ -678,14 +678,14 @@ function OffresExternesTab() {
         <div className="neo-empty">
           <div className="neo-empty-icon"><Globe size={32} /></div>
           <div className="neo-empty-title">
-            {statutTab === 'a_traiter' ? 'Aucune offre a traiter' : statutTab === 'ouverte' ? 'Aucune offre ouverte' : 'Aucune offre ignoree'}
+            {statutTab === 'a_traiter' ? 'Aucune offre à traiter' : statutTab === 'ouverte' ? 'Aucune offre ouverte' : 'Aucune offre ignorée'}
           </div>
           <div className="neo-empty-sub">
             {statutTab === 'a_traiter'
-              ? 'Les nouvelles offres apparaitront ici apres la prochaine synchronisation.'
+              ? 'Les nouvelles offres apparaîtront ici après la prochaine synchronisation.'
               : statutTab === 'ouverte'
-              ? 'Ouvrez des offres depuis l\'onglet "A traiter" pour les rendre disponibles au matching.'
-              : 'Les offres ignorees ne sont pas proposees au matching.'}
+              ? 'Ouvrez des offres depuis l\'onglet "À traiter" pour les rendre disponibles au matching.'
+              : 'Les offres ignorées ne sont pas proposées au matching.'}
           </div>
         </div>
       ) : (
@@ -800,7 +800,7 @@ function OffresExternesTab() {
                             whiteSpace: 'pre-wrap',
                           }}>
                             {offre.description.slice(0, 1000)}
-                            {offre.description.length > 1000 && '...'}
+                            {offre.description.length > 1000 && '…'}
                           </div>
                         </motion.div>
                       )}
@@ -896,7 +896,7 @@ function OffresExternesTab() {
                           cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
                         }}
                       >
-                        <Eye size={11} /> {isExpanded ? 'Reduire' : 'Details'}
+                        <Eye size={11} /> {isExpanded ? 'Réduire' : 'Détails'}
                       </button>
                     </div>
                   </div>
@@ -1060,7 +1060,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
           </div>
           <div>
             <label style={labelStyle}><Clock size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Durée / Type contrat</label>
-            <input style={inputStyle} value={edited.duree_mission} onChange={e => set('duree_mission', e.target.value)} placeholder="CDI, Temporaire, 3 mois..." />
+            <input style={inputStyle} value={edited.duree_mission} onChange={e => set('duree_mission', e.target.value)} placeholder="CDI, Temporaire, 3 mois…" />
           </div>
           <div>
             <label style={labelStyle}>Expérience requise (ans)</label>
@@ -1072,23 +1072,23 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}><Wrench size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Compétences requises (séparées par virgule)</label>
-            <input style={inputStyle} value={edited.competences.join(', ')} onChange={e => set('competences', e.target.value.split(',').map(c => c.trim()).filter(Boolean))} placeholder="CFC maçon, Coffrage, Banche..." />
+            <input style={inputStyle} value={edited.competences.join(', ')} onChange={e => set('competences', e.target.value.split(',').map(c => c.trim()).filter(Boolean))} placeholder="CFC maçon, Coffrage, Banche…" />
           </div>
           <div>
             <label style={labelStyle}>Formation requise</label>
-            <input style={inputStyle} value={edited.formation} onChange={e => set('formation', e.target.value)} placeholder="CFC, Bachelor, Master..." />
+            <input style={inputStyle} value={edited.formation} onChange={e => set('formation', e.target.value)} placeholder="CFC, Bachelor, Master…" />
           </div>
           <div>
             <label style={labelStyle}><Languages size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Langues (séparées par virgule)</label>
-            <input style={inputStyle} value={edited.langues.join(', ')} onChange={e => set('langues', e.target.value.split(',').map(l => l.trim()).filter(Boolean))} placeholder="Français, Allemand..." />
+            <input style={inputStyle} value={edited.langues.join(', ')} onChange={e => set('langues', e.target.value.split(',').map(l => l.trim()).filter(Boolean))} placeholder="Français, Allemand…" />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>Description du poste</label>
-            <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} value={edited.description} onChange={e => set('description', e.target.value)} placeholder="Description des missions..." />
+            <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} value={edited.description} onChange={e => set('description', e.target.value)} placeholder="Description des missions…" />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}><FileText size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Notes internes</label>
-            <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={edited.notes} onChange={e => set('notes', e.target.value)} placeholder="Conditions, contact client, salaire..." />
+            <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={edited.notes} onChange={e => set('notes', e.target.value)} placeholder="Conditions, contact client, salaire…" />
           </div>
         </div>
 
@@ -1098,7 +1098,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
             disabled={!edited.titre || saving}
             className="neo-btn-yellow"
           >
-            {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Création...</> : <><Plus size={14} /> Créer la commande</>}
+            {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Création…</> : <><Plus size={14} /> Créer la commande</>}
           </button>
         </div>
       </motion.div>
@@ -1108,7 +1108,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ maxWidth: 600 }}>
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 20, fontWeight: 700, marginBottom: 6 }}>Analyser un Cahier des Charges</h2>
+        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 20, fontWeight: 700, marginBottom: 6 }}>Analyser un cahier des charges</h2>
         <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
           Importez un PDF ou une image de cahier des charges, description de poste ou appel d&apos;offres.
           Claude IA extrait automatiquement toutes les informations pour créer une commande.
@@ -1164,7 +1164,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
       {loading && (
         <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 13, color: 'var(--muted)' }}>
           <Loader2 size={16} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-          Claude analyse le document... cela prend quelques secondes.
+          Claude analyse le document… cela prend quelques secondes.
         </div>
       )}
     </motion.div>
@@ -1277,7 +1277,7 @@ function CommandeForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () =
       </div>
       <div>
         <label style={labelStyle}>Poste recherché *</label>
-        <input style={inputStyle} value={titre} onChange={e => setTitre(e.target.value)} placeholder="ex: Maçon CFC, Électricien..." required />
+        <input style={inputStyle} value={titre} onChange={e => setTitre(e.target.value)} placeholder="ex: Maçon CFC, Électricien…" required />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
@@ -1292,16 +1292,16 @@ function CommandeForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () =
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={labelStyle}><Clock size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Durée de la mission</label>
-          <input style={inputStyle} value={dureeMission} onChange={e => setDureeMission(e.target.value)} placeholder="ex: 3 mois, 6 semaines, CDI..." />
+          <input style={inputStyle} value={dureeMission} onChange={e => setDureeMission(e.target.value)} placeholder="ex: 3 mois, 6 semaines, CDI…" />
         </div>
         <div>
           <label style={labelStyle}><MapPin size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Localisation</label>
-          <input style={inputStyle} value={localisation} onChange={e => setLocalisation(e.target.value)} placeholder="Genève, Lausanne..." />
+          <input style={inputStyle} value={localisation} onChange={e => setLocalisation(e.target.value)} placeholder="Genève, Lausanne…" />
         </div>
       </div>
       <div>
         <label style={labelStyle}>Compétences requises (séparées par virgule)</label>
-        <input style={inputStyle} value={competences} onChange={e => setCompetences(e.target.value)} placeholder="Maçonnerie, Coffrage, CFC..." />
+        <input style={inputStyle} value={competences} onChange={e => setCompetences(e.target.value)} placeholder="Maçonnerie, Coffrage, CFC…" />
       </div>
       <div>
         <label style={labelStyle}>Description du poste</label>
@@ -1309,7 +1309,7 @@ function CommandeForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () =
           style={{ ...inputStyle, minHeight: 160, resize: 'vertical', lineHeight: 1.5 }}
           value={description}
           onChange={e => setDescription(e.target.value)}
-          placeholder="Description détaillée du poste..."
+          placeholder="Description détaillée du poste…"
         />
       </div>
       <div>
@@ -1318,12 +1318,12 @@ function CommandeForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () =
           style={{ ...inputStyle, minHeight: 120, resize: 'vertical', lineHeight: 1.5 }}
           value={notes}
           onChange={e => setNotes(e.target.value)}
-          placeholder="Notes pour les consultants (tarif horaire, contact client, etc.)..."
+          placeholder="Notes pour les consultants (tarif horaire, contact client, etc.)…"
         />
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
         <button type="submit" disabled={!titre || isPending} className="neo-btn-yellow">
-          {isPending ? 'Sauvegarde...' : isEdit ? 'Enregistrer les modifications' : 'Créer la commande'}
+          {isPending ? 'Sauvegarde…' : isEdit ? 'Enregistrer les modifications' : 'Créer la commande'}
         </button>
       </div>
     </form>
@@ -1492,7 +1492,7 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
         {offres.length > 0 && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <select value={selectedOffre} onChange={e => setSelectedOffre(e.target.value)} style={{ ...iStyle, flex: 1 }}>
-              <option value="">Importer depuis une commande TalentFlow...</option>
+              <option value="">Importer depuis une commande TalentFlow…</option>
               {offres.map(o => <option key={o.id} value={o.id}>{o.titre}</option>)}
             </select>
             <button onClick={fillFromOffre} disabled={!selectedOffre} className="neo-btn-yellow" style={{ gap: 6, opacity: selectedOffre ? 1 : 0.5 }}>
@@ -1559,7 +1559,7 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
           </div>
           <div style={{ marginTop: 10 }}>
             <label style={lStyle}>Détails sur le lieu de travail</label>
-            <input style={iStyle} value={locationRemarks} onChange={e => setLocationRemarks(e.target.value)} placeholder="ex: Zone industrielle, bâtiment B, accès par..." />
+            <input style={iStyle} value={locationRemarks} onChange={e => setLocationRemarks(e.target.value)} placeholder="ex: Zone industrielle, bâtiment B, accès par…" />
           </div>
         </div>
 
@@ -1878,7 +1878,7 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 8 }}>
           <button onClick={handleSubmit} disabled={publishing} className="neo-btn-yellow" style={{ gap: 8, padding: '10px 24px', fontSize: 14 }}>
             <Send size={14} />
-            {publishing ? 'Publication en cours...' : 'Publier sur job-room.ch'}
+            {publishing ? 'Publication en cours…' : 'Publier sur job-room.ch'}
           </button>
         </div>
       </div>

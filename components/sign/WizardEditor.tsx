@@ -2899,7 +2899,7 @@ function AttachmentsEditor({
       return
     }
     if (file.size > 50 * 1024 * 1024) {
-      toast.error('PDF trop volumineux (max 50 MB)')
+      toast.error('PDF trop volumineux (max 50 Mo)')
       return
     }
     setUploading(true)

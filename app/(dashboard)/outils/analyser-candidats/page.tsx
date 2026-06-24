@@ -99,7 +99,7 @@ export default function AnalyserCandidatsPage() {
 
     // ── Step 1: Quick scan ──
     setAnalysisPhase('scanning')
-    setOverallProgress({ current: 0, total: 1, phase: 'Etape 1/2 : Scan rapide...' })
+    setOverallProgress({ current: 0, total: 1, phase: 'Étape 1/2 : Scan rapide…' })
 
     let auditData: AuditResult | null = null
     try {
@@ -116,7 +116,7 @@ export default function AnalyserCandidatsPage() {
 
     // Show quick scan results immediately (will be enriched)
     setResult({ ...auditData })
-    setOverallProgress({ current: 1, total: 1, phase: 'Etape 1/2 : Scan rapide...' })
+    setOverallProgress({ current: 1, total: 1, phase: 'Étape 1/2 : Scan rapide…' })
 
     // ── Step 2: Deep CV analysis ──
     setAnalysisPhase('analysing_cvs')
@@ -134,7 +134,7 @@ export default function AnalyserCandidatsPage() {
       const firstData = await firstRes.json()
       if (firstRes.ok) {
         const cvTotal = firstData.total || 0
-        setOverallProgress({ current: firstData.scanned, total: cvTotal, phase: `Etape 2/2 : Analyse des CVs... (${firstData.scanned}/${cvTotal})` })
+        setOverallProgress({ current: firstData.scanned, total: cvTotal, phase: `Étape 2/2 : Analyse des CVs… (${firstData.scanned}/${cvTotal})` })
 
         if (firstData.problems?.length) {
           for (const p of firstData.problems) {
@@ -160,7 +160,7 @@ export default function AnalyserCandidatsPage() {
           if (!res.ok) break
 
           const scannedSoFar = cvOffset + data.scanned
-          setOverallProgress({ current: scannedSoFar, total: cvTotal, phase: `Etape 2/2 : Analyse des CVs... (${scannedSoFar}/${cvTotal})` })
+          setOverallProgress({ current: scannedSoFar, total: cvTotal, phase: `Étape 2/2 : Analyse des CVs… (${scannedSoFar}/${cvTotal})` })
 
           if (data.problems?.length) {
             for (const p of data.problems) {
@@ -337,9 +337,9 @@ export default function AnalyserCandidatsPage() {
           }}
         >
           {isRunning ? (
-            <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Analyse en cours...</>
+            <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Analyse en cours…</>
           ) : (
-            <><Search size={16} /> Lancer l&apos;analyse complete</>
+            <><Search size={16} /> Lancer l&apos;analyse complète</>
           )}
         </button>
         {isRunning && (
@@ -380,9 +380,9 @@ export default function AnalyserCandidatsPage() {
           }}>
             <Search size={36} style={{ color: '#8B5CF6', opacity: 0.5 }} />
           </div>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Pret pour l&apos;audit</div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Prêt pour l&apos;audit</div>
           <div style={{ fontSize: 13, maxWidth: 360, margin: '0 auto', lineHeight: 1.6 }}>
-            Cliquez sur &laquo; Lancer l&apos;analyse complete &raquo; pour scanner votre base candidats et detecter les anomalies.
+            Cliquez sur &laquo; Lancer l&apos;analyse complète &raquo; pour scanner votre base candidats et détecter les anomalies.
           </div>
         </div>
       )}
@@ -458,7 +458,7 @@ export default function AnalyserCandidatsPage() {
                   {s.score_sante}%
                 </div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>
-                  Sante
+                  Santé
                 </div>
               </div>
             </div>
@@ -466,9 +466,9 @@ export default function AnalyserCandidatsPage() {
               {healthLabel(s.score_sante)}
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-              {s.total_candidats} candidats analyses
+              {s.total_candidats} candidats analysés
               {analysisPhase !== 'done' && analysisPhase !== 'idle' && (
-                <span style={{ marginLeft: 6, color: '#8B5CF6', fontWeight: 600 }}>(analyse en cours...)</span>
+                <span style={{ marginLeft: 6, color: '#8B5CF6', fontWeight: 600 }}>(analyse en cours…)</span>
               )}
             </div>
           </div>
@@ -476,8 +476,8 @@ export default function AnalyserCandidatsPage() {
           {/* KPI Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
             <KpiCard icon={<Image size={20} />} label="Photos suspectes" value={s.photos_suspectes} color="#F59E0B" />
-            <KpiCard icon={<FileText size={20} />} label="CVs mal classes" value={s.cvs_mal_classes} color="#EF4444" />
-            <KpiCard icon={<ClipboardList size={20} />} label="Fiches incompletes" value={s.fiches_incompletes} color="#3B82F6" />
+            <KpiCard icon={<FileText size={20} />} label="CVs mal classés" value={s.cvs_mal_classes} color="#EF4444" />
+            <KpiCard icon={<ClipboardList size={20} />} label="Fiches incomplètes" value={s.fiches_incompletes} color="#3B82F6" />
             <KpiCard icon={<Paperclip size={20} />} label="Sans CV" value={s.sans_cv} color="#64748B" />
           </div>
 
@@ -491,11 +491,11 @@ export default function AnalyserCandidatsPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 <AlertTriangle size={18} color="#F59E0B" />
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>
-                  {candidatsNomCandidat.length} candidat{candidatsNomCandidat.length > 1 ? 's' : ''} avec le nom &laquo; Candidat &raquo; — parsing initial echoue
+                  {candidatsNomCandidat.length} candidat{candidatsNomCandidat.length > 1 ? 's' : ''} avec le nom &laquo; Candidat &raquo; — parsing initial échoué
                 </span>
               </div>
               <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 14px', lineHeight: 1.5 }}>
-                Ces candidats ont un CV mais le parsing initial n&apos;a pas reussi a extraire leur nom. Le re-parsing va relire chaque CV et corriger les informations.
+                Ces candidats ont un CV mais le parsing initial n&apos;a pas réussi à extraire leur nom. Le re-parsing va relire chaque CV et corriger les informations.
               </p>
 
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -513,13 +513,13 @@ export default function AnalyserCandidatsPage() {
                       opacity: isRunning ? 0.5 : 1,
                     }}
                   >
-                    <Wrench size={14} /> Re-analyser tous
+                    <Wrench size={14} /> Ré-analyser tous
                   </button>
                 ) : (
                   <>
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#D97706' }}>
                       <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
-                      Correction en cours... {fixAllProgress.current}/{fixAllProgress.total}
+                      Correction en cours… {fixAllProgress.current}/{fixAllProgress.total}
                     </span>
                     <button
                       onClick={() => { fixAllCancelRef.current = true }}
@@ -529,7 +529,7 @@ export default function AnalyserCandidatsPage() {
                         cursor: 'pointer', fontFamily: 'inherit',
                       }}
                     >
-                      Arreter
+                      Arrêter
                     </button>
                   </>
                 )}
@@ -624,7 +624,7 @@ export default function AnalyserCandidatsPage() {
           {/* CVs mal classes */}
           {result.cvs_mal_classes.length > 0 && (
             <AuditSection
-              title="CVs mal classes"
+              title="CVs mal classés"
               icon={<FileText size={16} />}
               count={result.cvs_mal_classes.length}
               color="#EF4444"
@@ -661,7 +661,7 @@ export default function AnalyserCandidatsPage() {
           {/* Fiches incompletes */}
           {result.fiches_incompletes.length > 0 && (
             <AuditSection
-              title="Fiches incompletes"
+              title="Fiches incomplètes"
               icon={<ClipboardList size={16} />}
               count={result.fiches_incompletes.length}
               color="#3B82F6"
@@ -703,7 +703,7 @@ export default function AnalyserCandidatsPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={nameStyle}>{sc.prenom} {sc.nom}</div>
                     <div style={issueStyle}>
-                      {sc.has_documents ? 'Pas de CV mais des documents sont presents' : 'Aucun CV ni document'}
+                      {sc.has_documents ? 'Pas de CV mais des documents sont présents' : 'Aucun CV ni document'}
                     </div>
                   </div>
                   <ViewButton id={sc.id} />
@@ -720,7 +720,7 @@ export default function AnalyserCandidatsPage() {
             }}>
               <CheckCircle size={32} style={{ color: '#10B981', marginBottom: 12 }} />
               <div style={{ fontSize: 16, fontWeight: 800, color: '#16A34A' }}>Base parfaite !</div>
-              <div style={{ fontSize: 13, color: '#166534', marginTop: 4 }}>Aucune anomalie detectee.</div>
+              <div style={{ fontSize: 13, color: '#166534', marginTop: 4 }}>Aucune anomalie détectée.</div>
             </div>
           )}
         </div>

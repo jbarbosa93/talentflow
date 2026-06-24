@@ -502,7 +502,7 @@ function FinMissionRow({ alert, onDismiss }: { alert: FinMissionAlert; onDismiss
             {alert.candidat_nom}
             {alert.a_replacer && (
               <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(249,115,22,0.15)', color: '#F97316' }}>
-                À REPLACER
+                À REMPLACER
               </span>
             )}
           </div>

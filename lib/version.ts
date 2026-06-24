@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.22'
+export const APP_VERSION = '2.13.23'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.23',
+    date: '2026-06-24',
+    label: 'Qualité du français : accents corrigés sur plusieurs pages (Intégrations, Activité, Doublons, Offres, Analyse)',
+    features: [
+      '~120 corrections d’orthographe : accents manquants sur les pages Intégrations, Activité, Doublons, Offres et Analyse des candidats',
+      'Cloche : « À REPLACER » corrigé en « À REMPLACER »',
+      'Anglicismes : « sync » → « synchro » · unités « MB/KB » → « Mo/Ko » dans les écrans Signatures',
+      'Accès : les secrétaires (Filipa, Cristina) voient désormais l’onglet Rapports pour consulter et télécharger les rapports',
+    ],
+  },
   {
     version: '2.13.22',
     date: '2026-06-24',

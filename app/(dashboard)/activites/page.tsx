@@ -55,7 +55,7 @@ function tempsRelatif(dateStr: string): string {
   const then = new Date(dateStr)
   const diffSec = Math.floor((now.getTime() - then.getTime()) / 1000)
 
-  if (diffSec < 60) return 'a l\'instant'
+  if (diffSec < 60) return 'à l\'instant'
   const diffMin = Math.floor(diffSec / 60)
   if (diffMin < 60) return `il y a ${diffMin} min`
   const diffH = Math.floor(diffMin / 60)
@@ -70,14 +70,14 @@ function tempsRelatif(dateStr: string): string {
   if (isYesterday) {
     const hh = String(then.getHours()).padStart(2, '0')
     const mm = String(then.getMinutes()).padStart(2, '0')
-    return `hier a ${hh}:${mm}`
+    return `hier à ${hh}:${mm}`
   }
 
   const diffD = Math.floor(diffH / 24)
   if (diffD < 7) {
     const hh = String(then.getHours()).padStart(2, '0')
     const mm = String(then.getMinutes()).padStart(2, '0')
-    return `il y a ${diffD}j a ${hh}:${mm}`
+    return `il y a ${diffD}j à ${hh}:${mm}`
   }
   const diffW = Math.floor(diffD / 7)
   if (diffW < 4) return `il y a ${diffW} sem.`
@@ -629,7 +629,7 @@ export default function ActivitesPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Activity style={{ width: 22, height: 22, color: 'var(--primary)' }} />
-                Activite
+                Activité
               </h1>
               {total > 0 && (
                 <motion.span
@@ -647,7 +647,7 @@ export default function ActivitesPage() {
               )}
             </div>
             <p className="d-page-sub">
-              Fil d&apos;activite de l&apos;equipe — tout ce qui se passe en temps reel
+              Fil d&apos;activité de l&apos;équipe — tout ce qui se passe en temps réel
             </p>
           </div>
 
@@ -906,7 +906,7 @@ export default function ActivitesPage() {
             }} />
             <input
               type="text"
-              placeholder="Rechercher dans l'activite..."
+              placeholder="Rechercher dans l'activité..."
               value={search}
               onChange={e => handleSearch(e.target.value)}
               style={{
@@ -1044,7 +1044,7 @@ export default function ActivitesPage() {
             >
               <Activity size={24} style={{ color: 'var(--primary)' }} />
             </motion.div>
-            <div>Chargement de l&apos;activite...</div>
+            <div>Chargement de l&apos;activité...</div>
           </div>
         ) : activites.length === 0 ? (
           <div style={{
@@ -1054,12 +1054,12 @@ export default function ActivitesPage() {
           }}>
             <Activity size={32} style={{ color: 'var(--muted)', marginBottom: 12, opacity: 0.4 }} />
             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>
-              Aucune activite
+              Aucune activité
             </p>
             <p style={{ fontSize: 13, color: 'var(--muted)' }}>
               {debouncedSearch
-                ? 'Aucun resultat pour cette recherche'
-                : 'Les actions de l\'equipe apparaitront ici'
+                ? 'Aucun résultat pour cette recherche'
+                : 'Les actions de l\'équipe apparaîtront ici'
               }
             </p>
           </div>
@@ -1127,7 +1127,7 @@ export default function ActivitesPage() {
                     fontFamily: 'var(--font-body)', opacity: page <= 1 ? 0.5 : 1,
                   }}
                 >
-                  <ChevronLeft size={14} /> Precedent
+                  <ChevronLeft size={14} /> Précédent
                 </button>
                 <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
                   Page {page} / {totalPages}

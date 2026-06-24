@@ -25,7 +25,7 @@ export default function FieldHelpAttachmentEditor({ templateId, field, onPatch }
   const handleUpload = async (file: File) => {
     if (!file) return
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('Fichier > 10 MB')
+      toast.error('Fichier > 10 Mo')
       return
     }
     const okMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
@@ -136,7 +136,7 @@ export default function FieldHelpAttachmentEditor({ templateId, field, onPatch }
           cursor: uploading ? 'wait' : 'pointer',
           opacity: uploading ? 0.6 : 1,
         }}>
-          {uploading ? '⏳ Upload…' : '📎 Charger un PDF ou une image (10 MB max)'}
+          {uploading ? '⏳ Upload…' : '📎 Charger un PDF ou une image (10 Mo max)'}
           <input
             type="file"
             accept="application/pdf,image/jpeg,image/png,image/webp"

@@ -7,12 +7,12 @@
 
 | Clé | Valeur |
 |-----|--------|
-| Version | **v2.13.22** |
+| Version | **v2.13.23** |
 | URL | talent-flow.ch |
 | Supabase | rdpbqnhwhjkngxxitupg (eu-west-1 Frankfurt) |
 | Vercel | Pro — région dub1 |
 | Dev local | port 3001 — `next dev --port 3001 --webpack` (Turbopack désactivé) |
-| **Dernière sync** | **2026-06-24 13:15** |
+| **Dernière sync** | **2026-06-24 14:00** |
 
 ---
 

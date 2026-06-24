@@ -80,15 +80,15 @@ type MergeFieldDef = {
 const MERGE_FIELDS: MergeFieldDef[] = [
   { key: 'nom_complet', label: 'Nom complet', getValue: c => `${c.prenom || ''} ${c.nom || ''}`.trim() || '—' },
   { key: 'email', label: 'Email', getValue: c => c.email || '—' },
-  { key: 'telephone', label: 'Telephone', getValue: c => c.telephone || '—' },
+  { key: 'telephone', label: 'Téléphone', getValue: c => c.telephone || '—' },
   { key: 'titre_poste', label: 'Poste', getValue: c => c.titre_poste || '—' },
   { key: 'localisation', label: 'Localisation', getValue: c => c.localisation || '—' },
   { key: 'date_naissance', label: 'Date de naissance', getValue: c => c.date_naissance || '—' },
-  { key: 'competences', label: 'Competences', getValue: c => {
+  { key: 'competences', label: 'Compétences', getValue: c => {
     const comps = c.competences || []
     return comps.length > 0 ? `${comps.join(', ')} (${comps.length})` : '—'
   }},
-  { key: 'experiences', label: 'Experiences', getValue: c => {
+  { key: 'experiences', label: 'Expériences', getValue: c => {
     const exps = c.experiences || []
     if (exps.length === 0) return '—'
     return exps.map((e: any) => `${e.poste} — ${e.entreprise} (${e.periode})`).join(' | ')
@@ -99,9 +99,9 @@ const MERGE_FIELDS: MergeFieldDef[] = [
     return forms.map((f: any) => `${f.diplome} — ${f.etablissement} (${f.annee})`).join(' | ')
   }},
   { key: 'langues', label: 'Langues', getValue: c => (c.langues || []).join(', ') || '—' },
-  { key: 'resume_ia', label: 'Resume IA', getValue: c => c.resume_ia ? c.resume_ia.slice(0, 200) : '—' },
+  { key: 'resume_ia', label: 'Résumé IA', getValue: c => c.resume_ia ? c.resume_ia.slice(0, 200) : '—' },
   { key: 'permis_conduire', label: 'Permis', getValue: c => c.permis_conduire ? 'Oui' : '—' },
-  { key: 'cv', label: 'CV', getValue: c => c.cv_nom_fichier || (c.cv_url ? 'CV present' : '—') },
+  { key: 'cv', label: 'CV', getValue: c => c.cv_nom_fichier || (c.cv_url ? 'CV présent' : '—') },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -141,8 +141,8 @@ function getBestProfileId(a: Record<string, any>, b: Record<string, any>): { id:
   const yearA = latestExpYear(a)
   const yearB = latestExpYear(b)
 
-  if (yearA > yearB && yearA >= 2020) return { id: a.id, reason: `Experiences plus recentes (${yearA})` }
-  if (yearB > yearA && yearB >= 2020) return { id: b.id, reason: `Experiences plus recentes (${yearB})` }
+  if (yearA > yearB && yearA >= 2020) return { id: a.id, reason: `Expériences plus récentes (${yearA})` }
+  if (yearB > yearA && yearB >= 2020) return { id: b.id, reason: `Expériences plus récentes (${yearB})` }
   if (scoreA > scoreB + 1) return { id: a.id, reason: 'Profil plus complet' }
   if (scoreB > scoreA + 1) return { id: b.id, reason: 'Profil plus complet' }
   return { id: a.id, reason: '' }
@@ -237,7 +237,7 @@ export default function DoublonsPage() {
     if (matchingPair) {
       doublonsCtx.markPending(matchingPair.id)
     }
-    toast.success('Paire restauree pour re-analyse')
+    toast.success('Paire restaurée pour ré-analyse')
   }
 
   const handleFusionnerClick = (pair: DoublonPair) => {
@@ -306,7 +306,7 @@ export default function DoublonsPage() {
       })
       loadHistoryFromDB().then(setDbHistory)
 
-      toast.success('Candidats fusionnes avec succes')
+      toast.success('Candidats fusionnés avec succès')
       setMergeModal(null)
     } catch {
       toast.error('Erreur lors de la fusion')
@@ -356,8 +356,8 @@ export default function DoublonsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             <StatBadge label="Doublons" value={pendingDoublons.length > 0 ? pendingDoublons.length : '—'} color={pendingDoublons.length > 0 ? '#DC2626' : 'var(--foreground)'} />
-            <StatBadge label="A traiter" value={pendingDoublons.length > 0 ? pendingDoublons.length : '—'} color={pendingDoublons.length > 0 ? '#D97706' : 'var(--foreground)'} />
-            <StatBadge label="Fusionnes" value={mergedCount > 0 ? mergedCount : '—'} color="#7C3AED" />
+            <StatBadge label="À traiter" value={pendingDoublons.length > 0 ? pendingDoublons.length : '—'} color={pendingDoublons.length > 0 ? '#D97706' : 'var(--foreground)'} />
+            <StatBadge label="Fusionnés" value={mergedCount > 0 ? mergedCount : '—'} color="#7C3AED" />
           </div>
           <button onClick={handleLancer}
             disabled={phase === 'loading'}
@@ -475,7 +475,7 @@ export default function DoublonsPage() {
                 <div key={`cluster-${ci}`} style={{ background: 'var(--card)', border: '2px solid var(--warning-soft)', borderRadius: 14, overflow: 'hidden' }}>
                   <div style={{ padding: '12px 18px', background: 'var(--warning-soft)', borderBottom: '1px solid #FDE68A', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--warning)' }}>
-                      {uniqueCandidats.length} profils identiques detectes
+                      {uniqueCandidats.length} profils identiques détectés
                     </span>
                     <span style={{ fontSize: 11, color: 'var(--warning)' }}>
                       Score max : {maxScore}%
@@ -507,8 +507,8 @@ export default function DoublonsPage() {
           >
             <span style={{ fontSize: 16 }}>{showHistory ? '▾' : '▸'}</span>
             Cette session ({ignoredDoublons.length + mergedCount})
-            {ignoredDoublons.length > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: 'var(--secondary)', color: 'var(--muted-foreground)', fontWeight: 600 }}>{ignoredDoublons.length} ignore{ignoredDoublons.length > 1 ? 's' : ''}</span>}
-            {mergedCount > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: 'var(--success-soft)', color: 'var(--success)', fontWeight: 600 }}>{mergedCount} fusionne{mergedCount > 1 ? 's' : ''}</span>}
+            {ignoredDoublons.length > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: 'var(--secondary)', color: 'var(--muted-foreground)', fontWeight: 600 }}>{ignoredDoublons.length} ignoré{ignoredDoublons.length > 1 ? 's' : ''}</span>}
+            {mergedCount > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: 'var(--success-soft)', color: 'var(--success)', fontWeight: 600 }}>{mergedCount} fusionné{mergedCount > 1 ? 's' : ''}</span>}
           </button>
 
           {showHistory && (
@@ -520,7 +520,7 @@ export default function DoublonsPage() {
                     <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_a.prenom} {pair.candidat_a.nom}</strong>
                     <span style={{ margin: '0 6px' }}>·</span>
                     <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_b.prenom} {pair.candidat_b.nom}</strong>
-                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--muted)' }}>— Personnes differentes</span>
+                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--muted)' }}>— Personnes différentes</span>
                   </div>
                   <button
                     onClick={() => {
@@ -532,7 +532,7 @@ export default function DoublonsPage() {
                     }}
                     style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--foreground)', whiteSpace: 'nowrap' }}
                   >
-                    Reanalyser
+                    Réanalyser
                   </button>
                 </div>
               ))}
@@ -543,9 +543,9 @@ export default function DoublonsPage() {
                     <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_a.prenom} {pair.candidat_a.nom}</strong>
                     <span style={{ margin: '0 6px' }}>·</span>
                     <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_b.prenom} {pair.candidat_b.nom}</strong>
-                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>— Fusionne</span>
+                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>— Fusionné</span>
                   </div>
-                  <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600, whiteSpace: 'nowrap' }}>Irreversible</span>
+                  <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600, whiteSpace: 'nowrap' }}>Irréversible</span>
                 </div>
               ))}
             </div>
@@ -564,8 +564,8 @@ export default function DoublonsPage() {
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', flex: 1, textAlign: 'left' }}>
               Historique complet
               <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>
-                {totalDismissedPersisted} paire{totalDismissedPersisted > 1 ? 's' : ''} — personnes differentes
-                {' · '}{mergedHistory.length} fusionne{mergedHistory.length > 1 ? 's' : ''}
+                {totalDismissedPersisted} paire{totalDismissedPersisted > 1 ? 's' : ''} — personnes différentes
+                {' · '}{mergedHistory.length} fusionné{mergedHistory.length > 1 ? 's' : ''}
               </span>
             </span>
             <span style={{ fontSize: 14, color: 'var(--muted)' }}>{showPersistentHistory ? '▾' : '▸'}</span>
@@ -587,7 +587,7 @@ export default function DoublonsPage() {
                   <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
                     {new Date(item.created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: 'var(--success-soft)', color: 'var(--success)', border: '1px solid var(--success-soft)', whiteSpace: 'nowrap' }}>Fusionne</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: 'var(--success-soft)', color: 'var(--success)', border: '1px solid var(--success-soft)', whiteSpace: 'nowrap' }}>Fusionné</span>
                 </div>
               ))}
 
@@ -596,8 +596,8 @@ export default function DoublonsPage() {
                 <div style={{ marginTop: 6 }}>
                   <div style={{ padding: '8px 12px', borderRadius: '8px 8px 0 0', background: 'var(--secondary)', border: '1px solid var(--border)', borderBottom: 'none', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span>
-                      <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{dismissedHistory.length} paire{dismissedHistory.length > 1 ? 's' : ''} — personnes differentes</span>
-                      {' '}— ne reapparaitront plus
+                      <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{dismissedHistory.length} paire{dismissedHistory.length > 1 ? 's' : ''} — personnes différentes</span>
+                      {' '}— ne réapparaîtront plus
                     </span>
                   </div>
                   <div style={{ border: '1px solid var(--border)', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
@@ -621,7 +621,7 @@ export default function DoublonsPage() {
                           onClick={() => handleReanalyser(item)}
                           style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--info)', whiteSpace: 'nowrap' }}
                         >
-                          <RefreshCw size={10} style={{ display: 'inline', marginRight: 3, verticalAlign: 'middle' }} />Reanalyser
+                          <RefreshCw size={10} style={{ display: 'inline', marginRight: 3, verticalAlign: 'middle' }} />Réanalyser
                         </button>
                       </div>
                     ))}
@@ -793,7 +793,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
         </div>
 
         <p style={{ fontSize: 12, color: 'var(--warning)', background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)', borderRadius: 8, padding: '8px 12px', marginBottom: 20 }}>
-          Cette action est <strong>irreversible</strong> — le profil non selectionne sera definitivement supprime. Les competences, experiences et formations seront fusionnees automatiquement.
+          Cette action est <strong>irréversible</strong> — le profil non sélectionné sera définitivement supprimé. Les compétences, expériences et formations seront fusionnées automatiquement.
         </p>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -873,7 +873,7 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
             <span key={r} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: 'var(--secondary)', color: 'var(--muted-foreground)', fontWeight: 600 }}>{r}</span>
           ))}
         </div>
-        {isMerged && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><CheckCircle size={14} />Fusionne</span>}
+        {isMerged && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><CheckCircle size={14} />Fusionné</span>}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'stretch', marginBottom: 16 }}>
@@ -903,7 +903,7 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
           <div style={{ flex: 1 }} />
           <button onClick={() => onDifferents(pair.id)}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--muted)', fontFamily: 'inherit' }}>
-            <XCircle size={13} />Differents
+            <XCircle size={13} />Différents
           </button>
           <button onClick={() => onFusionner(pair)}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 16px', borderRadius: 8, border: 'none', background: '#16A34A', color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>

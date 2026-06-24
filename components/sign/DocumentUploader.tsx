@@ -33,7 +33,7 @@ export default function DocumentUploader({ documents, onChange, readOnly, contra
       return
     }
     if (file.size > 50 * 1024 * 1024) {
-      toast.error(`"${file.name}" > 50 MB`)
+      toast.error(`"${file.name}" > 50 Mo`)
       return
     }
     const fd = new FormData()
@@ -259,7 +259,7 @@ export default function DocumentUploader({ documents, onChange, readOnly, contra
           </span>
           {!uploading && (
             <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-              Plusieurs fichiers · max 50 MB par PDF
+              Plusieurs fichiers · max 50 Mo par PDF
             </span>
           )}
           <input

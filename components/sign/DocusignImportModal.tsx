@@ -48,7 +48,7 @@ export default function DocusignImportModal({ open, onClose, onImported }: Props
       return
     }
     if (f.size > 50 * 1024 * 1024) {
-      toast.error('Fichier > 50 MB')
+      toast.error('Fichier > 50 Mo')
       return
     }
     setFile(f)
@@ -228,7 +228,7 @@ export default function DocusignImportModal({ open, onClose, onImported }: Props
                       {file.name}
                     </div>
                     <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                      {(file.size / 1024).toFixed(1)} KB · cliquer pour changer
+                      {(file.size / 1024).toFixed(1)} Ko · cliquer pour changer
                     </div>
                   </>
                 ) : (
@@ -237,7 +237,7 @@ export default function DocusignImportModal({ open, onClose, onImported }: Props
                       Déposez le JSON ou cliquez pour parcourir
                     </div>
                     <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                      Fichier JSON DocuSign (≤ 50 MB)
+                      Fichier JSON DocuSign (≤ 50 Mo)
                     </div>
                   </>
                 )}

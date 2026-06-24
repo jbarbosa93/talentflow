@@ -54,7 +54,7 @@ export default function CreateTemplateModal({ open, onClose, onCreated }: Props)
       return
     }
     if (file.size > 50 * 1024 * 1024) {
-      toast.error(`"${file.name}" > 50 MB`)
+      toast.error(`"${file.name}" > 50 Mo`)
       return
     }
 
@@ -500,7 +500,7 @@ export default function CreateTemplateModal({ open, onClose, onCreated }: Props)
               </span>
               {!uploading && (
                 <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                  Plusieurs fichiers acceptés · max 50 MB par fichier
+                  Plusieurs fichiers acceptés · max 50 Mo par fichier
                 </span>
               )}
               <input

@@ -537,7 +537,7 @@ export default function TemplateEditor({
       // v2.7.4 — Sanity check 50 MB côté client. Supabase Storage accepte plus mais on
       // garde une limite raisonnable pour éviter les uploads accidentels énormes.
       if (file.size > 50 * 1024 * 1024) {
-        toast.error(`"${file.name}" : ${(file.size / 1024 / 1024).toFixed(1)} MB > 50 MB`)
+        toast.error(`"${file.name}" : ${(file.size / 1024 / 1024).toFixed(1)} Mo > 50 Mo`)
         continue
       }
       try {
@@ -1491,7 +1491,7 @@ export default function TemplateEditor({
               fontFamily: 'inherit',
               display: 'inline-flex', alignItems: 'center', gap: 6,
             }}
-            title="Ajouter un PDF supplémentaire au template (50 MB max, max 10 à la fois)"
+            title="Ajouter un PDF supplémentaire au template (50 Mo max, max 10 à la fois)"
           >
             {uploadingPdf ? <Loader2 size={13} className="animate-spin" /> : <FilePlus size={13} />}
             {uploadingPdf ? 'Upload en cours…' : 'Ajouter un PDF'}

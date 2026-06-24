@@ -71,7 +71,7 @@ function IntegrationsContent() {
       try {
         const res = await fetch('/api/onedrive/sync', { method: 'POST' })
         const ct = res.headers.get('content-type') || ''
-        if (!ct.includes('json')) { toast.error('Timeout serveur — batch termine'); break }
+        if (!ct.includes('json')) { toast.error('Timeout serveur — batch terminé'); break }
         const data = await res.json()
 
         if (data.stopped) { break }
@@ -106,7 +106,7 @@ function IntegrationsContent() {
 
         await new Promise(r => setTimeout(r, 1000))
       } catch {
-        toast.error('Erreur reseau — sync arretee')
+        toast.error('Erreur réseau — synchro arrêtée')
         break
       }
     }
@@ -144,8 +144,8 @@ function IntegrationsContent() {
     if (success) {
       // Invalider le cache pour recharger les integrations
       queryClient.invalidateQueries({ queryKey: ['integrations'] })
-      if (success === 'microsoft_onedrive') toast.success('Compte Microsoft OneDrive connecte avec succes !')
-      else toast.success('Compte Microsoft connecte avec succes !')
+      if (success === 'microsoft_onedrive') toast.success('Compte Microsoft OneDrive connecté avec succès !')
+      else toast.success('Compte Microsoft connecté avec succès !')
     }
     if (error) toast.error(`Erreur connexion : ${decodeURIComponent(error)}`)
   }, [searchParams, queryClient])
@@ -176,7 +176,7 @@ function IntegrationsContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['integrations'] })
-      toast.success('Integration deconnectee')
+      toast.success('Intégration déconnectée')
     },
   })
 
@@ -218,7 +218,7 @@ function IntegrationsContent() {
       queryClient.invalidateQueries({ queryKey: ['integrations'] })
       queryClient.invalidateQueries({ queryKey: ['onedrive-folders'] })
       setShowOneDriveFolderPicker(false)
-      toast.success(`Dossier OneDrive "${data.folder_name}" configure.`)
+      toast.success(`Dossier OneDrive "${data.folder_name}" configuré.`)
     },
     onError: () => toast.error('Erreur lors de la configuration OneDrive'),
   })
@@ -234,10 +234,10 @@ function IntegrationsContent() {
       if (data.error) {
         toast.error(data.error)
       } else {
-        toast.success(`OneDrive sync: ${data.processed} cree(s), ${data.duplicates} doublon(s)`)
+        toast.success(`OneDrive synchro : ${data.processed} créé(s), ${data.duplicates} doublon(s)`)
       }
     },
-    onError: () => toast.error('Erreur lors de la sync OneDrive'),
+    onError: () => toast.error('Erreur lors de la synchro OneDrive'),
   })
 
   const toggleOneDriveAutoSyncMutation = useMutation({
@@ -344,7 +344,7 @@ function IntegrationsContent() {
                         background: 'var(--success-soft)', color: 'var(--success)',
                         display: 'flex', alignItems: 'center', gap: 4,
                       }}>
-                        <CheckCircle2 size={10} /> Connecte
+                        <CheckCircle2 size={10} /> Connecté
                       </span>
                     ) : (
                       <span style={{
@@ -353,7 +353,7 @@ function IntegrationsContent() {
                         display: 'flex', alignItems: 'center', gap: 4,
                         border: '1.5px solid var(--border)',
                       }}>
-                        <XCircle size={10} /> Non connecte
+                        <XCircle size={10} /> Non connecté
                       </span>
                     )}
                     {isOnedriveConnected && onedriveFolderId && onedriveAutoSync && (
@@ -363,7 +363,7 @@ function IntegrationsContent() {
                         display: 'flex', alignItems: 'center', gap: 4,
                         border: '1.5px solid #BFDBFE',
                       }}>
-                        <Zap size={10} /> Sync auto
+                        <Zap size={10} /> Synchro auto
                       </span>
                     )}
                   </div>
@@ -398,7 +398,7 @@ function IntegrationsContent() {
                         }}
                         style={{ fontSize: 12, padding: '7px 14px', borderRadius: 8, border: '2px solid var(--destructive-soft)', background: 'var(--destructive-soft)', color: 'var(--destructive)', cursor: 'pointer', fontWeight: 700, fontFamily: 'var(--font-body)' }}
                       >
-                        ⏹ Stop ({onedriveProgress.created} importés / {onedriveProgress.total} traités)
+                        ⏹ Arrêter ({onedriveProgress.created} importés / {onedriveProgress.total} traités)
                       </button>
                     ) : (
                       <button
@@ -420,7 +420,7 @@ function IntegrationsContent() {
                         fontFamily: 'var(--font-body)',
                       }}
                     >
-                      Deconnecter
+                      Déconnecter
                     </button>
                   </>
                 ) : (
@@ -444,10 +444,10 @@ function IntegrationsContent() {
                       <FolderOpen size={16} style={{ color: 'var(--info)', flexShrink: 0 }} />
                       <div>
                         <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1 }}>
-                          Dossier OneDrive surveille
+                          Dossier OneDrive surveillé
                         </p>
                         <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                          Deposez vos CVs dans ce dossier pour qu&apos;ils soient automatiquement importes
+                          Déposez vos CVs dans ce dossier pour qu&apos;ils soient automatiquement importés
                         </p>
                       </div>
                     </div>
@@ -494,7 +494,7 @@ function IntegrationsContent() {
                       background: 'var(--background)', border: '1.5px solid var(--border)',
                     }}>
                       <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', marginBottom: 10 }}>
-                        Choisir le dossier OneDrive a surveiller :
+                        Choisir le dossier OneDrive à surveiller :
                       </p>
                       {loadingOneDriveFolders ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
@@ -529,11 +529,11 @@ function IntegrationsContent() {
                         </p>
                       ) : (
                         <p style={{ fontSize: 12, color: 'var(--muted)' }}>
-                          Aucun dossier trouve dans OneDrive. Creez un dossier dans votre OneDrive et reessayez.
+                          Aucun dossier trouvé dans OneDrive. Créez un dossier dans votre OneDrive et réessayez.
                         </p>
                       )}
                       <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, fontStyle: 'italic' }}>
-                        Astuce : creez un dossier &quot;CVs TalentFlow&quot; dans votre OneDrive et deposez-y vos CVs.
+                        Astuce : créez un dossier &quot;CVs TalentFlow&quot; dans votre OneDrive et déposez-y vos CVs.
                       </p>
                     </div>
                   )}
@@ -553,12 +553,12 @@ function IntegrationsContent() {
                       }}
                     >
                       {onedriveAutoSync ? <Zap size={11} /> : <ZapOff size={11} />}
-                      Sync auto {onedriveAutoSync ? 'toutes les 10 min' : 'desactivee'}
+                      Synchro auto {onedriveAutoSync ? 'toutes les 10 min' : 'désactivée'}
                     </button>
                     {onedriveLastSync && (
                       <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Clock size={11} />
-                        Dernier sync : {onedriveLastSync.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        Dernière synchro : {onedriveLastSync.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         {/* v1.9.98 — "mis à jour il y a Xs" retiré (timestamp React Query refetch
                             redondant avec "Dernier sync" qui dit déjà la même chose côté serveur) */}
                       </span>
@@ -870,7 +870,7 @@ function IntegrationsContent() {
               }}>
                 <AlertCircle size={14} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 1 }} />
                 <p style={{ fontSize: 12, color: 'var(--warning)', lineHeight: 1.5 }}>
-                  Migration SQL requise — executez <code style={{ fontFamily: 'monospace', background: 'rgba(0,0,0,0.08)', padding: '1px 4px', borderRadius: 3 }}>supabase/migrations/20260323_onedrive_fichiers.sql</code> dans votre dashboard Supabase.
+                  Migration SQL requise — exécutez <code style={{ fontFamily: 'monospace', background: 'rgba(0,0,0,0.08)', padding: '1px 4px', borderRadius: 3 }}>supabase/migrations/20260323_onedrive_fichiers.sql</code> dans votre dashboard Supabase.
                 </p>
               </div>
             )}
@@ -911,15 +911,15 @@ function IntegrationsContent() {
               </div>
               <div style={{ background: 'var(--success-soft)', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #BBF7D0' }}>
                 <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--success)', lineHeight: 1 }}>{syncReport.created}</p>
-                <p style={{ fontSize: 11, color: 'var(--success)', marginTop: 3, fontWeight: 600 }}>CVs importes</p>
+                <p style={{ fontSize: 11, color: 'var(--success)', marginTop: 3, fontWeight: 600 }}>CVs importés</p>
               </div>
               <div style={{ background: 'var(--info-soft)', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #BFDBFE' }}>
                 <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--info)', lineHeight: 1 }}>{syncReport.updated || 0}</p>
-                <p style={{ fontSize: 11, color: 'var(--info)', marginTop: 3, fontWeight: 600 }}>CVs mis a jour</p>
+                <p style={{ fontSize: 11, color: 'var(--info)', marginTop: 3, fontWeight: 600 }}>CVs mis à jour</p>
               </div>
               <div style={{ background: 'var(--warning-soft)', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #FDE68A' }}>
                 <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)', lineHeight: 1 }}>{syncReport.reactivated || 0}</p>
-                <p style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, fontWeight: 600 }}>Reactives</p>
+                <p style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, fontWeight: 600 }}>Réactivés</p>
               </div>
             </div>
 
@@ -927,7 +927,7 @@ function IntegrationsContent() {
             {syncReport.createdNames?.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', marginBottom: 6 }}>
-                  Candidats importes ({syncReport.created}) :
+                  Candidats importés ({syncReport.created}) :
                 </p>
                 <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: 'var(--success-soft)', border: '1px solid var(--success-soft)' }}>
                   {syncReport.createdNames.map((name: string, i: number) => (
@@ -976,7 +976,7 @@ function IntegrationsContent() {
             {syncReport.reactivatedNames?.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--warning)', marginBottom: 6 }}>
-                  Candidats reactives ({syncReport.reactivated}) :
+                  Candidats réactivés ({syncReport.reactivated}) :
                 </p>
                 <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)' }}>
                   {syncReport.reactivatedNames.map((name: string, i: number) => (
@@ -1023,7 +1023,7 @@ function IntegrationsContent() {
             {syncReport.errors > 0 && (
               <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--destructive-soft)', border: '1.5px solid #FECACA' }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--destructive)', marginBottom: syncReport.errorFiles?.length ? 6 : 0 }}>
-                  ⚠️ {syncReport.errors} fichier{syncReport.errors > 1 ? 's' : ''} non traité{syncReport.errors > 1 ? 's' : ''} — seront retentés au prochain sync
+                  ⚠️ {syncReport.errors} fichier{syncReport.errors > 1 ? 's' : ''} non traité{syncReport.errors > 1 ? 's' : ''} — seront retentés au prochain cycle de synchronisation
                 </p>
                 {syncReport.errorFiles?.length > 0 && (
                   <div style={{ maxHeight: 100, overflowY: 'auto' }}>
@@ -1058,7 +1058,7 @@ function IntegrationsContent() {
                   }}
                 >
                   <User size={14} />
-                  Voir les candidats importes
+                  Voir les candidats importés
                 </a>
               )}
             </div>
