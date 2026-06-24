@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isCandidatDriver, buildDriverChecklist } from '@/lib/compliance/queries'
+import { syncReportClientDates } from '@/lib/report/sync-client-dates'
 
 export const runtime = 'nodejs'
 
@@ -200,6 +201,11 @@ export async function POST(request: NextRequest) {
               .update({ mission_id: data.id })
               .eq('id', existingLink.id)
             reportLinkAutoLinked = existingLink.id
+            // v2.13.24 — Synchronise les dates de l'entreprise autorisée avec la mission.
+            // SINON le portail candidat propose les semaines de l'ANCIENNE mission
+            // (bug récurrent). Robuste : 1 seule entreprise → on la met à jour quel que
+            // soit le libellé ; plusieurs → seulement celle dont le nom = client de la mission.
+            await syncReportClientDates(supabase, existingLink.id, data.client_nom, data.date_debut, data.date_fin)
           }
         }
       } catch { /* best-effort — ne bloque jamais la création de mission */ }

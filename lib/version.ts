@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.23'
+export const APP_VERSION = '2.13.24'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.24',
+    date: '2026-06-24',
+    label: 'Rapports : fix semaines décalées dans le portail candidat après changement de mission',
+    features: [
+      'Quand une mission est liée à un candidat (auto ou manuel), les dates de l’entreprise se synchronisent → le portail propose les bonnes semaines (fini le « il ne voit que les anciennes semaines »)',
+    ],
+  },
   {
     version: '2.13.23',
     date: '2026-06-24',

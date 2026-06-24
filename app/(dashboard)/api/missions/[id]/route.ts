@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { syncReportClientDates } from '@/lib/report/sync-client-dates'
 
 export const runtime = 'nodejs'
 
@@ -56,13 +57,7 @@ export async function PATCH(
           .eq('mission_id', id)
           .maybeSingle()
         if (link?.id) {
-          await (supabase as any)
-            .from('report_link_clients')
-            .update({
-              mission_start_date: data.date_debut ?? null,
-              mission_end_date: data.date_fin ?? null,
-            })
-            .eq('link_id', link.id)
+          await syncReportClientDates(supabase, link.id, data.client_nom, data.date_debut, data.date_fin)
         }
       } catch (e) {
         console.warn('[missions PATCH] sync report_link_clients dates failed', e)

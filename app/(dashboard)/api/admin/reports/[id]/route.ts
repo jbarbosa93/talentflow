@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizePhoneE164 } from '@/lib/sign/phone-format'
 import { getOrCreateClientPortal } from '@/lib/report/portal-helper'
 import { createClient as createServerClient } from '@/lib/supabase/server'
+import { syncReportClientDates } from '@/lib/report/sync-client-dates'
 import type { ReportDeliveryChannel, ReportLinkStatus } from '@/lib/report/types'
 
 export const runtime = 'nodejs'
@@ -165,6 +166,26 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       console.error('[reports/PATCH]', error)
       return NextResponse.json({ error: 'Erreur mise à jour' }, { status: 500 })
     }
+
+    // v2.13.24 — Liaison manuelle d'une mission : synchronise les dates de l'entreprise
+    // autorisée avec celles de la mission, pour que le portail candidat propose les
+    // bonnes semaines (même helper que l'auto-liaison côté /api/missions).
+    if (body.mission_id) {
+      try {
+        const { data: m } = await supabase
+          .from('missions' as any)
+          .select('client_nom, date_debut, date_fin')
+          .eq('id', body.mission_id)
+          .maybeSingle()
+        if (m) {
+          await syncReportClientDates(
+            supabase, id as string,
+            (m as any).client_nom, (m as any).date_debut, (m as any).date_fin,
+          )
+        }
+      } catch { /* best-effort — ne bloque pas la liaison */ }
+    }
+
     return NextResponse.json({ link: data })
   } catch (e) {
     return NextResponse.json({ error: 'Données invalides' }, { status: 400 })
