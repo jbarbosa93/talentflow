@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.24'
+export const APP_VERSION = '2.13.25'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.25',
+    date: '2026-06-24',
+    label: 'Rapports : suivi de livraison des emails client (livré / rejeté / spam) via webhook Resend',
+    features: [
+      'Chaque email envoyé est tracé en base (table email_delivery_log) avec son identifiant Resend',
+      'Webhook Resend (/api/webhooks/resend) : statut de livraison réel (livré, rejeté, marqué spam)',
+      'Fiche d’un lien rapport : carte « Suivi des emails client » avec alerte si un email n’est pas arrivé',
+    ],
+  },
   {
     version: '2.13.24',
     date: '2026-06-24',

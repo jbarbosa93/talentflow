@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import SubmissionHistoryTable from '@/components/report/SubmissionHistoryTable'
+import EmailDeliveryCard from '@/components/report/EmailDeliveryCard'
 import LinkClientsSection from '@/components/report/LinkClientsSection'
 import RecapPeriode from '@/components/report/RecapPeriode'
 import { createPortal } from 'react-dom'
@@ -533,6 +534,7 @@ export default function ReportLinkDetailPage({
             </button>
           )}
         </div>
+        <EmailDeliveryCard linkId={id} />
         <SubmissionHistoryTable
           submissions={submissions}
           slug={link.slug}

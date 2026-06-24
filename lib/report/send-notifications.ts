@@ -13,6 +13,7 @@
 import { envoyerMessage } from '@/lib/whatsapp'
 import { normalizePhoneE164 } from '@/lib/sign/phone-format'
 import { toWhatsAppSafe, formatDateChDot } from './text-format'
+import { logEmailDelivery, type EmailLogMeta } from './email-log'
 
 const FROM_DEFAULT = 'TalentFlow Sign <noreply@talent-flow.ch>'
 
@@ -58,7 +59,10 @@ export async function sendClientInviteEmail(args: {
   const html = buildClientInviteHtml(args)
   const text = buildClientInviteText(args)
 
-  return await sendResend({ to: args.to, subject, html, text })
+  return await sendResend({
+    to: args.to, subject, html, text,
+    meta: { emailType: 'report_client', context: `${args.candidateName} · ${args.weekLabel}` },
+  })
 }
 
 function buildClientInviteHtml(p: {
@@ -467,6 +471,9 @@ async function sendResend(args: {
   html: string
   text: string
   attachments?: { filename: string; content: string }[]
+  // v2.13.25 — Traçabilité : contexte loggé dans email_delivery_log (matché ensuite
+  // par le webhook Resend pour le statut de livraison réel).
+  meta?: EmailLogMeta
 }): Promise<NotifResult> {
   try {
     const r = await fetch('https://api.resend.com/emails', {
@@ -486,12 +493,16 @@ async function sendResend(args: {
     })
     if (!r.ok) {
       const err = await r.text()
-      return { ok: false, error: `Resend ${r.status}: ${err.slice(0, 200)}` }
+      const errorMsg = `Resend ${r.status}: ${err.slice(0, 200)}`
+      await logEmailDelivery({ recipient: args.to, status: 'failed', error: errorMsg, meta: args.meta })
+      return { ok: false, error: errorMsg }
     }
     const data = await r.json() as { id?: string }
+    await logEmailDelivery({ resendId: data.id, recipient: args.to, status: 'sent', meta: args.meta })
     return { ok: true, id: data.id }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Erreur réseau'
+    await logEmailDelivery({ recipient: args.to, status: 'failed', error: msg, meta: args.meta })
     return { ok: false, error: msg }
   }
 }
