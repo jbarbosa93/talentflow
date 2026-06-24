@@ -7,22 +7,21 @@
 
 | Clé | Valeur |
 |-----|--------|
-| Version | **v2.13.19** |
+| Version | **v2.13.20** |
 | URL | talent-flow.ch |
 | Supabase | rdpbqnhwhjkngxxitupg (eu-west-1 Frankfurt) |
 | Vercel | Pro — région dub1 |
 | Dev local | port 3001 — `next dev --port 3001 --webpack` (Turbopack désactivé) |
-| **Dernière sync** | **2026-06-24 11:30** |
+| **Dernière sync** | **2026-06-24 12:15** |
 
 ---
 
-## Dernière session (24/06/2026 — v2.13.19)
+## Dernière session (24/06/2026 — v2.13.20)
 
-- **Fix import OneDrive — CV collé au mauvais candidat** : le filet « anti-race » (`onedrive/sync/route.ts` ~1284) matchait nom+prénom sur TOUTE la table sans fenêtre temporelle → absorbait un nouveau CV sur un vieux candidat homonyme (ex. Joel Ribeiro → Rafaela Ribeiro, Beau Gosse → Mora 2023). Fix : fenêtre **10 min** sur les 3 chemins (email/nom/tél) + garde-fou `nomsSimilaires` sur le chemin nom. CV perdus → désormais créés.
-- 7 fichiers suspects à remettre en file **après déploiement** (cv joel Ribeiro, Beau Gosse ×2, 20260609142547, 20260518090117, CV di LUCA, CV Monteur Poseur)
+- **v2.13.20 — Rapports par candidat (lien découplé de la mission)** : (1) titre du lien sans entreprise (« Rapport {Candidat} ») ; (2) liste rapports → colonne Client pilotée par le statut de la mission liée (entreprise active / « Fin de mission » orange / « Sans mission ») ; (3) **auto-liaison** : créer une mission rattache auto la nouvelle mission au lien rapport libre du candidat (POST `/api/missions`, n'écrase pas une mission active) + toast. Lot « Lier une mission » existait déjà (`LinkMissionButton`). Pas de migration (modèle `report_links` avait déjà `mission_id` nullable).
+- **v2.13.19 — Fix import OneDrive « anti-race »** : filet anti-doublon-simultané matchait nom+prénom sur toute la table sans fenêtre → CV collé à un vieux homonyme. Fix : fenêtre 10 min + `nomsSimilaires`. Beau Gosse re-traité → candidat créé (⚠️ vérifier doublon avec Mora 2023 dans l'outil Doublons). Les 5 autres suspects PAS re-scannés (déplacés hors dossier OneDrive → re-déposer si besoin).
 - Debounce liste candidats 150→300 ms (la RPC recherche fait un seq scan ~640 ms — vrai fix RPC reporté)
-- Restructuration fichiers contexte (CLAUDE.md −52%, MEMORY.md −62%, persona dev senior)
-- Audit français (82/100) + audit perf liste candidats (5,5/10) — rapports complets, corrections non encore appliquées
+- Restructuration fichiers contexte + persona dev senior. Audit français (82/100) + perf liste candidats (5,5/10) — non appliqués.
 
 ---
 

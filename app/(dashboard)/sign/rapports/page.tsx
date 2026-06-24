@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import ReportsSidebar, { type ReportSection } from '@/components/report/ReportsSidebar'
-import ReportLinksTable from '@/components/report/ReportLinksTable'
+import ReportLinksTable, { type MissionStatus } from '@/components/report/ReportLinksTable'
 import type { ReportLink, ReportSubmission } from '@/lib/report/types'
 import type { SignTemplate } from '@/lib/sign/types'
 import { toWhatsAppSafe } from '@/lib/report/text-format'
@@ -41,6 +41,8 @@ export default function ReportsListPage() {
   const [counts, setCounts] = useState<Counts>(EMPTY_COUNTS)
   const [lastByLink, setLastByLink] = useState<Record<string, ReportSubmission | null>>({})
   const [candidateNameByLink, setCandidateNameByLink] = useState<Record<string, string>>({})
+  // v2.13.20 — statut de la mission liée par lien (Client = entreprise active / Fin de mission / Sans mission)
+  const [missionStatusByLink, setMissionStatusByLink] = useState<Record<string, MissionStatus>>({})
   const [reportTemplatesCount, setReportTemplatesCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [section, setSection] = useState<ReportSection>('all')
@@ -146,6 +148,33 @@ export default function ReportsListPage() {
       }
       setCandidateNameByLink(map)
     })
+    return () => { cancelled = true }
+  }, [links])
+
+  // v2.13.20 — Statut de la mission liée à chaque lien (1 seul fetch /api/missions).
+  // active → entreprise · ended (date_fin passée) → « Fin de mission » · none → « Sans mission ».
+  useEffect(() => {
+    if (links.length === 0) { setMissionStatusByLink({}); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch('/api/missions', { cache: 'no-store' })
+        const d = await r.json()
+        const byId = new Map<string, any>(((d.missions || []) as any[]).map(m => [m.id, m]))
+        const today = new Date().toISOString().slice(0, 10)
+        const map: Record<string, MissionStatus> = {}
+        for (const l of links) {
+          const mid = (l as any).mission_id as string | null
+          const m = mid ? byId.get(mid) : null
+          if (!m) { map[l.id] = { kind: 'none' }; continue }
+          const ended = !!m.date_fin && m.date_fin < today
+          map[l.id] = ended
+            ? { kind: 'ended', clientNom: m.client_nom ?? null }
+            : { kind: 'active', clientNom: m.client_nom ?? null }
+        }
+        if (!cancelled) setMissionStatusByLink(map)
+      } catch { /* garde l'état précédent en cas d'échec réseau */ }
+    })()
     return () => { cancelled = true }
   }, [links])
 
@@ -393,6 +422,7 @@ export default function ReportsListPage() {
               links={filtered}
               candidateNameByLink={candidateNameByLink}
               lastByLink={lastByLink}
+              missionStatusByLink={missionStatusByLink}
               onCopyLink={handleCopyLink}
               onSendWhatsApp={handleSendWhatsApp}
               onPause={l => handlePauseResume(l, 'paused')}

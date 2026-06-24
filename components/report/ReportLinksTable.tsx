@@ -10,10 +10,19 @@ import {
 } from 'lucide-react'
 import { REPORT_LINK_STATUS_LABELS, type ReportLink, type ReportSubmission } from '@/lib/report/types'
 
+// v2.13.20 — Statut de la mission liée au lien, calculé côté page liste.
+// 'active' → mission en cours (affiche l'entreprise) · 'ended' → mission terminée
+// ('Fin de mission') · 'none' → aucune mission liée ('Sans mission').
+export type MissionStatus =
+  | { kind: 'active'; clientNom: string | null }
+  | { kind: 'ended'; clientNom: string | null }
+  | { kind: 'none' }
+
 interface Props {
   links: ReportLink[]
   candidateNameByLink: Record<string, string>
   lastByLink: Record<string, ReportSubmission | null>
+  missionStatusByLink?: Record<string, MissionStatus>
   onCopyLink?: (link: ReportLink) => void
   onSendWhatsApp?: (link: ReportLink) => void
   onPause?: (link: ReportLink) => void
@@ -24,7 +33,7 @@ interface Props {
 }
 
 export default function ReportLinksTable({
-  links, candidateNameByLink, lastByLink,
+  links, candidateNameByLink, lastByLink, missionStatusByLink,
   onCopyLink, onSendWhatsApp, onPause, onResume, onRevoke, onDelete, onEdit,
 }: Props) {
   if (links.length === 0) return null
@@ -64,6 +73,7 @@ export default function ReportLinksTable({
           link={link}
           candidateName={candidateNameByLink[link.id]}
           lastSubmission={lastByLink[link.id]}
+          missionStatus={missionStatusByLink?.[link.id]}
           onCopyLink={onCopyLink}
           onSendWhatsApp={onSendWhatsApp}
           onPause={onPause}
@@ -78,12 +88,13 @@ export default function ReportLinksTable({
 }
 
 function Row({
-  link, candidateName, lastSubmission,
+  link, candidateName, lastSubmission, missionStatus,
   onCopyLink, onSendWhatsApp, onPause, onResume, onRevoke, onDelete, onEdit,
 }: {
   link: ReportLink
   candidateName?: string | null
   lastSubmission?: ReportSubmission | null
+  missionStatus?: MissionStatus
   onCopyLink?: (link: ReportLink) => void
   onSendWhatsApp?: (link: ReportLink) => void
   onPause?: (link: ReportLink) => void
@@ -160,12 +171,12 @@ function Row({
         </div>
       </div>
 
-      {/* Client */}
+      {/* Client / statut mission — v2.13.20 */}
       <div style={{
         fontSize: 12.5, color: 'var(--foreground)',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-      }} title={link.client_name || ''}>
-        {link.client_name || <span style={{ color: 'var(--muted)' }}>—</span>}
+      }}>
+        <MissionCell missionStatus={missionStatus} clientNameFallback={link.client_name} />
       </div>
 
       {/* Contact client */}
@@ -281,6 +292,37 @@ function Row({
         )}
       </div>
     </div>
+  )
+}
+
+// v2.13.20 — Colonne « Client » pilotée par le statut de la mission liée.
+function MissionCell({ missionStatus, clientNameFallback }: {
+  missionStatus?: MissionStatus
+  clientNameFallback: string | null
+}) {
+  // Donnée mission pas encore chargée → on garde le nom entreprise du lien (évite un flash « Sans mission »).
+  if (!missionStatus) {
+    return clientNameFallback
+      ? <span title={clientNameFallback}>{clientNameFallback}</span>
+      : <span style={{ color: 'var(--muted)' }}>—</span>
+  }
+  if (missionStatus.kind === 'active') {
+    const label = missionStatus.clientNom || clientNameFallback
+    return label
+      ? <span title={label}>{label}</span>
+      : <span style={{ color: 'var(--muted)' }}>—</span>
+  }
+  const ended = missionStatus.kind === 'ended'
+  return (
+    <span style={{
+      display: 'inline-block', padding: '2px 9px', borderRadius: 999,
+      background: ended ? 'rgba(245,158,11,0.14)' : 'var(--surface-2)',
+      color: ended ? '#B45309' : 'var(--muted)',
+      border: ended ? '1px solid rgba(245,158,11,0.35)' : '1px solid var(--border)',
+      fontSize: 10.5, fontWeight: 700, letterSpacing: '0.03em', whiteSpace: 'nowrap',
+    }}>
+      {ended ? 'Fin de mission' : 'Sans mission'}
+    </span>
   )
 }
 

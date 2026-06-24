@@ -331,6 +331,10 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
       }
       if (!res.ok) throw new Error(data.error || 'Erreur')
       toast.success(mission ? 'Mission modifiée' : (forceBypass ? 'Mission créée (docs incomplets — note ajoutée)' : 'Mission créée'))
+      // v2.13.20 — feedback auto-liaison du lien rapport permanent du candidat
+      if (!mission && data.report_link_auto_linked) {
+        toast.info('🔗 Lien rapport du candidat relié automatiquement à cette mission')
+      }
       setComplianceBlock(null)
       onSaved(); onClose()
     } catch (e: any) { toast.error(e.message) }

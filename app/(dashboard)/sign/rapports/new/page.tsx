@@ -110,9 +110,11 @@ function NewReportLinkPageInner() {
       setCandidatNom(parts.slice(1).join(' ') || '')
     }
 
-    // TITRE : pré-rempli si on a candidat + client (sinon useEffect auto-titre s'en occupe)
-    if (qpCandidatNom && qpClientName) {
-      setTitle(`Rapport ${qpCandidatNom} — ${qpClientName}${qpMetier ? ` (${qpMetier})` : ''}`)
+    // TITRE : pré-rempli dès qu'on a le candidat (sinon useEffect auto-titre s'en occupe)
+    // v2.13.20 — plus d'entreprise/métier dans le titre : le lien est PERMANENT par candidat
+    // et la mission change → le titre doit rester stable (« Rapport {Candidat} »).
+    if (qpCandidatNom) {
+      setTitle(`Rapport ${qpCandidatNom}`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -189,7 +191,8 @@ function NewReportLinkPageInner() {
   useEffect(() => {
     if (!title.trim() && (candidatPrenom || candidatNom)) {
       const fullCand = [candidatPrenom, candidatNom].filter(Boolean).join(' ').trim()
-      setTitle(clientName ? `Rapport ${fullCand} — ${clientName}` : `Rapport ${fullCand}`)
+      // v2.13.20 — titre sans entreprise (lien permanent par candidat, la mission change)
+      setTitle(`Rapport ${fullCand}`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidatPrenom, candidatNom, clientName])

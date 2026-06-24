@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.19'
+export const APP_VERSION = '2.13.20'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.20',
+    date: '2026-06-24',
+    label: 'Rapports : lien par candidat indépendant de la mission (titre sans entreprise · statut mission dans la liste)',
+    features: [
+      'Nouveau lien rapport : le titre ne contient plus le nom de l’entreprise (« Rapport Martial David ») → le lien reste valable quand le candidat change de mission',
+      'Liste des rapports : la colonne Client affiche l’état réel de la mission liée — entreprise si active, « Fin de mission » (orange) si terminée, « Sans mission » si aucune',
+      'Rappel : un lien sans mission affiche déjà le bouton « 🔗 Lier une mission » → on relie à la nouvelle mission sans recréer de lien',
+    ],
+  },
   {
     version: '2.13.19',
     date: '2026-06-24',

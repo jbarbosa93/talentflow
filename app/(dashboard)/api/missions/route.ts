@@ -165,7 +165,47 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) throw error
-    return NextResponse.json({ mission: data, compliance_warning: complianceWarning })
+
+    // v2.13.20 — AUTO-LIAISON du lien rapport permanent.
+    // Si le candidat a déjà un lien rapport SANS mission active, on rattache
+    // automatiquement la nouvelle mission à ce lien (plus besoin du bouton
+    // « Créer un lien rapport »). On n'écrase JAMAIS une mission encore active
+    // (date_fin future/indéterminée) → dans ce cas, liaison manuelle volontaire.
+    // Best-effort : un échec ici ne doit jamais faire échouer la création de mission.
+    let reportLinkAutoLinked: string | null = null
+    if (candidat_id && data?.id) {
+      try {
+        const { data: existingLink } = await (supabase as any)
+          .from('report_links')
+          .select('id, mission_id')
+          .eq('candidat_id', candidat_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (existingLink) {
+          let linkBusy = false
+          if (existingLink.mission_id) {
+            const { data: curMission } = await (supabase as any)
+              .from('missions')
+              .select('date_fin')
+              .eq('id', existingLink.mission_id)
+              .maybeSingle()
+            const today = new Date().toISOString().slice(0, 10)
+            // Mission active = inexistante (déjà gérée), sans date_fin (indéterminée) ou date_fin ≥ aujourd'hui.
+            linkBusy = !!curMission && (!curMission.date_fin || curMission.date_fin >= today)
+          }
+          if (!linkBusy) {
+            await (supabase as any)
+              .from('report_links')
+              .update({ mission_id: data.id })
+              .eq('id', existingLink.id)
+            reportLinkAutoLinked = existingLink.id
+          }
+        }
+      } catch { /* best-effort — ne bloque jamais la création de mission */ }
+    }
+
+    return NextResponse.json({ mission: data, compliance_warning: complianceWarning, report_link_auto_linked: reportLinkAutoLinked })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
