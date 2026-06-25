@@ -66,6 +66,15 @@ export default function TelechargerPage() {
         <p style={{ fontSize: 12.5, color: '#9A958A', marginTop: 28, lineHeight: 1.5 }}>
           Une fois installée, connecte-toi avec ton e-mail et ton mot de passe.
         </p>
+
+        {/* v2.13.30 — Rappel notifications (important pour L-Agence) */}
+        <div style={{
+          marginTop: 18, padding: '14px 16px', borderRadius: 13,
+          background: 'rgba(220,38,38,0.07)', border: '1.5px solid rgba(220,38,38,0.40)',
+          color: '#B91C1C', fontSize: 13.5, fontWeight: 700, lineHeight: 1.5, textAlign: 'left',
+        }}>
+          🔔 Très important : à l&apos;ouverture de l&apos;app, <span style={{ textDecoration: 'underline' }}>active les notifications</span> pour être prévenu de tes rapports à remplir, de tes documents et de nos messages.
+        </div>
       </div>
     </div>
   )
