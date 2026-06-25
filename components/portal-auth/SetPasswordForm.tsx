@@ -153,6 +153,18 @@ export default function SetPasswordForm({ accountType, basePath }: Props) {
             {accountType === 'client' ? 'Accéder à mon portail' : 'Accéder à mes rapports'}
           </button>
 
+          {/* v2.13.28 — Téléchargement de l'app (candidats) : lien intelligent iOS/Android */}
+          {accountType === 'candidat' && (
+            <a href="/telecharger" target="_blank" rel="noopener noreferrer" style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+              width: '100%', padding: '13px 16px', marginTop: 12, fontSize: 15, fontWeight: 800,
+              background: '#1C1A14', color: '#EAB308', borderRadius: 10, textDecoration: 'none',
+              fontFamily: 'inherit',
+            }}>
+              📲 Télécharger l’application
+            </a>
+          )}
+
           {/* Encadré : enregistrer la page de connexion pour les prochaines visites */}
           <div style={{
             marginTop: 18, padding: '14px 16px', textAlign: 'left',

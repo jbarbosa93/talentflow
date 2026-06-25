@@ -7,7 +7,9 @@
 import { useEffect, useState } from 'react'
 import { X, Smartphone } from 'lucide-react'
 
-const DISMISS_KEY = 'tf_report_app_soon_dismissed_v1'
+// v2.13.28 — clé v2 : le nouveau bandeau « app disponible » réapparaît même chez
+// ceux qui avaient fermé l'ancien « app bientôt ».
+const DISMISS_KEY = 'tf_report_app_available_dismissed_v2'
 
 export default function AppComingSoonBanner() {
   const [show, setShow] = useState(false)
@@ -46,12 +48,18 @@ export default function AppComingSoonBanner() {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.3 }}>
-          📱 Bientôt : l’application TalentFlow !
+          📱 L’application est disponible !
         </div>
         <div style={{ fontSize: 12.5, color: '#E7E5DF', lineHeight: 1.5, marginTop: 3 }}>
-          Une application à télécharger sur votre téléphone est en cours de développement
-          pour vous simplifier encore plus la vie. Merci de votre confiance 🙏
+          Télécharge l’app TalentFlow pour gérer tes rapports d’heures, tes documents et tes notifications.
         </div>
+        <a href="/telecharger" target="_blank" rel="noopener noreferrer" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 9,
+          padding: '7px 13px', borderRadius: 9, background: '#F7C948', color: '#1C1A14',
+          fontSize: 12.5, fontWeight: 800, textDecoration: 'none',
+        }}>
+          ⬇️ Télécharger maintenant
+        </a>
       </div>
       <button
         type="button" onClick={dismiss} aria-label="Fermer"

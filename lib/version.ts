@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.27'
+export const APP_VERSION = '2.13.28'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.28',
+    date: '2026-06-25',
+    label: 'Téléchargement de l’app : lien intelligent iOS/Android + bouton sur set-password, bandeau et WhatsApp',
+    features: [
+      'Nouvelle page talent-flow.ch/telecharger : détecte le téléphone et propose le bon store (App Store / Google Play)',
+      'Après création du mot de passe : bouton « 📲 Télécharger l’application » (candidats)',
+      'Portail : le bandeau « app bientôt » devient « application disponible — Télécharger »',
+      'Onglet Rapports : bouton « WhatsApp app » (message tutoyé signé João avec le lien de téléchargement) — le « WhatsApp lien » heures reste',
+    ],
+  },
   {
     version: '2.13.27',
     date: '2026-06-25',

@@ -146,6 +146,21 @@ export default function ReportLinkDetailPage({
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
+  // v2.13.28 — Invitation à télécharger l'app (WhatsApp), message tutoyé signé João.
+  const handleSendAppInvite = () => {
+    if (!link) return
+    const firstName = toWhatsAppSafe((link.candidat_name || '').split(/\s+/)[0] || '')
+    const greeting = firstName ? `Salut ${firstName} !` : 'Salut !'
+    const rawMsg = `${greeting}\n\nTélécharge l'application TalentFlow pour gérer tes rapports d'heures, tes documents et recevoir tes notifications :\n\nhttps://www.talent-flow.ch/telecharger\n\nÀ bientôt,\nJoão — L'Agence`
+    const msg = toWhatsAppSafe(rawMsg)
+    const phoneDigits = link.candidat_phone ? link.candidat_phone.replace(/\D/g, '') : ''
+    const url = phoneDigits
+      ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`
+    if (!phoneDigits) toast.warning('Pas de WhatsApp candidat configuré — choisis le contact dans WhatsApp')
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
   const handlePauseResume = async () => {
     if (!link) return
     // v2.3.10 Bug 1 — Force 'active' quand status est 'revoked' OU 'paused'.
@@ -284,9 +299,20 @@ export default function ReportLinkDetailPage({
                 onClick={handleSendWhatsApp}
                 className="neo-btn-ghost"
                 style={{ color: '#25D366' }}
+                title="Envoyer le lien rapport (saisie des heures) par WhatsApp"
               >
                 <MessageCircle size={14} />
-                WhatsApp
+                WhatsApp lien
+              </button>
+              <button
+                type="button"
+                onClick={handleSendAppInvite}
+                className="neo-btn-ghost"
+                style={{ color: '#25D366' }}
+                title="Inviter le candidat à télécharger l'app (message WhatsApp pré-rempli)"
+              >
+                <MessageCircle size={14} />
+                WhatsApp app
               </button>
               {isPaused
                 ? <button type="button" onClick={handlePauseResume} className="neo-btn-yellow">
