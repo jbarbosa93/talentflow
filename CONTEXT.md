@@ -7,22 +7,24 @@
 
 | Clé | Valeur |
 |-----|--------|
-| Version | **v2.13.33** |
+| Version | **v2.13.34** |
 | URL | talent-flow.ch |
 | Supabase | rdpbqnhwhjkngxxitupg (eu-west-1 Frankfurt) |
 | Vercel | Pro — région dub1 |
 | Dev local | port 3001 — `next dev --port 3001 --webpack` (Turbopack désactivé) |
-| **Dernière sync** | **2026-06-25 12:00** |
+| **Dernière sync** | **2026-06-25 16:30** |
 
 ---
 
-## Dernière session (25/06/2026 — v2.13.32→33 + notifs push iOS débloquées)
+## Dernière session (25/06/2026 — v2.13.32→34 : notifs iOS + audit/corrections données)
 
 - **🎉 Notifs push iOS DÉBLOQUÉES** (repo natif) : l'app iOS n'avait ni capability Push, ni clé APNs Firebase, ni Firebase Messaging → 0 token. Tout ajouté : (1) `App.entitlements` (aps-environment) + Background Modes ; (2) clé APNs `.p8` (Key ID `73SPSXT6A5`) uploadée dans Firebase ; (3) package **FirebaseMessaging** (SPM) + `GoogleService-Info.plist` rattaché ; (4) `AppDelegate.swift` réécrit (FirebaseApp.configure + didRegister→token FCM→plugin Capacitor). **Notifs reçues iPhone + Android, testées OK.** Commits natifs `b814d16` + `d1a6707`.
 - **Android** : écran intro « Choisis ton espace » = APK périmé (9 juin) → rebuild + réinstall émulateur, l'app charge bien le splash 100% collaborateur.
 - **v2.13.32 — Modal anniversaire** : cron `birthday-notifications` insère un `inapp_messages` (animation confetti) pour TOUS les candidats fêtés (modal à l'ouverture) + push. Garde-fou anti-doublon/jour.
 - **v2.13.33 — DDN en gris** : date de naissance affichée grisée + « non modifiable » dans Mon profil (`report/profil`).
 - **Démo** : candidat « Lucas Démo » (id `3d2f9b64-...`, DDN 25/06) + mission, pour tester. ⚠️ À supprimer quand inutile.
+- **v2.13.34 — Qualité données** : `normDdn` (`candidat-matching.ts`) traite `01/01/AAAA` comme placeholder non fiable → fini les faux doublons (type Ruben, 412 fiches) ; prompts `lib/claude.ts` (DDN = année seule si pas de date complète, JAMAIS 01/01 inventé ; localisation = priorité adresse CH/FR via NPA, JAMAIS nationalité/origine, format « NPA Ville, Pays » conservé) ; 3 bugs UI (barre fusion candidat = autofill bleu neutralisé, menu ⋮ rapports ancré au bouton, email conformité responsive mobile).
+- **Corrections masse en base (472 fiches)** : 413 dates `01/01`/inhabituel → année seule ; 63 localisations (39 vidées : rue seule/2 pays/bizarre ; 24 complétées via dataset CH/FR : « Aproz » → « 1994 Aproz, Suisse »). Backup `~/Desktop/backup_avant_correction.json` (annulable). Audit `~/Desktop/Audit_TalentFlow_Dates_Localisations.xlsx`. Bugs data : Ruben (doublon fusionné), Mohamed Kassouri (date permis), Alvarez (Brésil→Le Bouveret).
 
 ---
 
