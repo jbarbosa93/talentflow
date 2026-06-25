@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.26'
+export const APP_VERSION = '2.13.27'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.27',
+    date: '2026-06-25',
+    label: 'App candidat : fix modale « Ajouter un document » (bouton Envoyer caché derrière la barre)',
+    features: [
+      'La fenêtre « Ajouter un document » passe désormais au-dessus de la barre de navigation → le bouton « Envoyer le document » est visible et cliquable',
+    ],
+  },
   {
     version: '2.13.26',
     date: '2026-06-25',

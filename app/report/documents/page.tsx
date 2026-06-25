@@ -5,6 +5,7 @@
 // Données strictement les siennes (session → candidat_id).
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Loader2, FolderOpen, Eye, Plus, UploadCloud, X, FileText, CheckCircle2, AlertTriangle, Camera } from 'lucide-react'
 import PortalLogoHeader from '@/components/report/PortalLogoHeader'
@@ -124,9 +125,11 @@ export default function DocumentsPage() {
         </div>
       )}
 
-      {/* Modal upload */}
-      {showUpload && (
-        <div onClick={() => !busy && setShowUpload(false)} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      {/* Modal upload — v2.13.27 : portalisé (pattern #10) pour passer AU-DESSUS de la
+          bottom nav (sinon confiné dans le conteneur de scroll → bouton « Envoyer »
+          caché derrière la barre de navigation). zIndex 60 → 2000. */}
+      {showUpload && typeof document !== 'undefined' && createPortal(
+        <div onClick={() => !busy && setShowUpload(false)} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
           <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, background: '#fff', borderRadius: '18px 18px 0 0', padding: '20px 20px calc(24px + env(safe-area-inset-bottom,0px))', animation: 'tfFadeUp .3s ease both', maxHeight: 'calc(100dvh - env(safe-area-inset-top,0px) - 10px)', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: '#1C1A14', margin: 0 }}>Ajouter un document</h2>
@@ -167,7 +170,8 @@ export default function DocumentsPage() {
               {busy ? 'Envoi…' : 'Envoyer le document'}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
