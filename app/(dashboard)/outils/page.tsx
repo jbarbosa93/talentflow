@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { FolderInput, Camera, Copy, Wrench, ClipboardList, Sparkles, Bell, Activity } from 'lucide-react'
+import { FolderInput, Camera, Copy, Wrench, ClipboardList, Sparkles, Bell, Activity, Smartphone } from 'lucide-react'
 
 // ─── Outils V2 ──────────────────────────────────────────────────────────────
 
@@ -22,6 +22,14 @@ const OUTILS: OutilDef[] = [
     description: 'Cockpit admin — imports OneDrive, rapports/signatures, emails, crons (lecture seule)',
     cta: 'Consulter',
     color: '#8B5CF6', bg: 'rgba(139,92,247,0.12)',
+  },
+  {
+    href: '/outils/suivi-app',
+    icon: Smartphone,
+    title: 'Suivi de l\'app',
+    description: 'Usage de l\'app par les candidats — comptes, connexions, notifications push',
+    cta: 'Consulter',
+    color: '#6366F1', bg: 'rgba(99,102,241,0.12)',
   },
   {
     href: '/notifications',

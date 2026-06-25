@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.30'
+export const APP_VERSION = '2.13.31'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.31',
+    date: '2026-06-25',
+    label: 'Date de naissance + suivi de l’app + notification d’anniversaire',
+    features: [
+      'Profil candidat : saisie de la date de naissance si manquante (une seule fois) + rappel sur l’accueil',
+      'Outils → Suivi de l’app : qui a créé son compte, qui se connecte, dernière connexion, notifications activées, actifs/inactifs',
+      'Notification automatique « Joyeux anniversaire » le jour J (cron quotidien 7 h) aux candidats ayant activé les notifications',
+    ],
+  },
   {
     version: '2.13.29',
     date: '2026-06-25',

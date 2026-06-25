@@ -33,6 +33,10 @@ export default function ProfilPage() {
   const router = useRouter()
   const [p, setP] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  // v2.13.31 — Saisie de la date de naissance si elle est manquante (immuable une fois posée)
+  const [dnInput, setDnInput] = useState('')
+  const [savingDn, setSavingDn] = useState(false)
+  const [dnError, setDnError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPortalSession('/api/portal/profile')
@@ -41,6 +45,21 @@ export default function ProfilPage() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [router])
+
+  const saveBirthdate = async () => {
+    if (!dnInput) return
+    setSavingDn(true); setDnError(null)
+    try {
+      const r = await fetch('/api/portal/profile', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date_naissance: dnInput }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setDnError(d.error || 'Erreur, réessaie.'); return }
+      setP(prev => (prev ? { ...prev, date_naissance: dnInput } : prev))
+    } catch { setDnError('Erreur réseau, réessaie.') }
+    finally { setSavingDn(false) }
+  }
 
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#9A958A' }}><Loader2 className="animate-spin" /></div>
 
@@ -113,6 +132,31 @@ export default function ProfilPage() {
         <Row icon={Briefcase} label="Métier" value={p.titre_poste} />
         {p.date_naissance && <Row icon={Cake} label="Date de naissance" value={`${fmtDate(p.date_naissance)}${a != null ? ` (${a} ans)` : ''}`} />}
       </div>
+
+      {/* v2.13.31 — Saisie de la date de naissance si manquante (immuable une fois posée) */}
+      {!p.date_naissance && (
+        <div className="tf-fadeup" style={{ marginTop: 16, background: '#FEFCE8', border: '1.5px solid #FDE68A', borderRadius: 14, padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <Cake size={18} color="#B45309" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#1C1A14' }}>Ta date de naissance 🎂</span>
+          </div>
+          <p style={{ margin: '0 0 12px', fontSize: 13, color: '#6B6457', lineHeight: 1.5 }}>
+            Renseigne ta date de naissance pour qu&apos;on puisse te souhaiter ton anniversaire&nbsp;! (à saisir une seule fois)
+          </p>
+          <input
+            type="date" value={dnInput} onChange={e => setDnInput(e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+            style={{ width: '100%', padding: 11, borderRadius: 10, border: '1px solid #ECEAE3', fontSize: 15, marginBottom: 10, fontFamily: 'inherit', WebkitAppearance: 'none', appearance: 'none' }}
+          />
+          {dnError && <div style={{ fontSize: 12.5, color: '#B91C1C', marginBottom: 8 }}>{dnError}</div>}
+          <button
+            onClick={saveBirthdate} disabled={savingDn || !dnInput}
+            style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: '#EAB308', color: '#1C1A14', fontSize: 14.5, fontWeight: 800, cursor: savingDn || !dnInput ? 'default' : 'pointer', opacity: !dnInput ? 0.6 : 1, fontFamily: 'inherit' }}
+          >
+            {savingDn ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      )}
 
       <p style={{ fontSize: 12, color: '#9A958A', textAlign: 'center', margin: '16px 0 0', lineHeight: 1.5 }}>
         Une erreur dans tes informations ? Contacte L-Agence ou modifie tes coordonnées dans Paramètres.

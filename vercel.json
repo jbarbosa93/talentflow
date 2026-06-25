@@ -2,6 +2,10 @@
   "regions": ["dub1"],
   "crons": [
     {
+      "path": "/api/cron/birthday-notifications",
+      "schedule": "0 7 * * *"
+    },
+    {
       "path": "/api/cron/onedrive-sync",
       "schedule": "*/10 * * * *"
     },

@@ -20,6 +20,7 @@ interface Data {
   companies: Company[]
   profile: {
     prenom: string; nom: string; titre_poste: string; photo_url: string | null
+    date_naissance?: string
     mission: null | { entreprise: string; metier: string | null; date_debut: string | null; date_fin: string | null; active: boolean }
   }
 }
@@ -103,6 +104,20 @@ export default function AccueilPage() {
         <CandidatWelcomeHeader prenom={d.profile.prenom || ''} />
       </div>
       {d.profile.titre_poste && <p style={{ fontSize: 14, color: '#9A958A', margin: '-6px 0 14px 2px' }}>{d.profile.titre_poste}</p>}
+
+      {/* v2.13.31 — Prompt date de naissance manquante (pour la notif d'anniversaire) */}
+      {!d.profile.date_naissance && (
+        <a href="/report/profil" className="tf-fadeup" style={{
+          display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '13px 15px',
+          borderRadius: 14, background: '#FEFCE8', border: '1.5px solid #FDE68A', textDecoration: 'none',
+        }}>
+          <span style={{ fontSize: 22, flexShrink: 0 }}>🎂</span>
+          <span style={{ flex: 1, fontSize: 13.5, color: '#1C1A14', fontWeight: 600, lineHeight: 1.4 }}>
+            Renseigne ta <strong>date de naissance</strong> pour qu&apos;on te souhaite ton anniversaire&nbsp;!
+          </span>
+          <span style={{ fontSize: 18, color: '#B45309', flexShrink: 0 }}>→</span>
+        </a>
+      )}
 
       {/* Bandeau « Bientôt l'application » (refermable) */}
       <div className="tf-fadeup" style={{ marginBottom: 14 }}>

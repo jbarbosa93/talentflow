@@ -141,3 +141,40 @@ export async function GET() {
     },
   })
 }
+
+// v2.13.31 — PATCH : le candidat renseigne sa date de naissance SI ELLE EST VIDE.
+// Règle métier ABSOLUE : date_naissance = identité → IMMUABLE. On ne remplit que si
+// elle est NULL (garde-fou au niveau SQL avec .is('date_naissance', null)) ; jamais
+// d'écrasement d'une valeur existante. Sert à la notification d'anniversaire.
+export async function PATCH(req: Request) {
+  const ctx = await resolveContext()
+  if (!ctx) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
+  if (!ctx.candidateId) return NextResponse.json({ error: 'Aucun dossier candidat lié' }, { status: 400 })
+
+  const body = await req.json().catch(() => ({}))
+  const dn = typeof body.date_naissance === 'string' ? body.date_naissance.trim() : ''
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dn)) {
+    return NextResponse.json({ error: 'Date invalide (format attendu : AAAA-MM-JJ)' }, { status: 400 })
+  }
+  // Bornes raisonnables (évite les fautes de frappe : 1920–aujourd'hui)
+  const year = Number(dn.slice(0, 4))
+  const nowYear = new Date().getFullYear()
+  if (year < 1920 || year > nowYear) {
+    return NextResponse.json({ error: 'Année invalide' }, { status: 400 })
+  }
+
+  const admin = createAdminClient()
+  const { data: cur } = await (admin as any)
+    .from('candidats').select('date_naissance').eq('id', ctx.candidateId).maybeSingle()
+  if (cur?.date_naissance) {
+    return NextResponse.json({ error: 'Date de naissance déjà renseignée' }, { status: 409 })
+  }
+  const { error } = await (admin as any)
+    .from('candidats')
+    .update({ date_naissance: dn })
+    .eq('id', ctx.candidateId)
+    .is('date_naissance', null) // garde-fou immuabilité : n'écrase jamais une valeur existante
+  if (error) return NextResponse.json({ error: 'Erreur lors de l\'enregistrement' }, { status: 500 })
+
+  return NextResponse.json({ ok: true, date_naissance: dn })
+}
