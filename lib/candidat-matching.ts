@@ -88,9 +88,17 @@ const normDdn = (d: string | null | undefined): string | null => {
   const s = String(d).trim()
   if (!s) return null
   const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`
+  if (iso) {
+    // 01/01 = placeholder « année seule » (CV sans jour/mois) → non fiable, non-comparable
+    if (iso[2] === '01' && iso[3] === '01') return null
+    return `${iso[1]}-${iso[2]}-${iso[3]}`
+  }
   const dmy = s.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/)
-  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`
+  if (dmy) {
+    const dd = dmy[1].padStart(2, '0'), mm = dmy[2].padStart(2, '0')
+    if (dd === '01' && mm === '01') return null // 01/01 placeholder → non fiable
+    return `${dmy[3]}-${mm}-${dd}`
+  }
   return null // année seule ou format inconnu → non-comparable
 }
 

@@ -3474,7 +3474,8 @@ export default function CandidatDetailPage() {
                     }, 500)
                   }}
                   placeholder="Nom, email, téléphone..."
-                  style={{ flex: 1, border: 'none', background: 'none', outline: 'none', fontSize: 14, color: 'var(--foreground)', fontFamily: 'inherit' }}
+                  autoComplete="off"
+                  style={{ flex: 1, border: 'none', background: 'none', outline: 'none', fontSize: 14, color: 'var(--foreground)', fontFamily: 'inherit', WebkitBoxShadow: '0 0 0 1000px var(--muted) inset', WebkitTextFillColor: 'var(--foreground)', caretColor: 'var(--foreground)' }}
                 />
               </div>
             </div>

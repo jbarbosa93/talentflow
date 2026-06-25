@@ -108,14 +108,14 @@ function buildHtml(p: {
     : 'Récapitulatif quotidien — toute l\'agence'
 
   return `<!DOCTYPE html>
-<html lang="fr"><head><meta charset="utf-8"></head>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>@media only screen and (max-width:600px){.tf-wrap{padding:16px 8px !important}.tf-card{padding:18px 12px !important}.tf-card table td{padding:7px 4px !important;font-size:11px !important;word-break:break-word}.tf-card table th{padding:7px 4px !important;font-size:9px !important}}</style></head>
 <body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-  <div style="max-width:680px;margin:0 auto;padding:32px 16px;">
+  <div class="tf-wrap" style="max-width:680px;margin:0 auto;padding:32px 16px;">
     <div style="text-align:center;margin-bottom:24px;">
       <img src="https://www.talent-flow.ch/logo-agence-officiel-noir.png" alt="L-Agence" width="200" style="height:42px;width:auto;display:inline-block;border:0;" />
       <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Conformité documents</div>
     </div>
-    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;">
+    <div class="tf-card" style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;">
       <div style="display:inline-block;background:#FED7AA;color:#9A3412;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px;">
         🪪 Alertes conformité
       </div>

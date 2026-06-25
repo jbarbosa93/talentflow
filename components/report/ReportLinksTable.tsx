@@ -113,7 +113,7 @@ function Row({
   // v2.3.9 Bug 1 — Menu ⋮ portalisé pour échapper au container parent
   // (le tableau a overflow:hidden via borderRadius:12 → le dropdown était caché).
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null)
   const isPaused = link.status === 'paused'
   const isRevoked = link.status === 'revoked'
   const headline = candidateName || link.candidat_name || link.title
@@ -121,14 +121,14 @@ function Row({
   useEffect(() => {
     if (!menuOpen || !triggerRef.current) { setMenuPos(null); return }
     const r = triggerRef.current.getBoundingClientRect()
-    // v2.13.22 — Si pas assez de place sous le bouton (ligne en bas d'écran), on
-    // ouvre le menu VERS LE HAUT pour qu'il ne soit plus coupé par le bas de fenêtre.
-    const MENU_H = 300
+    // v2.13.34 — Le menu s'ancre AU bouton : vers le bas par défaut ; s'il manque de
+    // place en bas, on ancre le BAS du menu juste au-dessus du bouton (indépendant de
+    // sa hauteur réelle → fini le menu « flottant trop haut »).
+    const MENU_H = 180
     const openUp = r.bottom + MENU_H > window.innerHeight
-    setMenuPos({
-      top: openUp ? Math.max(8, r.top - MENU_H) : r.bottom + 4,
-      right: window.innerWidth - r.right,
-    })
+    setMenuPos(openUp
+      ? { bottom: window.innerHeight - r.top + 4, right: window.innerWidth - r.right }
+      : { top: r.bottom + 4, right: window.innerWidth - r.right })
   }, [menuOpen])
 
   return (
@@ -255,7 +255,7 @@ function Row({
             />
             <div style={{
               position: 'fixed',
-              top: menuPos.top,
+              ...(menuPos.top != null ? { top: menuPos.top } : { bottom: menuPos.bottom }),
               right: menuPos.right,
               background: 'var(--card)',
               border: '1px solid var(--border)',
