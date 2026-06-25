@@ -39,7 +39,7 @@
 
 ## TODO actif
 
-- [ ] **🔴 Resoumettre les apps aux stores** (push) : Android (AAB prêt sur Bureau → Play Console) + iOS (Xcode Archive → App Store Connect). Étapes : `~/Dev/talentflow-sign-app/RESOUMISSION-STORES.md`. Sans ça, les vrais candidats n'ont pas les notifs.
+- [ ] **⏳ Apps SOUMISES aux stores le 25/06** (push) — en attente review : **iOS 1.0.1 (5)** « En attente de vérification » (Apple ~24-48h) + **Android 1.0.1 / versionCode 2** vérifications→review auto (Google ~1-3j, managed publishing OFF → publication auto après approbation). Une fois publiées + installées par les candidats → notifs push actives. Rien à faire, juste suivre l'approbation.
 - [ ] **Supprimer le candidat démo « Lucas Démo »** (`3d2f9b64-608c-4d3e-9eee-aafb45aab1c2`) quand plus utile pour les tests.
 - [ ] **Après déploiement v2.13.19** : remettre en file les 7 fichiers suspects + sync manuel + vérifier qu'ils repartent bien (⚠️ Beau Gosse en 404 → peut nécessiter re-dépôt)
 - [ ] **Perf recherche candidats** : RPC `search_candidats_filtered` fait un seq scan ~640 ms (OR avec ILIKE unaccent non-indexables). Fix = RPC v4 indexée (fts élargi + index trgm f_unaccent) avec compromis substring→lexème sur CV/compétences. À construire + benchmarker en parallèle avant bascule.
