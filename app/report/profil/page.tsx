@@ -43,7 +43,21 @@ export default function ProfilPage() {
   }, [router])
 
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#9A958A' }}><Loader2 className="animate-spin" /></div>
-  if (!p) return <div style={{ padding: 40, textAlign: 'center', color: '#9A958A' }}>Profil indisponible.</div>
+
+  // v2.13.26 — Pas de candidat lié : message clair plutôt que « Profil indisponible ».
+  if (!p) return (
+    <div style={{ maxWidth: 560, margin: '0 auto', padding: '14px 18px 90px' }}>
+      <PortalLogoHeader />
+      <div style={{ background: '#FAFAF7', border: '1px solid #ECEAE3', borderRadius: 16, padding: '24px 18px', marginTop: 16, textAlign: 'center' }}>
+        <div style={{ fontSize: 28, marginBottom: 8 }}>👤</div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: '#1C1A14', marginBottom: 8 }}>Profil bientôt disponible</div>
+        <div style={{ fontSize: 13.5, color: '#6B6457', lineHeight: 1.55 }}>
+          Tes informations apparaîtront ici dès que ton agence aura associé ton dossier.
+          En cas de question, contacte L&apos;Agence.
+        </div>
+      </div>
+    </div>
+  )
 
   const initials = `${(p.prenom[0] || '')}${(p.nom[0] || '')}`.toUpperCase() || '?'
   const a = age(p.date_naissance)

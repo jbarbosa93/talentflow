@@ -55,7 +55,28 @@ export default function AccueilPage() {
   }, [router])
 
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#9A958A' }}><Loader2 className="animate-spin" /></div>
-  if (!d) return <div style={{ padding: 40, textAlign: 'center', color: '#9A958A' }}>Indisponible.</div>
+
+  // v2.13.26 — Pas de candidat/mission lié (ex. nouveau compte) : on n'affiche plus
+  // « Indisponible » mais un accueil d'attente clair + accès au contact agence.
+  if (!d) return (
+    <div style={{ maxWidth: 560, margin: '0 auto', padding: '14px 18px 90px' }}>
+      <div style={{ marginBottom: 16 }}>
+        <CandidatWelcomeHeader prenom="" />
+      </div>
+      <div className="tf-fadeup" style={{ marginBottom: 14 }}>
+        <AppComingSoonBanner />
+      </div>
+      <div className="tf-fadeup" style={{ background: '#FAFAF7', border: '1px solid #ECEAE3', borderRadius: 16, padding: '20px 18px', marginBottom: 16, textAlign: 'center' }}>
+        <div style={{ fontSize: 28, marginBottom: 8 }}>👋</div>
+        <div style={{ fontSize: 15.5, fontWeight: 800, color: '#1C1A14', marginBottom: 8 }}>Bienvenue sur TalentFlow</div>
+        <div style={{ fontSize: 13.5, color: '#6B6457', lineHeight: 1.55 }}>
+          Aucune mission active pour le moment. Dès que ton agence te place en mission, tu retrouveras ici ton entreprise,
+          tes dates et tes rapports d&apos;heures à remplir.
+        </div>
+      </div>
+      <ContactAgenceButton />
+    </div>
+  )
 
   const last = d.reports.last
   const st = last ? (STATUS_LABEL[last.status] || { txt: last.status, bg: '#F1EFE9', fg: '#6B6457' }) : null

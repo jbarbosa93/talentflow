@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.25'
+export const APP_VERSION = '2.13.26'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.26',
+    date: '2026-06-25',
+    label: 'App candidat : ouverture sur l’Accueil · accueil/profil sans mission propres · session ~3 mois',
+    features: [
+      'L’app s’ouvre désormais sur l’Accueil (tableau de bord) et non plus directement sur la saisie d’un rapport',
+      'Accueil et Profil sans mission : message de bienvenue clair au lieu de « Indisponible »',
+      'Session candidat prolongée de 30 à 90 jours → beaucoup moins de reconnexions dans l’app',
+    ],
+  },
   {
     version: '2.13.25',
     date: '2026-06-24',

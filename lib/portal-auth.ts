@@ -14,7 +14,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 // ──────────────────────────────────────────────────────────────────────────
 
 export const BCRYPT_ROUNDS = 12
-export const SESSION_TTL_DAYS = 30
+// v2.13.26 — 30 → 90 jours : la session candidat reste ouverte ~3 mois (moins de
+// reconnexions dans l'app). Portail à données limitées → TTL long acceptable.
+export const SESSION_TTL_DAYS = 90
 export const INVITATION_TTL_DAYS = 7
 export const RESET_TTL_HOURS = 1
 export const COOKIE_NAME_CLIENT = 'tf_portal_client'
@@ -158,7 +160,7 @@ export function sessionCookieOptions(_userAgent?: string | null) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     path: '/',
-    maxAge: SESSION_TTL_DAYS * 24 * 60 * 60, // 30j en secondes
+    maxAge: SESSION_TTL_DAYS * 24 * 60 * 60, // TTL en secondes
   }
 }
 

@@ -11,7 +11,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { REPORT_LAST_SLUG_KEY } from '@/components/report/ServiceWorkerRegister'
 
 export default function ReportEntryPage() {
   const router = useRouter()
@@ -21,24 +20,17 @@ export default function ReportEntryPage() {
     let cancelled = false
 
     async function resolve() {
-      // 1. Dernier rapport ouvert dans l'app
-      let slug: string | null = null
-      try { slug = localStorage.getItem(REPORT_LAST_SLUG_KEY) } catch { /* silencieux */ }
-      if (slug) { router.replace(`/report/${slug}`); return }
-
-      // 2. Candidat déjà connecté → son rapport
-      // v2.13.2 — App iOS (WKWebView) : le cookie de session peut arriver avec un
-      // léger décalage juste après le login → un 401 transitoire ne doit PAS
-      // renvoyer au login. On retente brièvement (≤ ~1 s) avant d'abandonner.
+      // v2.13.26 — L'app s'ouvre désormais sur l'ACCUEIL (tableau de bord), pas
+      // directement sur la saisie d'un rapport. Plus logique : le candidat voit
+      // d'abord sa mission / ses infos, puis va dans « Rapports » via la nav.
+      // On vérifie juste qu'une session existe (sinon login). Le dernier slug reste
+      // mémorisé pour l'onglet Rapports.
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const r = await fetch('/api/portal-auth/me?type=candidat&full=1', { credentials: 'include' })
           if (r.ok) {
-            const d = await r.json().catch(() => null)
-            const target = d?.account?.targetSlug as string | undefined
             if (cancelled) return
-            if (target) { router.replace(`/report/${target}`); return }
-            setPhase('no-report')  // connecté mais aucun rapport lié
+            router.replace('/report/accueil')
             return
           }
         } catch { /* réseau KO → on retente */ }
@@ -46,7 +38,7 @@ export default function ReportEntryPage() {
         if (attempt < 2) await new Promise(res => setTimeout(res, 350))
       }
 
-      // 3. Toujours pas de session après retries → connexion
+      // Pas de session après retries → connexion
       if (!cancelled) router.replace('/report/login')
     }
 
