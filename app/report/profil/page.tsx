@@ -81,12 +81,12 @@ export default function ProfilPage() {
   const initials = `${(p.prenom[0] || '')}${(p.nom[0] || '')}`.toUpperCase() || '?'
   const a = age(p.date_naissance)
 
-  const Row = ({ icon: Icon, label, value }: { icon: any; label: string; value: string }) => value ? (
+  const Row = ({ icon: Icon, label, value, muted }: { icon: any; label: string; value: string; muted?: boolean }) => value ? (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid #F1EFE9' }}>
       <Icon size={17} color="#9A958A" style={{ flexShrink: 0 }} />
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 11, color: '#9A958A', fontWeight: 600 }}>{label}</div>
-        <div style={{ fontSize: 15, color: '#1C1A14', wordBreak: 'break-word' }}>{value}</div>
+        <div style={{ fontSize: 15, color: muted ? '#9A958A' : '#1C1A14', wordBreak: 'break-word' }}>{value}</div>
       </div>
     </div>
   ) : null
@@ -130,7 +130,7 @@ export default function ProfilPage() {
         <Row icon={Phone} label="2e téléphone" value={p.telephone_2} />
         <Row icon={MapPin} label="Localisation" value={p.localisation} />
         <Row icon={Briefcase} label="Métier" value={p.titre_poste} />
-        {p.date_naissance && <Row icon={Cake} label="Date de naissance" value={`${fmtDate(p.date_naissance)}${a != null ? ` (${a} ans)` : ''}`} />}
+        {p.date_naissance && <Row icon={Cake} label="Date de naissance · non modifiable" value={`${fmtDate(p.date_naissance)}${a != null ? ` (${a} ans)` : ''}`} muted />}
       </div>
 
       {/* v2.13.31 — Saisie de la date de naissance si manquante (immuable une fois posée) */}
