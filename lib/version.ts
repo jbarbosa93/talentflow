@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.28'
+export const APP_VERSION = '2.13.29'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.29',
+    date: '2026-06-25',
+    label: 'Page de téléchargement : design soigné avec les badges officiels App Store / Google Play',
+    features: [
+      'Page /telecharger refaite : logo en pastille, badges officiels Apple et Google, mise en page propre',
+    ],
+  },
   {
     version: '2.13.28',
     date: '2026-06-25',

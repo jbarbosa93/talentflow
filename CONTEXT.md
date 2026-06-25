@@ -7,7 +7,7 @@
 
 | Clé | Valeur |
 |-----|--------|
-| Version | **v2.13.28** |
+| Version | **v2.13.29** |
 | URL | talent-flow.ch |
 | Supabase | rdpbqnhwhjkngxxitupg (eu-west-1 Frankfurt) |
 | Vercel | Pro — région dub1 |
