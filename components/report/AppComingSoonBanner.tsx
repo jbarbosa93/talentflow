@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react'
 import { X, Smartphone } from 'lucide-react'
+import { isInApp } from '@/lib/report/app-auth'
 
 // v2.13.28 — clé v2 : le nouveau bandeau « app disponible » réapparaît même chez
 // ceux qui avaient fermé l'ancien « app bientôt ».
@@ -15,6 +16,9 @@ export default function AppComingSoonBanner() {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
+    // v2.13.37 — Dans l'app native (TalentFlowSignApp), inutile de proposer de
+    // télécharger l'app : on ne l'affiche que sur navigateur web.
+    if (isInApp()) return
     try {
       if (localStorage.getItem(DISMISS_KEY) !== '1') setShow(true)
     } catch {
