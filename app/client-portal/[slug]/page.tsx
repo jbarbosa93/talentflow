@@ -759,8 +759,8 @@ function CandidatCard({ candidat: c, delayMs, slug, notesCount, onOpenDocs, onOp
           </span>
           {c.telephone && (
             <>
-              <a href={`tel:${c.telephone}`} style={miniBtn('#1C1A14', '#fff')} title={c.telephone}>
-                <Phone size={11} /> Appel
+              <a href={`tel:${c.telephone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 600, color: '#1C1A14', textDecoration: 'none' }} title="Téléphone">
+                <Phone size={12} color="#6B7280" /> {c.telephone}
               </a>
               {phoneDigits && (
                 <a href={`https://wa.me/${phoneDigits}`} target="_blank" rel="noopener noreferrer" style={miniBtn('#25D366', '#fff')} title={c.telephone}>
