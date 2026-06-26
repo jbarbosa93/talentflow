@@ -7,17 +7,18 @@
 
 | Clé | Valeur |
 |-----|--------|
-| Version | **v2.13.36** |
+| Version | **v2.13.37** |
 | URL | talent-flow.ch |
 | Supabase | rdpbqnhwhjkngxxitupg (eu-west-1 Frankfurt) |
 | Vercel | Pro — région dub1 |
 | Dev local | port 3001 — `next dev --port 3001 --webpack` (Turbopack désactivé) |
-| **Dernière sync** | **2026-06-26 08:30** |
+| **Dernière sync** | **2026-06-26 08:40** |
 
 ---
 
-## Dernière session (25-26/06 — v2.13.32→36)
+## Dernière session (25-26/06 — v2.13.32→37)
 
+- **v2.13.37 (26/06) — Bandeau « télécharger l'app » web only** : `AppComingSoonBanner` masqué dans l'app native (via `isInApp()` = UA `TalentFlowSignApp`), affiché seulement sur navigateur. Logique : inutile de proposer de télécharger l'app quand on y est déjà.
 - **v2.13.36 (26/06) — Portail client : numéro candidat** : barre Contact, le bouton « Appel » remplacé par le numéro affiché en clair (cliquable tel: mobile). WhatsApp + Email conservés.
 - **v2.13.35 (26/06) — Portail client : missions à venir** : le portail affiche désormais les missions futures (date début > aujourd'hui) avec badge bleu « Démarre le X · dans Y jours » + compteur « X en mission · Y à venir » (tri : en cours d'abord). API `client-portal/[slug]` : filtre `date_debut<=today` retiré (garde le filtre date_fin).
 
