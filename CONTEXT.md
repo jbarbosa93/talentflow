@@ -7,17 +7,18 @@
 
 | Clé | Valeur |
 |-----|--------|
-| Version | **v2.13.35** |
+| Version | **v2.13.36** |
 | URL | talent-flow.ch |
 | Supabase | rdpbqnhwhjkngxxitupg (eu-west-1 Frankfurt) |
 | Vercel | Pro — région dub1 |
 | Dev local | port 3001 — `next dev --port 3001 --webpack` (Turbopack désactivé) |
-| **Dernière sync** | **2026-06-26 08:15** |
+| **Dernière sync** | **2026-06-26 08:30** |
 
 ---
 
-## Dernière session (25-26/06 — v2.13.32→35)
+## Dernière session (25-26/06 — v2.13.32→36)
 
+- **v2.13.36 (26/06) — Portail client : numéro candidat** : barre Contact, le bouton « Appel » remplacé par le numéro affiché en clair (cliquable tel: mobile). WhatsApp + Email conservés.
 - **v2.13.35 (26/06) — Portail client : missions à venir** : le portail affiche désormais les missions futures (date début > aujourd'hui) avec badge bleu « Démarre le X · dans Y jours » + compteur « X en mission · Y à venir » (tri : en cours d'abord). API `client-portal/[slug]` : filtre `date_debut<=today` retiré (garde le filtre date_fin).
 
 - **🎉 Notifs push iOS DÉBLOQUÉES** (repo natif) : l'app iOS n'avait ni capability Push, ni clé APNs Firebase, ni Firebase Messaging → 0 token. Tout ajouté : (1) `App.entitlements` (aps-environment) + Background Modes ; (2) clé APNs `.p8` (Key ID `73SPSXT6A5`) uploadée dans Firebase ; (3) package **FirebaseMessaging** (SPM) + `GoogleService-Info.plist` rattaché ; (4) `AppDelegate.swift` réécrit (FirebaseApp.configure + didRegister→token FCM→plugin Capacitor). **Notifs reçues iPhone + Android, testées OK.** Commits natifs `b814d16` + `d1a6707`.
