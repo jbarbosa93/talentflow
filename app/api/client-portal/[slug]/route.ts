@@ -146,7 +146,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
       .select('id, candidat_id, candidat_nom, metier, metier_display, date_debut, date_fin, marge_brute, statut, vacances, arrets, absences')
       .eq('client_id', portal.client_id)
       .eq('statut', 'en_cours')
-      .lte('date_debut', todayIso)
+    // v2.13.35 — inclut aussi les missions À VENIR (date_debut future), pas seulement celles
+    // déjà démarrées. On exclut uniquement les missions terminées (date_fin déjà passée).
     const activeMissions = (missions || []).filter((m: any) => !m.date_fin || m.date_fin >= todayIso)
     const candIds = Array.from(new Set(activeMissions.map((m: any) => m.candidat_id).filter(Boolean) as string[]))
 
@@ -236,12 +237,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
       })
     }
 
-    // 6. v2.7.1 — Sort par mission.date_debut DESC (la plus récente en premier).
-    // Si même date ou pas de mission → fallback alphabétique.
+    // 6. Tri : missions EN COURS d'abord (la plus récente en premier), puis les missions
+    // À VENIR (la plus proche en premier). v2.13.35. Fallback alphabétique.
     candidatsOut.sort((a, b) => {
       const da = a.mission?.date_debut || ''
       const db = b.mission?.date_debut || ''
-      if (da && db && da !== db) return db.localeCompare(da)
+      const aUp = da && da > todayIso ? 1 : 0
+      const bUp = db && db > todayIso ? 1 : 0
+      if (aUp !== bUp) return aUp - bUp                                  // en cours (0) avant à venir (1)
+      if (da && db && da !== db) return aUp ? da.localeCompare(db) : db.localeCompare(da)
       if (!da && db) return 1
       if (da && !db) return -1
       const an = `${a.prenom || ''} ${a.nom || ''}`.trim().toLowerCase()

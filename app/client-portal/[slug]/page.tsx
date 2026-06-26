@@ -352,7 +352,16 @@ export default function ClientPortalPage({ params }: { params: Promise<{ slug: s
           ) : (
             <>
               <p style={{ fontSize: 14, color: '#374151', margin: '0 0 22px', fontWeight: 500 }}>
-                <strong style={{ color: '#1C1A14' }}>{data.candidats.length}</strong> collaborateur{data.candidats.length > 1 ? 's' : ''} en mission chez vous.
+                {(() => {
+                  const today = new Date().toISOString().slice(0, 10)
+                  const up = data.candidats.filter(c => c.mission && c.mission.date_debut > today).length
+                  const enCours = data.candidats.length - up
+                  return up > 0 ? (
+                    <><strong style={{ color: '#1C1A14' }}>{enCours}</strong> en mission{' · '}<strong style={{ color: '#1D4ED8' }}>{up}</strong> à venir.</>
+                  ) : (
+                    <><strong style={{ color: '#1C1A14' }}>{enCours}</strong> collaborateur{enCours > 1 ? 's' : ''} en mission chez vous.</>
+                  )
+                })()}
               </p>
               <div className="portal-candidats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16, alignItems: 'start' }}>
                 {data.candidats.map((c, idx) => (
@@ -578,6 +587,18 @@ function CandidatCard({ candidat: c, delayMs, slug, notesCount, onOpenDocs, onOp
             // au lieu de « En mission depuis » (qui sous-entend une mission en cours).
             const todayStr = new Date().toISOString().slice(0, 10)
             const ended = !!c.mission!.date_fin && c.mission!.date_fin < todayStr
+            // v2.13.35 — mission à venir (date de début dans le futur) → « Démarre le … · dans X jours »
+            const upcoming = c.mission!.date_debut > todayStr
+            if (upcoming) {
+              const days = Math.max(1, Math.round((new Date(c.mission!.date_debut + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / 86400000))
+              return (
+                <span>
+                  Démarre le <strong style={{ color: '#1C1A14' }}>{formatExpiryDate(c.mission!.date_debut)}</strong>
+                  {' · '}
+                  <strong style={{ color: '#1D4ED8' }}>{days === 1 ? 'demain' : `dans ${days} jours`}</strong>
+                </span>
+              )
+            }
             return ended ? (
               <span>
                 Mission du <strong style={{ color: '#1C1A14' }}>{formatExpiryDate(c.mission!.date_debut)}</strong>
