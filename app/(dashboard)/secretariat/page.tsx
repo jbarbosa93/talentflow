@@ -1833,11 +1833,12 @@ function PermisBadge({ genre, dateEcheance, note }: { genre: string | null; date
   )
 }
 
-function CandidatsTable({ candidats, onEdit, onDelete, onColorChange, alfaCandidatIds, onGoToAlfa, onCreateAlfa, onToggleArchive }: {
+function CandidatsTable({ candidats, onEdit, onDelete, onColorChange, onModeChange, alfaCandidatIds, onGoToAlfa, onCreateAlfa, onToggleArchive }: {
   candidats: SecretariatCandidat[]
   onEdit: (c: SecretariatCandidat) => void
   onDelete: (c: SecretariatCandidat) => void
   onColorChange: (id: string, color: string) => void
+  onModeChange: (id: string, mode: string) => void
   alfaCandidatIds: Set<string>
   onGoToAlfa: () => void
   onCreateAlfa: (c: SecretariatCandidat) => void
@@ -1886,6 +1887,7 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange, alfaCandid
             <SortableHeader label="Enfants" sortDir={sort.col === 'enfants' ? sort.dir : null} onSort={() => toggleSort('enfants')} style={thStyle} />
             <th style={thStyle}>Documents</th>
             <th style={thStyle}>Mission</th>
+            <th style={thStyle}>💰 Paiement</th>
             <th style={thStyle}>Remarques</th>
             <th style={thStyle}></th>
           </tr>
@@ -1990,24 +1992,33 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange, alfaCandid
                       <>
                         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>📅 {formatDate(c.date_mission)}</span>
                         <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.12)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.25)', whiteSpace: 'nowrap' }}>● Active</span>
-                        {c.mode_paiement && (
-                          <span
-                            title={`Notification email J-2 du versement`}
-                            style={{
-                              padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
-                              background: c.mode_paiement === 'calendrier_mensuel' ? 'rgba(220,38,38,0.10)' : c.mode_paiement === 'mensuel' ? 'rgba(5,150,105,0.10)' : 'rgba(37,99,235,0.10)',
-                              color: c.mode_paiement === 'calendrier_mensuel' ? '#DC2626' : c.mode_paiement === 'mensuel' ? '#059669' : '#2563EB',
-                              border: `1px solid ${c.mode_paiement === 'calendrier_mensuel' ? 'rgba(220,38,38,0.25)' : c.mode_paiement === 'mensuel' ? 'rgba(5,150,105,0.25)' : 'rgba(37,99,235,0.25)'}`,
-                            }}
-                          >
-                            💰 {c.mode_paiement === 'calendrier_mensuel' ? 'Cal. mensuel' : c.mode_paiement === 'mensuel' ? 'Mensuel' : 'Hebdo'}
-                          </span>
-                        )}
                       </>
                     ) : !isArchive ? (
                       <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>
                     ) : null}
                   </div>
+                </td>
+                <td style={{ padding: '10px 10px' }}>
+                  {!isMissionTerminee && !isArchive ? (
+                    <select
+                      value={c.mode_paiement || ''}
+                      onChange={e => onModeChange(c.id, e.target.value)}
+                      title="Mode de paiement — une notification email est envoyée au candidat 2 jours avant chaque versement"
+                      style={{
+                        fontSize: 11, fontWeight: 700, padding: '5px 6px', borderRadius: 6, cursor: 'pointer', maxWidth: 150,
+                        background: c.mode_paiement === 'calendrier_mensuel' ? 'rgba(220,38,38,0.10)' : c.mode_paiement === 'mensuel' ? 'rgba(5,150,105,0.10)' : c.mode_paiement === 'hebdomadaire' ? 'rgba(37,99,235,0.10)' : 'var(--secondary)',
+                        color: c.mode_paiement === 'calendrier_mensuel' ? '#DC2626' : c.mode_paiement === 'mensuel' ? '#059669' : c.mode_paiement === 'hebdomadaire' ? '#2563EB' : 'var(--muted)',
+                        border: `1.5px solid ${c.mode_paiement === 'calendrier_mensuel' ? 'rgba(220,38,38,0.3)' : c.mode_paiement === 'mensuel' ? 'rgba(5,150,105,0.3)' : c.mode_paiement === 'hebdomadaire' ? 'rgba(37,99,235,0.3)' : 'var(--border)'}`,
+                      }}
+                    >
+                      <option value="">— À définir —</option>
+                      <option value="calendrier_mensuel">🔴 Cal. mensuel</option>
+                      <option value="mensuel">🟢 Mensuel</option>
+                      <option value="hebdomadaire">🔵 Hebdo</option>
+                    </select>
+                  ) : (
+                    <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>
+                  )}
                 </td>
                 <td style={{ padding: '10px 10px', maxWidth: 200 }}>
                   {c.remarques ? <div title={c.remarques} onClick={e => { const el = e.currentTarget; if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' } else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' } }} style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}>{c.remarques}</div> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
@@ -3262,6 +3273,20 @@ function SecretariatPage() {
     } catch (e: any) { toast.error(e.message) }
   }
 
+  // Mode de paiement inline (liste candidats) — active les notifications de versement
+  const handleModeChange = async (id: string, mode: string) => {
+    try {
+      const res = await fetch(`/api/secretariat/candidats/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode_paiement: mode || null }),
+      })
+      if (!res.ok) throw new Error('Erreur')
+      queryClient.invalidateQueries({ queryKey: ['secretariat-candidats', annee] })
+      toast.success(mode ? '💰 Mode enregistré — notifications de versement activées' : 'Mode de paiement retiré')
+    } catch (e: any) { toast.error(e.message || 'Erreur') }
+  }
+
   // Archive accident
   const handleArchive = async (a: SecretariatAccident) => {
     try {
@@ -3786,6 +3811,7 @@ function SecretariatPage() {
                 onEdit={c => { setEditItem(c); setShowForm(true) }}
                 onDelete={c => setDeleteItem(c)}
                 onColorChange={handleColorChange}
+                onModeChange={handleModeChange}
                 alfaCandidatIds={alfaCandidatIds}
                 onGoToAlfa={() => setActiveTab('alfa')}
                 onCreateAlfa={c => {

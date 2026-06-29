@@ -39,12 +39,27 @@ export async function GET(request: NextRequest) {
 
     if (anneeParam) {
       const targetYear = parseInt(anneeParam, 10)
+      // Clé d'identité normalisée (nom+prénom). Le N°Quad n'est PAS fiable (parfois partagé
+      // par 2 personnes dans l'Excel des secrétaires) → on identifie par nom+prénom.
+      const idKey = (r: any) =>
+        `${(r.nom || '').trim()}|${(r.prenom || '').trim()}`
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+      // Identités ayant déjà une fiche pour l'année cible → évite le doublon d'affichage
+      // quand un candidat actif d'une année antérieure « remonte » par rollover.
+      const idsInTarget = new Set(
+        rows.filter((r: any) => Number(r.annee) === targetYear).map(idKey)
+      )
       rows = rows.filter((r: any) => {
         const baseYear = Number(r.annee || 0)
         if (baseYear > targetYear) return false // pas créé encore
         // Archivés : on les renvoie quand même au client (le client filtre selon le pill).
         // Mission active : s'affiche pour toute année >= baseYear
         if (!r.is_mission_terminee) {
+          // Anti-doublon : une fiche active d'une année passée ne remonte pas si une
+          // fiche de l'année cible existe déjà pour la même personne.
+          if (baseYear < targetYear && idsInTarget.has(idKey(r))) return false
           return baseYear <= targetYear
         }
         // Mission terminée : s'affiche entre baseYear et année de fin

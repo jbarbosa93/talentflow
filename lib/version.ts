@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.13.37'
+export const APP_VERSION = '2.13.38'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.13.38',
+    date: '2026-06-29',
+    label: 'Administration : données Excel synchronisées + mode de paiement éditable dans la liste',
+    features: [
+      'Module Administration synchronisé avec les fichiers Excel des secrétaires (candidats actifs, ALFA, accidents, loyers à jour)',
+      'Mode de paiement assignable directement depuis la liste des candidats actifs (menu déroulant) → active la notification de versement 2 jours avant',
+    ],
+  },
   {
     version: '2.13.31',
     date: '2026-06-25',
