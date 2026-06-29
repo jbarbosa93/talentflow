@@ -12,11 +12,17 @@
 | Supabase | rdpbqnhwhjkngxxitupg (eu-west-1 Frankfurt) |
 | Vercel | Pro — région dub1 |
 | Dev local | port 3001 — `next dev --port 3001 --webpack` (Turbopack désactivé) |
-| **Dernière sync** | **2026-06-26 08:40** |
+| **Dernière sync** | **2026-06-29 11:00** |
 
 ---
 
-## Dernière session (25-26/06 — v2.13.32→37)
+## Dernière session (29/06 — Merge Excel → Administration)
+
+- **Synchronisation Excel → module Administration (`secretariat_*`)** — miroir strict des 2 fichiers Excel secrétaires (Candidat actif + Cas Accident-Maladie) vers les 5 tables. Stratégie **remplacement complet par année** (idempotent, `candidat_id`/`couleur`/`mode_paiement` préservés via index nom+prénom). Résultat : candidats 548→**590**, accidents 120→**125**, ALFA 194→**208**, ALFA-payer 91→**93**, loyers **2**. 2 résidus supprimés (Ceesay Ousman, De Sousa Carvalho A.J.). Vérifié : counts exacts, 0 manquant, 0 résidu, 0 vrai doublon, `candidat_id` 186→221. Backup `~/Desktop/backup_secretariat_20260629_092541.json` (rollback via `03-restore.py`). Scripts : `scripts/one-shot/secretariat-merge-2026/`.
+- ⚠️ **Anomalies Excel à corriger À LA SOURCE** : 4 N°Quad partagés par 2 personnes différentes (124204/124414/124596/124869 — **le Quad n'est PAS un identifiant unique**) ; 2 dates impossibles (Corcione DDN `31.04.1984`, Correia échéance `31.11.2025` → mises à vide) ; doublon ALFA Dascalu Stelian-Mihai (2025) ; 13 cellules « Mission terminée » non standard (ACCIDENT/MALADIE/xx) traitées comme actif.
+- ⏳ **TODO suite** : bouton « Importer Excel » dans le module (réutiliser le moteur) ; corriger les anomalies Excel.
+
+### Précédente (25-26/06 — v2.13.32→37)
 
 - **v2.13.37 (26/06) — Bandeau « télécharger l'app » web only** : `AppComingSoonBanner` masqué dans l'app native (via `isInApp()` = UA `TalentFlowSignApp`), affiché seulement sur navigateur. Logique : inutile de proposer de télécharger l'app quand on y est déjà.
 - **v2.13.36 (26/06) — Portail client : numéro candidat** : barre Contact, le bouton « Appel » remplacé par le numéro affiché en clair (cliquable tel: mobile). WhatsApp + Email conservés.

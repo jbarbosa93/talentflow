@@ -4,6 +4,30 @@
 
 ---
 
+# Session 29/06/2026 — Merge Excel → Administration (secretariat_*)
+
+## Ce qui a été fait
+Synchronisation **miroir strict** des 2 Excel secrétaires (Candidat actif + Cas Accident-Maladie) vers les 5 tables `secretariat_*`. TalentFlow devient la source de vérité (fin du travail sur Excel).
+
+- **Stratégie** : remplacement complet par année (DELETE annee + ré-insertion Excel). Idempotent, sans collision de matching. `candidat_id`/`couleur`/`mode_paiement`/`archived_at` préservés via index **nom+prénom** (depuis le backup).
+- **Résultat** : candidats 548→**590**, accidents 120→**125**, ALFA 194→**208**, ALFA-payer 91→**93**, loyers **2**. Résidus supprimés : Ceesay Ousman + De Sousa Carvalho A.J.
+- **Vérifié** : counts exacts, 0 manquant, 0 résidu, 0 vrai doublon, `candidat_id` 186→221 (préservés/améliorés), spot-checks mapping OK.
+- **Scripts** : `scripts/one-shot/secretariat-merge-2026/` (01-backup, 02-merge, 03-restore, 04-verify + README). Backup `~/Desktop/backup_secretariat_20260629_092541.json`.
+
+## Pièges rencontrés (CRITIQUES pour la suite)
+- **N°Quad NON unique** : 4 quads = 2 personnes différentes (124204 Branco+Fernandes, 124414 Fahim+Omer, 124596 Lauber+Soeurn, 124869 Garriga+Hoti). → NE JAMAIS matcher/dédupliquer sur le Quad. Identité fiable = **nom+prénom**.
+- 1er essai (match-upsert par quad) → doublons + collisions (Branco écrasait Fernandes). Corrigé par **restauration backup** + bascule full-replace + index par nom.
+- PostgREST bulk insert exige des clés homogènes (PGRST102) → helper `uniform()`.
+- Dates Excel impossibles (31.04.1984, 31.11.2025) → validation calendaire (rejet → vide).
+
+## Anomalies Excel signalées à João (à corriger à la source)
+4 quads partagés ; 2 dates impossibles (Corcione DDN, Correia échéance permis) ; doublon ALFA Dascalu Stelian-Mihai ; 13 cellules « Mission terminée » non standard (ACCIDENT/MALADIE) → traitées comme actif.
+
+## Mapping de référence
+« Mission terminée » : `x`→terminée, `ARCHIVE`→archive, date→`date_fin_mission`. Docs CV/CM/MAPPE→bool ; Carte ID/AVS/IBAN→statut texte (`ok`). Dates `JJ,MM,AAAA`→ISO. Sinistre/AVS : virgules→points. Accidents : CAS→type_cas, Accident→sous_type, Terminé→statut_cas.
+
+---
+
 # Session 22/06/2026 — v2.13.15 → v2.13.18
 
 ## Ce qui a été fait
